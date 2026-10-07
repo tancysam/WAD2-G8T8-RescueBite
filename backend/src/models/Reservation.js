@@ -1,0 +1,146 @@
+const mongoose = require("mongoose");
+
+const RESERVATION_STATUSES = ["RESERVED", "COLLECTED", "CANCELLED", "EXPIRED"];
+
+const listingSnapshotSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    business_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      required: true,
+    },
+    business_name: { type: String, required: true },
+    original_unit_price_sgd: { type: Number, required: true },
+    rescue_unit_price_sgd: { type: Number, required: true },
+    collection_start_at: { type: Date, required: true },
+    collection_end_at: { type: Date, required: true },
+    pickup_address: { type: String, required: true },
+    estimated_weight_kg_per_unit: { type: Number, required: true },
+    estimated_meals_per_unit: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+const reservationSchema = new mongoose.Schema(
+  {
+    consumer_user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "consumer_user_id is required"],
+    },
+    listing_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Listing",
+      required: [true, "listing_id is required"],
+    },
+    quantity: { type: Number, required: [true, "quantity is required"] },
+    listing_snapshot: {
+      type: listingSnapshotSchema,
+      required: [true, "listing_snapshot is required"],
+    },
+    status: { type: String, default: "RESERVED", enum: RESERVATION_STATUSES },
+    collection_token_hash: {
+      type: String,
+      required: [true, "collection_token_hash is required"],
+      unique: true,
+    },
+    expires_at: { type: Date, required: [true, "expires_at is required"] },
+    collected_at: { type: Date, default: null },
+    cancelled_at: { type: Date, default: null },
+    verified_by_user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+  },
+  { timestamps: { createdAt: "reserved_at", updatedAt: "updated_at" } },
+);
+
+reservationSchema.index({ consumer_user_id: 1, reserved_at: 1 });
+reservationSchema.index({ listing_id: 1, status: 1 });
+reservationSchema.index({ status: 1, expires_at: 1 });
+
+const Reservation = mongoose.model(
+  "Reservation",
+  reservationSchema,
+  "reservations",
+);
+
+function findReservationById(id) {
+  return Reservation.findOne({ _id: id });
+}
+
+function findReservationsByConsumer(consumerUserId) {
+  return Reservation.find({ consumer_user_id: consumerUserId });
+}
+
+function findReservationsByListing(listingId, status) {
+  const filter = { listing_id: listingId };
+  if (status !== undefined) {
+    filter.status = status;
+  }
+  return Reservation.find(filter);
+}
+
+function findCollectedReservationsByConsumer(consumerUserId) {
+  return Reservation.find({
+    consumer_user_id: consumerUserId,
+    status: "COLLECTED",
+  });
+}
+
+function findReservationByTokenHash(hash) {
+  // TODO: token generation and hashing happens outside this model (crypto/bcrypt not in deps yet)
+  return Reservation.findOne({ collection_token_hash: hash });
+}
+
+function createReservation(data) {
+  return Reservation.create(data);
+}
+
+function markCollected(reservationId, verifierUserId) {
+  return Reservation.updateOne(
+    { _id: reservationId, status: "RESERVED" },
+    {
+      status: "COLLECTED",
+      verified_by_user_id: verifierUserId,
+      collected_at: new Date(),
+    },
+  );
+}
+
+function cancelReservation(reservationId) {
+  return Reservation.updateOne(
+    { _id: reservationId, status: "RESERVED" },
+    { status: "CANCELLED", cancelled_at: new Date() },
+  );
+}
+
+function findOverdueReservations() {
+  return Reservation.find({
+    status: "RESERVED",
+    expires_at: { $lt: new Date() },
+  });
+}
+
+function expireReservation(reservationId) {
+  return Reservation.updateOne(
+    { _id: reservationId, status: "RESERVED" },
+    { status: "EXPIRED" },
+  );
+}
+
+module.exports = {
+  RESERVATION_STATUSES,
+  findReservationById,
+  findReservationsByConsumer,
+  findReservationsByListing,
+  findCollectedReservationsByConsumer,
+  findReservationByTokenHash,
+  createReservation,
+  markCollected,
+  cancelReservation,
+  findOverdueReservations,
+  expireReservation,
+};

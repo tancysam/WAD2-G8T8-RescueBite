@@ -1,14 +1,30 @@
-const express = require('express');
-const app = express();
-const PORT = 3000;
+import dotenv from "dotenv";
+import express from "express";
+import { clerkMiddleware } from "@clerk/express";
+import connectDB from "./config/db.js";
+import routes from "./routes/routes.js";
 
+dotenv.config({ path: "../.env" });
 
-app.use(express.json());
+const server = express();
 
-app.get('/', (req, res) => {
-  res.send('Backend is running successfully!');
-});
+server.use(express.urlencoded({ extended: true }));
+server.use(express.json());
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+server.use("/api", clerkMiddleware());
+server.use("/api", routes);
+
+function startServer() {
+  const hostname = "localhost";
+  const port = 8000;
+
+  server.listen(port, hostname, () => {
+    console.log(`Server running at http://${hostname}:${port}/`);
+  });
+}
+
+// Start listening only after MongoDB connects.
+connectDB().then(startServer).catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });
