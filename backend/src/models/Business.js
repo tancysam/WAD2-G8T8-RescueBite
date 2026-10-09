@@ -80,7 +80,7 @@ function findBusinessById(id) {
   return Business.findOne({ _id: id });
 }
 
-function findBusinessesByOwner(ownerUserId) {
+function findBusinessesByOwnerId(ownerUserId) {
   return Business.find({ owner_user_id: ownerUserId });
 }
 
@@ -104,7 +104,7 @@ module.exports = {
   BUSINESS_STATUSES,
   getAllBusinesses,
   findBusinessById,
-  findBusinessesByOwner,
+  findBusinessesByOwnerId,
   findActiveBusinesses,
   addBusiness,
   updateBusiness,
