@@ -12,6 +12,8 @@ export async function requireAuth(req, res, next) {
     });
   }
 
+  req.clerkUserId = userId;
+
   const user = await User.findUserByClerkId(userId);
   req.user = user;
   next();
@@ -52,6 +54,27 @@ export async function requireAdmin(req, res, next) {
   if (!user || user.role !== "ADMIN") {
     return res.status(403).json({
       error: "Forbidden - Admin access required",
+    });
+  }
+
+  req.user = user;
+  next();
+}
+
+export async function requireConsumer(req, res, next) {
+  const { userId } = getAuth(req);
+
+  if (!userId) {
+    return res.status(401).json({
+      error: "Unauthorized",
+    });
+  }
+
+  const user = await User.findUserByClerkId(userId);
+
+  if (!user || user.role !== "CONSUMER") {
+    return res.status(403).json({
+      error: "Forbidden - Consumer access required",
     });
   }
 
