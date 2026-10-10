@@ -3,10 +3,16 @@ import express from "express";
 import { clerkMiddleware } from "@clerk/express";
 import connectDB from "./config/db.js";
 import routes from "./routes/routes.js";
+import cors from "cors"; // function so that the ports are the same across frontend and backend
 
 dotenv.config({ path: "../.env" });
 
 const server = express();
+
+// function so that the ports are the same across frontend and backend
+server.use(cors({
+  origin: "http://localhost:5173"
+}));
 
 server.use(express.urlencoded({ extended: true }));
 server.use(express.json());
