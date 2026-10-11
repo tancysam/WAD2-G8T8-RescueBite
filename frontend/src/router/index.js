@@ -1,13 +1,15 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 
+import LandingView from '../views/LandingView.vue'
 import AllBusinessesView from '../views/business/AllBusinessesView.vue'
 import BusinessProfileView from '../views/business/BusinessProfileView.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/businesses'
+    name: 'landing',
+    component: LandingView
   },
   {
     path: '/businesses',
