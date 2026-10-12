@@ -161,6 +161,7 @@ watch(
         >
           <div class="card-header">
             <h2>{{ business.name }}</h2>
+            <p>{{ business.status }}</p>
           </div>
 
           <div class="card-body">
