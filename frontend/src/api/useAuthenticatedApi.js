@@ -9,7 +9,7 @@ export function useAuthenticatedApi() {
   const api = axios.create({ baseURL: API_BASE_URL })
 
   api.interceptors.request.use(async (config) => {
-    const token = await getToken()
+    const token = await getToken.value()
 
     if (!token) {
       throw new Error('Sign in before making a protected API request')

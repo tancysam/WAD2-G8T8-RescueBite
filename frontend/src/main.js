@@ -11,6 +11,11 @@ if (!publishableKey) {
 }
 
 createApp(App)
-  .use(clerkPlugin, { publishableKey, afterSignOutUrl: '/' })
+  .use(clerkPlugin, {
+    publishableKey,
+    afterSignOutUrl: '/login',
+    signInUrl: '/login',
+    signUpUrl: '/register'
+  })
   .use(router)
   .mount('#app')

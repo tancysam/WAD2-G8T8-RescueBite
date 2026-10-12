@@ -8,7 +8,8 @@ const route = useRoute()
 const router = useRouter()
 const { isLoaded, isSignedIn } = useAuth()
 
-const mode = computed(() => route.query.mode === 'register' ? 'register' : 'login')
+const isLegacyRegisterUrl = computed(() => route.path === '/' && route.query.mode === 'register')
+const mode = computed(() => route.name === 'register' || isLegacyRegisterUrl.value ? 'register' : 'login')
 const loginRole = ref('CONSUMER')
 const registerRole = ref('CONSUMER')
 const selectedRole = computed(() => mode.value === 'register' ? registerRole.value : loginRole.value)
@@ -33,10 +34,7 @@ const clerkAppearance = {
 }
 
 function selectMode(nextMode) {
-  router.replace({
-    name: 'landing',
-    query: nextMode === 'register' ? { mode: 'register' } : {}
-  })
+  router.push({ name: nextMode })
 }
 
 function selectRole(role) {
@@ -46,6 +44,10 @@ function selectRole(role) {
     loginRole.value = role
   }
 }
+
+watch(isLegacyRegisterUrl, (legacyUrl) => {
+  if (legacyUrl) router.replace({ name: 'register', hash: route.hash })
+}, { immediate: true })
 
 watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
   if (loaded && signedIn) router.replace('/businesses')
@@ -157,20 +159,22 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
             role="tabpanel"
             :aria-labelledby="mode === 'login' ? 'login-tab' : 'register-tab'"
           >
-            <p v-if="!isLoaded" class="loading-message">Loading secure sign in…</p>
+            <p v-if="isLegacyRegisterUrl || !isLoaded" class="loading-message">Loading secure sign in…</p>
             <SignIn
               v-else-if="mode === 'login'"
-              routing="hash"
+              routing="path"
+              path="/login"
               force-redirect-url="/businesses"
-              sign-up-url="/?mode=register"
+              sign-up-url="/register"
               sign-up-force-redirect-url="/businesses"
               :appearance="clerkAppearance"
             />
             <SignUp
               v-else
-              routing="hash"
+              routing="path"
+              path="/register"
               force-redirect-url="/businesses"
-              sign-in-url="/?mode=login"
+              sign-in-url="/login"
               sign-in-force-redirect-url="/businesses"
               :unsafe-metadata="registrationMetadata"
               :appearance="clerkAppearance"
