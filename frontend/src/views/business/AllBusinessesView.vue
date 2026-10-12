@@ -1,12 +1,88 @@
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
+import { useUser, useAuth } from '@clerk/vue'
 
-// Reactive variables
+const { user, isLoaded } = useUser()
+const { getToken } = useAuth()
+
+const API_URL = 'http://localhost:8000/api'
+
+// User role
+const userRole = ref(null)
+const isBusiness = computed(() => userRole.value === 'BUSINESS')
+
+// All businesses
 const businesses = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
+
+// Current user's business
+const myBusinesses = ref([])
+const myBusinessLoading = ref(false)
+const myBusinessError = ref('')
+
+
+// Retrieve user role from MongoDB
+async function getUserRole() {
+  if (!user.value) return
+
+  try {
+    const token = await getToken.value()
+
+    const response = await axios.get(
+      `${API_URL}/users/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    userRole.value = response.data.user.role
+
+    console.log('Current User Role:', userRole.value)
+
+    if (isBusiness.value) {
+      await getMyBusiness()
+    }
+
+  } catch (error) {
+    console.error('Error fetching user role:', error)
+  }
+}
+// Retrieve businesses owned by current user
+async function getMyBusiness() {
+  myBusinessLoading.value = true
+  myBusinessError.value = ''
+
+  try {
+    const token = await getToken.value()
+
+    const response = await axios.get(
+      `${API_URL}/users/me/businesses`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    myBusinesses.value = response.data.businesses
+
+    console.log('My Businesses:', myBusinesses.value)
+
+  } catch (error) {
+    console.error('Error fetching my business:', error)
+
+    myBusinessError.value =
+      error.response?.data?.error ||
+      'Unable to retrieve your business.'
+  } finally {
+    myBusinessLoading.value = false
+  }
+}
 
 // Retrieve all active businesses
 async function getBusinesses() {
@@ -15,12 +91,10 @@ async function getBusinesses() {
 
   try {
     const response = await axios.get(
-      'http://localhost:8000/api/businesses'
+      `${API_URL}/businesses`
     )
 
     businesses.value = response.data.businesses
-
-    console.log('Businesses:', businesses.value)
 
   } catch (error) {
     console.error('Error fetching businesses:', error)
@@ -33,13 +107,112 @@ async function getBusinesses() {
   }
 }
 
-// Run when component mounts
+// Load all businesses
 onMounted(getBusinesses)
+
+// Retrieve role when Clerk finishes loading
+watch(
+  [user, isLoaded],
+  () => {
+    if (isLoaded.value && user.value) {
+      getUserRole()
+    } else {
+      userRole.value = null
+      myBusinesses.value = []
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <main class="businesses-page">
 
+    <!-- My Business: BUSINESS Users Only -->
+<!-- My Businesses: BUSINESS Users Only -->
+    <section v-if="isBusiness" class="my-business-section">
+
+      <h1>My Businesses</h1>
+
+      <p v-if="myBusinessLoading">
+        Loading your businesses...
+      </p>
+
+      <p v-else-if="myBusinessError" class="error">
+        {{ myBusinessError }}
+      </p>
+
+      <!-- Registered Businesses -->
+      <div v-else-if="myBusinesses.length > 0" class="business-grid">
+
+        <div
+          v-for="business in myBusinesses"
+          :key="business._id"
+          class="business-card"
+        >
+          <div class="card-header">
+            <h2>{{ business.name }}</h2>
+          </div>
+
+          <div class="card-body">
+            <p class="description">
+              {{ business.description || 'No description available.' }}
+            </p>
+
+            <p class="address">
+              📍 {{ business.address }}
+            </p>
+
+            <p class="postal-code">
+              Singapore {{ business.postal_code }}
+            </p>
+
+            <div class="business-actions">
+              <RouterLink
+                :to="{
+                  name: 'business-profile',
+                  params: { businessId: business._id }
+                }"
+                class="view-button"
+              >
+                View Business
+              </RouterLink>
+
+              <RouterLink
+                :to="{
+                  name: 'edit-business',
+                  params: { businessId: business._id }
+                }"
+                class="edit-button"
+              >
+                Edit Business
+</RouterLink>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- No Registered Businesses -->
+      <div v-else class="register-business-card">
+        <h2>No Businesses Owned Yet</h2>
+
+        <p>
+          You do not have any businesses registered to your account yet.
+        </p>
+
+        <RouterLink
+          to="/register-business"
+          class="view-button"
+        >
+          Register Business
+        </RouterLink>
+      </div>
+
+    </section>
+
+    <!-- Discover Businesses -->
     <h1>Discover Businesses</h1>
     <p>Explore food businesses rescuing surplus food near you.</p>
 
@@ -81,15 +254,15 @@ onMounted(getBusinesses)
             Singapore {{ business.postal_code }}
           </p>
 
-            <RouterLink
+          <RouterLink
             :to="{
-                name: 'business-profile',
-                params: { businessId: business._id }
+              name: 'business-profile',
+              params: { businessId: business._id }
             }"
             class="view-button"
-            >
+          >
             View Business
-            </RouterLink>
+          </RouterLink>
         </div>
       </div>
 
@@ -112,6 +285,37 @@ onMounted(getBusinesses)
 .businesses-page > p {
   margin-bottom: 30px;
   color: #666;
+}
+
+/* My Business Section */
+.my-business-section {
+  margin-bottom: 40px;
+}
+
+.my-business-section h1 {
+  margin-bottom: 20px;
+}
+
+.my-business-card {
+  width: 100%;
+}
+
+/* Register Business Card */
+.register-business-card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+  padding: 24px;
+}
+
+.register-business-card h2 {
+  margin-bottom: 12px;
+  color: #256b45;
+}
+
+.register-business-card p {
+  margin-bottom: 20px;
+  color: #555;
 }
 
 /* Business Grid */
@@ -194,4 +398,28 @@ onMounted(getBusinesses)
 .error {
   color: red;
 }
+
+
+/* Business Action Buttons */
+.business-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Edit Business Button */
+.edit-button {
+  display: inline-block;
+  background-color: white;
+  color: #256b45;
+  border: 1px solid #256b45;
+  text-decoration: none;
+  padding: 9px 15px;
+  border-radius: 8px;
+}
+
+.edit-button:hover {
+  background-color: #e8f5e9;
+}
+
 </style>
