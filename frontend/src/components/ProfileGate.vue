@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useAuth, useUser } from '@clerk/vue'
 import { useRouter } from 'vue-router'
 import { useAuthenticatedApi } from '../api/useAuthenticatedApi.js'
+import { clearPendingRegistrationRole, getPendingRegistrationRole } from '../registrationRole.js'
 
 const router = useRouter()
 const { isLoaded: authLoaded, isSignedIn } = useAuth()
@@ -28,6 +29,9 @@ function messageFor(error, action) {
     return 'Cannot connect to the RescueBite server. Please check that it is running and try again.'
   }
   if (error.response?.data?.error) return error.response.data.error
+  if (error.message === 'The saved profile role does not match your registration choice.') {
+    return error.message
+  }
   return `Unable to ${action} your profile. Please try again.`
 }
 
@@ -38,6 +42,9 @@ async function checkProfile(clerkUser) {
 
   try {
     await api.get('/users/me')
+    if (version !== requestVersion) return
+    // An existing MongoDB profile is authoritative, including its saved role.
+    clearPendingRegistrationRole()
   } catch (error) {
     if (error.response?.status !== 404) {
       if (version !== requestVersion) return
@@ -46,7 +53,10 @@ async function checkProfile(clerkUser) {
       return
     }
 
-    const role = clerkUser.unsafeMetadata?.rescuebite_role_intent
+    // The pending choice survives a redirect even if Clerk's initial metadata
+    // was captured before the user selected Business.
+    const role = getPendingRegistrationRole()
+      ?? clerkUser.unsafeMetadata?.rescuebite_role_intent
     if (role !== 'CONSUMER' && role !== 'BUSINESS') {
       if (version !== requestVersion) return
       errorMessage.value = 'Your registration account type is missing. Please ask the RescueBite team for help.'
@@ -58,10 +68,13 @@ async function checkProfile(clerkUser) {
     phase.value = 'saving'
 
     try {
-      await api.post('/users/me', {
+      const response = await api.post('/users/me', {
         display_name: displayNameFor(clerkUser),
         role
       })
+      if (response.data?.user?.role !== role) {
+        throw new Error('The saved profile role does not match your registration choice.')
+      }
     } catch (createError) {
       if (createError.response?.status === 409) {
         // Another tab may have created the profile after our first lookup.
@@ -80,6 +93,8 @@ async function checkProfile(clerkUser) {
         return
       }
     }
+    if (version !== requestVersion) return
+    clearPendingRegistrationRole()
   }
 
   if (version === requestVersion) phase.value = 'ready'

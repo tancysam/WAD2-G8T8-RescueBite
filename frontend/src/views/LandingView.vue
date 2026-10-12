@@ -3,6 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { SignIn, SignUp, useAuth } from '@clerk/vue'
 import { useRoute, useRouter } from 'vue-router'
 import rescueJourney from '../assets/rescue-journey.svg'
+import {
+  clearPendingRegistrationRole,
+  getPendingRegistrationRole,
+  setPendingRegistrationRole
+} from '../registrationRole.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,9 +15,7 @@ const { isLoaded, isSignedIn } = useAuth()
 
 const isLegacyRegisterUrl = computed(() => route.path === '/' && route.query.mode === 'register')
 const mode = computed(() => route.name === 'register' || isLegacyRegisterUrl.value ? 'register' : 'login')
-const loginRole = ref('CONSUMER')
-const registerRole = ref('CONSUMER')
-const selectedRole = computed(() => mode.value === 'register' ? registerRole.value : loginRole.value)
+const registerRole = ref(getPendingRegistrationRole() ?? 'CONSUMER')
 
 // This records the registration choice with Clerk. The backend must still
 // validate and create the MongoDB role during the later profile setup step.
@@ -38,12 +41,18 @@ function selectMode(nextMode) {
 }
 
 function selectRole(role) {
-  if (mode.value === 'register') {
-    registerRole.value = role
-  } else {
-    loginRole.value = role
-  }
+  registerRole.value = role
+  setPendingRegistrationRole(role)
 }
+
+watch(mode, (currentMode) => {
+  if (currentMode === 'register') {
+    // Keep the choice across Clerk's email steps and Google's return to this page.
+    setPendingRegistrationRole(registerRole.value)
+  } else {
+    clearPendingRegistrationRole()
+  }
+}, { immediate: true })
 
 watch(isLegacyRegisterUrl, (legacyUrl) => {
   if (legacyUrl) router.replace({ name: 'register', hash: route.hash })
@@ -117,14 +126,14 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
             >Register</button>
           </div>
 
-          <div class="role-section">
+          <div v-if="mode === 'register'" class="role-section">
             <p class="field-label">I’m here as a</p>
             <div class="role-options" role="group" aria-label="Choose account type">
               <button
                 type="button"
                 class="role-option"
-                :class="{ selected: selectedRole === 'CONSUMER' }"
-                :aria-pressed="selectedRole === 'CONSUMER'"
+                :class="{ selected: registerRole === 'CONSUMER' }"
+                :aria-pressed="registerRole === 'CONSUMER'"
                 @click="selectRole('CONSUMER')"
               >
                 <span class="role-icon" aria-hidden="true">
@@ -135,8 +144,8 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
               <button
                 type="button"
                 class="role-option"
-                :class="{ selected: selectedRole === 'BUSINESS' }"
-                :aria-pressed="selectedRole === 'BUSINESS'"
+                :class="{ selected: registerRole === 'BUSINESS' }"
+                :aria-pressed="registerRole === 'BUSINESS'"
                 @click="selectRole('BUSINESS')"
               >
                 <span class="role-icon" aria-hidden="true">
@@ -145,10 +154,7 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
                 <span><strong>Business</strong><small>Share your surplus</small></span>
               </button>
             </div>
-            <p class="role-note" v-if="mode === 'login'">
-              Your existing account role determines what you can access after login.
-            </p>
-            <p class="role-note" v-else>
+            <p class="role-note">
               Your choice is saved with registration. Account access is confirmed during profile setup.
             </p>
           </div>
@@ -171,6 +177,7 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
             />
             <SignUp
               v-else
+              :key="registerRole"
               routing="path"
               path="/register"
               force-redirect-url="/businesses"
