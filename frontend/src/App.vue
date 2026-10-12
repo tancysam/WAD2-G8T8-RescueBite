@@ -4,9 +4,10 @@ import { computed } from 'vue'
 import { Show, UserButton } from '@clerk/vue'
 import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
+import ProfileGate from './components/ProfileGate.vue'
 
 const route = useRoute()
-const isLanding = computed(() => route.name === 'landing')
+const isLanding = computed(() => route.meta.isLanding)
 </script>
 
 <template>
@@ -26,7 +27,10 @@ const isLanding = computed(() => route.name === 'landing')
     </nav>
   </header>
 
-  <RouterView />
+  <ProfileGate v-if="route.meta.requiresAuth">
+    <RouterView />
+  </ProfileGate>
+  <RouterView v-else />
 </template>
 
 <style scoped>

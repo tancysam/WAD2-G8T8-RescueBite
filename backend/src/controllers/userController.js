@@ -23,10 +23,17 @@ export async function createMyProfile(req, res) {
       });
     }
 
+    const role = req.body.role;
+    if (role !== "CONSUMER" && role !== "BUSINESS") {
+      return res.status(400).json({
+        error: "role must be CONSUMER or BUSINESS",
+      });
+    }
+
     const user = await User.addUser({
       clerk_user_id: req.clerkUserId,
       display_name: displayName,
-      role: "CONSUMER",
+      role,
     });
 
     return res.status(201).json({ user });

@@ -11,7 +11,26 @@ const routes = [
   {
     path: '/',
     name: 'landing',
-    component: LandingView
+    component: LandingView,
+    meta: { isLanding: true },
+    beforeEnter: (to) => to.query.mode === 'register'
+      ? { name: 'register', hash: to.hash }
+      : { name: 'login' }
+  },
+  {
+    // Clerk uses nested paths for password and verification steps.
+    path: '/login/:pathMatch(.*)*',
+    name: 'login',
+    component: LandingView,
+    meta: { isLanding: true }
+  },
+  {
+    // Clerk owns the verification steps under this path. Keep rendering the
+    // same landing page for /register/verify-email-address and page reloads.
+    path: '/register/:pathMatch(.*)*',
+    name: 'register',
+    component: LandingView,
+    meta: { isLanding: true }
   },
   {
     path: '/businesses',
@@ -50,7 +69,7 @@ router.beforeEach(async (to) => {
     })
   }
 
-  return isSignedIn.value ? true : { name: 'landing' }
+  return isSignedIn.value ? true : { name: 'login' }
 })
 
 export default router
