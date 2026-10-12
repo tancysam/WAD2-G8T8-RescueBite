@@ -59,7 +59,7 @@ watch(isLegacyRegisterUrl, (legacyUrl) => {
 }, { immediate: true })
 
 watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
-  if (loaded && signedIn) router.replace('/businesses')
+  if (loaded && signedIn) router.replace({ name: 'auth-complete' })
 }, { immediate: true })
 </script>
 
@@ -170,9 +170,9 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
               v-else-if="mode === 'login'"
               routing="path"
               path="/login"
-              force-redirect-url="/businesses"
+              force-redirect-url="/auth/complete"
               sign-up-url="/register"
-              sign-up-force-redirect-url="/businesses"
+              sign-up-force-redirect-url="/auth/complete"
               :appearance="clerkAppearance"
             />
             <SignUp
@@ -180,9 +180,9 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
               :key="registerRole"
               routing="path"
               path="/register"
-              force-redirect-url="/businesses"
+              force-redirect-url="/auth/complete"
               sign-in-url="/login"
-              sign-in-force-redirect-url="/businesses"
+              sign-in-force-redirect-url="/auth/complete"
               :unsafe-metadata="registrationMetadata"
               :appearance="clerkAppearance"
             />

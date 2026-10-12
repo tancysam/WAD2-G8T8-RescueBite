@@ -4,8 +4,10 @@ import { useAuth } from '@clerk/vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import LandingView from '../views/LandingView.vue'
+import AuthCompleteView from '../views/AuthCompleteView.vue'
 import AllBusinessesView from '../views/business/AllBusinessesView.vue'
 import BusinessProfileView from '../views/business/BusinessProfileView.vue'
+import BusinessDashboardView from '../views/business/BusinessDashboardView.vue'
 
 const routes = [
   {
@@ -33,22 +35,35 @@ const routes = [
     meta: { isLanding: true }
   },
   {
+    path: '/auth/complete',
+    name: 'auth-complete',
+    component: AuthCompleteView,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/businesses',
     name: 'all-businesses',
     component: AllBusinessesView,
-    meta: { requiresAuth: true } // protect front end /businesses route 
+    meta: { requiresAuth: true }
   },
   {
     path: '/businesses/:businessId',
     name: 'business-profile',
     component: BusinessProfileView,
     props: true,
-    meta: { requiresAuth: true } // protect front end /businesses route 
+    meta: { requiresAuth: true }
   },
   {
-  path: '/businesses/:businessId/edit',
-  name: 'edit-business',
-  component: () => import('../views/business/EditBusinessView.vue')
+    path: '/businesses/:businessId/edit',
+    name: 'edit-business',
+    component: () => import('../views/business/EditBusinessView.vue'),
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
+  },
+  {
+    path: '/business-dashboard',
+    name: 'business-dashboard',
+    component: BusinessDashboardView,
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
   }
 ]
 
