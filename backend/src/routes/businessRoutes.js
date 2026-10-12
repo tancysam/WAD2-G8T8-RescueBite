@@ -4,6 +4,7 @@ import {
   createBusiness,
   getActiveBusinesses,
   getBusinessById,
+  getBusinessByUserId,
   updateBusiness,
   deleteBusiness,
   getBusinessImpact,
@@ -20,6 +21,7 @@ import { getBusinessReviews } from "../controllers/reviewController.js";
 const router = Router();
 
 router.get("/", getActiveBusinesses);
+router.get("/ownedBusinesses", requireBusiness, getBusinessByUserId )
 router.post("/", requireBusiness, createBusiness);
 router.get("/:businessId/listings", getBusinessListings);
 router.post("/:businessId/listings", requireBusiness, createListing);
