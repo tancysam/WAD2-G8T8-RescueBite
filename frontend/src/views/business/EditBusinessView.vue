@@ -1,11 +1,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
 
 const route = useRoute()
+const router = useRouter()
 const { getToken } = useAuth()
 
 const businessId = route.params.businessId
@@ -102,6 +103,31 @@ async function updateBusiness() {
   }
 }
 
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//  FOR TESTING OF CRUD. NO CHECKS BEFORE DELETION. IMPLEMENT.
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+async function deleteBusiness() {
+  try {
+    const token = await getToken.value()
+
+    await axios.delete(
+      `${API_URL}/businesses/${businessId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    router.push('/businesses')
+
+  } catch (error) {
+    console.error('Error deleting business:', error)
+  }
+}
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 onMounted(getBusiness)
 </script>
 
@@ -181,5 +207,16 @@ onMounted(getBusiness)
       </button>
 
     </form>
+    <div style="background-color: red; padding: 20px; margin-top: 50px; margin-bottom: 50px;">
+      <button type="button" @click="deleteBusiness">
+        Disable Business
+      </button>
+    </div>
+    <RouterLink
+        to="/businesses"
+        class="back-link"
+      >
+        ← Back to Businesses
+    </RouterLink>
   </main>
 </template>
