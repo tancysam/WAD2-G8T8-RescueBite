@@ -134,6 +134,15 @@ watch(
 
       <h1>My Businesses</h1>
 
+        <div style="margin-bottom: 25px;">
+          <RouterLink
+              to="/register-business"
+              class="view-button"
+            >
+            Register Business
+          </RouterLink>
+        </div>
+
       <p v-if="myBusinessLoading">
         Loading your businesses...
       </p>
@@ -175,7 +184,7 @@ watch(
                 }"
                 class="view-button"
               >
-                View Business
+                Preview Business
               </RouterLink>
 
               <RouterLink
@@ -186,7 +195,7 @@ watch(
                 class="edit-button"
               >
                 Edit Business
-</RouterLink>
+            </RouterLink>
             </div>
 
           </div>
@@ -201,13 +210,6 @@ watch(
         <p>
           You do not have any businesses registered to your account yet.
         </p>
-
-        <RouterLink
-          to="/register-business"
-          class="view-button"
-        >
-          Register Business
-        </RouterLink>
       </div>
 
     </section>
