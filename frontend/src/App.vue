@@ -1,6 +1,6 @@
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Show, UserButton } from '@clerk/vue'
 import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
@@ -8,17 +8,25 @@ import ProfileGate from './components/ProfileGate.vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
+const profileRole = ref(null)
+
+watch(() => route.meta.requiresAuth, (requiresAuth) => {
+  if (!requiresAuth) profileRole.value = null
+})
 </script>
 
 <template>
   <header v-if="!isLanding" class="navbar">
-    <RouterLink to="/" class="logo">
+    <RouterLink to="/auth/complete" class="logo">
       <span class="logo-mark" aria-hidden="true">✳</span>
       <span>RescueBite</span>
     </RouterLink>
 
     <nav>
-      <RouterLink to="/businesses">
+      <RouterLink to="/auth/complete">
+        Home
+      </RouterLink>
+      <RouterLink v-if="profileRole === 'BUSINESS'" to="/businesses">
         Businesses
       </RouterLink>
       <Show when="signed-in">
@@ -27,7 +35,7 @@ const isLanding = computed(() => route.meta.isLanding)
     </nav>
   </header>
 
-  <ProfileGate v-if="route.meta.requiresAuth">
+  <ProfileGate v-if="route.meta.requiresAuth" @role-change="profileRole = $event">
     <RouterView />
   </ProfileGate>
   <RouterView v-else />
