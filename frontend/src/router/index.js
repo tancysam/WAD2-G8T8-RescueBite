@@ -44,6 +44,11 @@ const routes = [
     component: BusinessProfileView,
     props: true,
     meta: { requiresAuth: true } // protect front end /businesses route 
+  },
+  {
+  path: '/businesses/:businessId/edit',
+  name: 'edit-business',
+  component: () => import('../views/business/EditBusinessView.vue')
   }
 ]
 
