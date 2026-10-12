@@ -77,7 +77,13 @@ export async function createBusiness(req, res) {
 
   data.location = { type: "Point", coordinates: [longitude, latitude] };
   data.owner_user_id = req.user._id;
-  data.status = "PENDING";
+  // I SET THIS TO ACTIVE ONLY FOR THE WEEK 9 DEMO BC ADMIN LOGIC IS NOT DEVELOPED YET
+  // !!!!!!!!!!!!!!!!!!!!!
+  // !!!!!!!!!!!!!!!!!!!!!!
+  //data.status = "PENDING";
+  data.status = "ACTIVE";
+  // !!!!!!!!!!!!!!!!!!!!!
+  // !!!!!!!!!!!!!!!!!!!!!!
 
   try {
     const business = await Business.addBusiness(data);
