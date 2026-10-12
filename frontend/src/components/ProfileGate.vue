@@ -1,19 +1,33 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuth, useUser } from '@clerk/vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthenticatedApi } from '../api/useAuthenticatedApi.js'
 import { clearPendingRegistrationRole, getPendingRegistrationRole } from '../registrationRole.js'
+import { canAccessRoute, homeRouteForRole } from '../roleRouting.js'
 
+const emit = defineEmits(['role-change'])
 const router = useRouter()
+const route = useRoute()
 const { isLoaded: authLoaded, isSignedIn } = useAuth()
 const { isLoaded: userLoaded, user } = useUser()
 const api = useAuthenticatedApi()
 
 const phase = ref('loading')
 const errorMessage = ref('')
+const profileRole = ref(null)
 let checkedUserId = null
 let requestVersion = 0
+
+watch([phase, profileRole], ([currentPhase, role]) => {
+  emit('role-change', currentPhase === 'ready' ? role : null)
+}, { immediate: true })
+
+const canShowPage = computed(() =>
+  phase.value === 'ready'
+  && route.name !== 'auth-complete'
+  && canAccessRoute(profileRole.value, route.meta.requiredRole)
+)
 
 function displayNameFor(clerkUser) {
   const name = [clerkUser.fullName, clerkUser.username, clerkUser.firstName]
@@ -39,11 +53,13 @@ async function checkProfile(clerkUser) {
   const version = ++requestVersion
   phase.value = 'loading'
   errorMessage.value = ''
+  profileRole.value = null
 
   try {
-    await api.get('/users/me')
+    const response = await api.get('/users/me')
     if (version !== requestVersion) return
     // An existing MongoDB profile is authoritative, including its saved role.
+    profileRole.value = response.data?.user?.role
     clearPendingRegistrationRole()
   } catch (error) {
     if (error.response?.status !== 404) {
@@ -75,11 +91,15 @@ async function checkProfile(clerkUser) {
       if (response.data?.user?.role !== role) {
         throw new Error('The saved profile role does not match your registration choice.')
       }
+      if (version !== requestVersion) return
+      profileRole.value = response.data.user.role
     } catch (createError) {
       if (createError.response?.status === 409) {
         // Another tab may have created the profile after our first lookup.
         try {
-          await api.get('/users/me')
+          const response = await api.get('/users/me')
+          if (version !== requestVersion) return
+          profileRole.value = response.data?.user?.role
         } catch (lookupError) {
           if (version !== requestVersion) return
           errorMessage.value = messageFor(lookupError, 'check')
@@ -97,6 +117,12 @@ async function checkProfile(clerkUser) {
     clearPendingRegistrationRole()
   }
 
+  if (!homeRouteForRole(profileRole.value)) {
+    errorMessage.value = 'No home page is configured for this account role.'
+    phase.value = 'error'
+    return
+  }
+
   if (version === requestVersion) phase.value = 'ready'
 }
 
@@ -110,6 +136,7 @@ watch([authLoaded, isSignedIn, userLoaded, user], ([loaded, signedIn, loadedUser
     ++requestVersion
     checkedUserId = null
     phase.value = 'loading'
+    profileRole.value = null
     router.replace({ name: 'login' })
     return
   }
@@ -118,15 +145,23 @@ watch([authLoaded, isSignedIn, userLoaded, user], ([loaded, signedIn, loadedUser
   checkedUserId = clerkUser.id
   checkProfile(clerkUser)
 }, { immediate: true })
+
+watch([phase, profileRole, () => route.name, () => route.meta.requiredRole], ([currentPhase, role]) => {
+  if (currentPhase !== 'ready') return
+  if (route.name !== 'auth-complete' && canAccessRoute(role, route.meta.requiredRole)) return
+
+  const homeRoute = homeRouteForRole(role)
+  if (homeRoute) router.replace({ name: homeRoute })
+}, { immediate: true })
 </script>
 
 <template>
-  <slot v-if="phase === 'ready'" />
+  <slot v-if="canShowPage" />
 
   <main v-else class="profile-gate">
     <div class="profile-card" aria-live="polite">
-      <p v-if="phase === 'loading' || phase === 'saving'">
-        {{ phase === 'saving' ? 'Creating your RescueBite profile…' : 'Checking your RescueBite profile…' }}
+      <p v-if="phase === 'loading' || phase === 'saving' || phase === 'ready'">
+        {{ phase === 'saving' ? 'Creating your RescueBite profile…' : phase === 'ready' ? 'Taking you to your home page…' : 'Checking your RescueBite profile…' }}
       </p>
       <div v-else>
         <h1>Profile setup could not finish</h1>
