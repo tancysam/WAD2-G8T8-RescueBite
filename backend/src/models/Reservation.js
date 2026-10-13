@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { generateToken } = require("../utils/tokenUtils.js");
 
 const RESERVATION_STATUSES = ["RESERVED", "COLLECTED", "CANCELLED", "EXPIRED"];
 
@@ -40,9 +41,9 @@ const reservationSchema = new mongoose.Schema(
       required: [true, "listing_snapshot is required"],
     },
     status: { type: String, default: "RESERVED", enum: RESERVATION_STATUSES },
-    collection_token_hash: {
+    collection_code: {
       type: String,
-      required: [true, "collection_token_hash is required"],
+      required: [true, "collection_code is required"],
       unique: true,
     },
     expires_at: { type: Date, required: [true, "expires_at is required"] },
@@ -83,6 +84,13 @@ function findReservationsByListing(listingId, status) {
   return Reservation.find(filter);
 }
 
+function findCollectedReservationsByBusiness(businessId) {
+  return Reservation.find({
+    "listing_snapshot.business_id": businessId,
+    status: "COLLECTED",
+  });
+}
+
 function findCollectedReservationsByConsumer(consumerUserId) {
   return Reservation.find({
     consumer_user_id: consumerUserId,
@@ -90,22 +98,31 @@ function findCollectedReservationsByConsumer(consumerUserId) {
   });
 }
 
-function findReservationByTokenHash(hash) {
-  // TODO: token generation and hashing happens outside this model (crypto/bcrypt not in deps yet)
-  return Reservation.findOne({ collection_token_hash: hash });
-}
-
 function createReservation(data) {
-  return Reservation.create(data);
+  const reservationData = {};
+  for (const key of Object.keys(data)) {
+    reservationData[key] = data[key];
+  }
+  reservationData.collection_code = generateToken();
+  return Reservation.create(reservationData);
 }
 
-function markCollected(reservationId, verifierUserId) {
+function markCollected(reservationId, code, businessId, verifierUserId) {
+  const collectedAt = new Date();
   return Reservation.updateOne(
-    { _id: reservationId, status: "RESERVED" },
+    {
+      _id: reservationId,
+      collection_code: code,
+      "listing_snapshot.business_id": businessId,
+      status: "RESERVED",
+      expires_at: { $gte: collectedAt },
+      "listing_snapshot.collection_start_at": { $lte: collectedAt },
+      "listing_snapshot.collection_end_at": { $gte: collectedAt },
+    },
     {
       status: "COLLECTED",
       verified_by_user_id: verifierUserId,
-      collected_at: new Date(),
+      collected_at: collectedAt,
     },
   );
 }
@@ -137,7 +154,7 @@ module.exports = {
   findReservationsByConsumer,
   findReservationsByListing,
   findCollectedReservationsByConsumer,
-  findReservationByTokenHash,
+  findCollectedReservationsByBusiness,
   createReservation,
   markCollected,
   cancelReservation,
