@@ -1,6 +1,10 @@
 import Listing from "../models/Listing.js";
 import Business from "../models/Business.js";
 import Category from "../models/Category.js";
+import ListingImage from "../models/ListingImage.js";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { generateFoodDescription } from "../services/aiService.js";
 // import aiService from "../services/aiService.js";
 
 export async function createListing(req, res) {
@@ -1040,4 +1044,95 @@ export async function deleteListing(req, res) {
 export async function generateListingSuggestions(req, res) {
   // generate listing suggestions based on uploaded image, which will be
   // given to service AI
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.user.role !== "BUSINESS") {
+    return res.status(403).json({ error: "Business access required" });
+  }
+  const body = req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return res.status(400).json({ error: "imageId is required" });
+  }
+  const ids = {
+    listingId: req.params && req.params.listingId,
+    imageId: body.imageId,
+  };
+  for (const field of Object.keys(ids)) {
+    if (typeof ids[field] !== "string" || ids[field].length !== 24) {
+      return res.status(400).json({ error: "Invalid " + field });
+    }
+    ids[field] = ids[field].toLowerCase();
+    for (const character of ids[field]) {
+      if ("0123456789abcdef".indexOf(character) === -1) {
+        return res.status(400).json({ error: "Invalid " + field });
+      }
+    }
+  }
+
+  try {
+    const listing = await Listing.findListingById(ids.listingId);
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+    const business = await Business.findBusinessById(listing.business_id);
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+    if (business.owner_user_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: "You do not own this listing" });
+    }
+    if (listing.status === "REMOVED") {
+      return res.status(409).json({ error: "Removed listings cannot receive suggestions" });
+    }
+    const images = await ListingImage.findImagesByListing(listing._id);
+    const image = images.find((item) => item._id.toString() === ids.imageId);
+    if (!image) {
+      return res.status(404).json({ error: "Image not found for this listing" });
+    }
+    if (
+      image.mime_type !== "image/jpeg" &&
+      image.mime_type !== "image/png" &&
+      image.mime_type !== "image/webp"
+    ) {
+      return res.status(400).json({ error: "The image must be JPEG, PNG or WebP" });
+    }
+    if (
+      typeof image.s3_object_key !== "string" ||
+      image.s3_object_key.indexOf("listings/" + listing._id.toString() + "/") !== 0
+    ) {
+      return res.status(409).json({ error: "Image storage key does not match this listing" });
+    }
+    const apiKey = process.env.OPENAI_API_KEY;
+    const region = process.env.AWS_REGION;
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!apiKey || !apiKey.trim()) {
+      return res.status(503).json({ error: "AI suggestions are not configured" });
+    }
+    if (!region || !region.trim() || !bucket || !bucket.trim()) {
+      return res.status(503).json({ error: "Image storage is not configured" });
+    }
+
+    const records = await Category.getAllCategories();
+    const categories = [];
+    for (const category of records) {
+      categories.push({ id: category._id.toString(), name: category.name });
+    }
+    const imageUrl = await getSignedUrl(
+      new S3Client({ region }),
+      new GetObjectCommand({ Bucket: bucket, Key: image.s3_object_key }),
+      { expiresIn: 300 },
+    );
+    const result = await generateFoodDescription(imageUrl, categories, listing.original_price_sgd);
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    return res.status(200).json({
+      suggestions: result.suggestions,
+      requiresReview: true,
+    });
+  } catch (error) {
+    console.error("Failed to generate listing suggestions");
+    return res.status(500).json({ error: "Unable to generate listing suggestions" });
+  }
 }
