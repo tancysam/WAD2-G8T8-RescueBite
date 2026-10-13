@@ -127,10 +127,18 @@ function markCollected(reservationId, code, businessId, verifierUserId) {
   );
 }
 
-function cancelReservation(reservationId) {
+function cancelReservation(reservationId, consumerUserId) {
+  const cancelledAt = new Date();
+  const deadline = new Date(Number(cancelledAt) + 1);
   return Reservation.updateOne(
-    { _id: reservationId, status: "RESERVED" },
-    { status: "CANCELLED", cancelled_at: new Date() },
+    {
+      _id: reservationId,
+      consumer_user_id: consumerUserId,
+      status: "RESERVED",
+      expires_at: { $gte: deadline },
+      "listing_snapshot.collection_end_at": { $gte: deadline },
+    },
+    { status: "CANCELLED", cancelled_at: cancelledAt },
   );
 }
 

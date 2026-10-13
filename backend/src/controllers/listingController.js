@@ -5,6 +5,7 @@ import ListingImage from "../models/ListingImage.js";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFoodDescription } from "../services/aiService.js";
+import { loadListingImages } from "./listingImageController.js";
 // import aiService from "../services/aiService.js";
 
 export async function createListing(req, res) {
@@ -496,7 +497,9 @@ export async function getListingsByParams(req, res) {
       pagination.totalPages++;
     }
 
-    return res.status(200).json({ listings, pagination });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages, pagination });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -544,7 +547,9 @@ export async function getListingById(req, res) {
       });
     }
 
-    return res.status(200).json({ listing });
+    const listingsWithImages = await loadListingImages([listing], res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listing: listingsWithImages[0] });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -595,7 +600,9 @@ export async function getBusinessListings(req, res) {
       }
     }
 
-    return res.status(200).json({ listings });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -639,7 +646,9 @@ export async function getManagedListings(req, res) {
 
     const listings = await Listing.findListingsByBusiness(business._id);
 
-    return res.status(200).json({ listings });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
