@@ -295,14 +295,36 @@ export async function getListingsByParams(req, res) {
   // get listing based on category, price
   const query = req.query || {};
 
+  let location = null;
   if (
     query.lat !== undefined ||
     query.lng !== undefined ||
     query.radiusKm !== undefined
   ) {
-    return res.status(400).json({
-      error: "Location search is not supported yet",
-    });
+    if (query.lat === undefined || query.lng === undefined) {
+      return res.status(400).json({ error: "lat and lng must be supplied together for location search" });
+    }
+    location = { radiusKm: 5 };
+    for (const field of ["lat", "lng", "radiusKm"]) {
+      if (field === "radiusKm" && query[field] === undefined) continue;
+      if (typeof query[field] !== "string" || query[field].trim() === "") {
+        return res.status(400).json({ error: field + " must be a number" });
+      }
+      const value = Number(query[field]);
+      if (value - value !== 0) {
+        return res.status(400).json({ error: field + " must be a finite number" });
+      }
+      if (field === "lat" && (value < -90 || value > 90)) {
+        return res.status(400).json({ error: "lat must be between -90 and 90" });
+      }
+      if (field === "lng" && (value < -180 || value > 180)) {
+        return res.status(400).json({ error: "lng must be between -180 and 180" });
+      }
+      if (field === "radiusKm" && (value <= 0 || value > 50)) {
+        return res.status(400).json({ error: "radiusKm must be greater than 0 and at most 50" });
+      }
+      location[field] = value;
+    }
   }
 
   const filters = {};
@@ -438,10 +460,14 @@ export async function getListingsByParams(req, res) {
   }
 
   try {
-    const businesses = await Business.findActiveBusinesses();
+    const businesses = location
+      ? await Business.findNearbyActiveBusinesses(location.lat, location.lng, location.radiusKm)
+      : await Business.findActiveBusinesses();
     const businessIds = [];
+    const businessOrder = {};
 
     for (const business of businesses) {
+      businessOrder[business._id.toString()] = businessIds.length;
       businessIds.push(business._id);
     }
 
@@ -486,6 +512,15 @@ export async function getListingsByParams(req, res) {
       matches.push(listing);
     }
 
+    if (location) {
+      matches.sort((left, right) => {
+        const order = businessOrder[left.business_id.toString()] - businessOrder[right.business_id.toString()];
+        if (order !== 0) return order;
+        const leftId = left._id.toString();
+        const rightId = right._id.toString();
+        return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+      });
+    }
     const start = (pagination.page - 1) * pagination.limit;
     const listings = matches.slice(start, start + pagination.limit);
 
