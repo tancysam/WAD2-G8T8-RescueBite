@@ -370,4 +370,91 @@ export async function updateReservationStatus(req, res) {
 
 export async function cancelReservation(req, res) {
   // cancel reservation
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.user.role !== "CONSUMER") {
+    return res.status(403).json({ error: "Consumer access required" });
+  }
+  const id = req.params && (req.params.reservationId || req.params.id);
+  if (typeof id !== "string" || id.length !== 24) {
+    return res.status(400).json({ error: "Invalid reservation ID" });
+  }
+  for (const character of id.toLowerCase()) {
+    if ("0123456789abcdef".indexOf(character) === -1) {
+      return res.status(400).json({ error: "Invalid reservation ID" });
+    }
+  }
+
+  try {
+    const reservation = await Reservation.findReservationById(id);
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+    if (reservation.consumer_user_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: "You do not own this reservation" });
+    }
+    const response = { reservationId: reservation._id, status: "CANCELLED" };
+    if (reservation.status === "CANCELLED") {
+      response.message = "Reservation is already cancelled";
+      return res.status(200).json(response);
+    }
+    if (reservation.status !== "RESERVED") {
+      return res.status(409).json({ error: "Only reserved reservations can be cancelled" });
+    }
+    const snapshot = reservation.listing_snapshot;
+    const expiry = Number(reservation.expires_at);
+    const end = snapshot && Number(snapshot.collection_end_at);
+    const now = Number(new Date());
+    if (
+      !reservation.expires_at || !snapshot || !snapshot.collection_end_at ||
+      expiry - expiry !== 0 || end - end !== 0 || expiry <= now || end <= now
+    ) {
+      return res.status(409).json({ error: "The reservation cancellation deadline has passed or is unavailable" });
+    }
+    if (
+      !reservation.listing_id || !Number.isInteger(reservation.quantity) ||
+      reservation.quantity <= 0 || reservation.quantity > 9007199254740991
+    ) {
+      return res.status(409).json({ error: "Reservation inventory details are invalid" });
+    }
+
+    let result;
+    try {
+      result = await Reservation.cancelReservation(reservation._id, req.user._id);
+    } catch (error) {
+      console.error("Cancellation write outcome is uncertain; inventory needs reconciliation for reservation", id);
+      return res.status(503).json({ error: "Cancellation could not be confirmed. Check your reservations before retrying" });
+    }
+    if (result.modifiedCount !== 1) {
+      const current = await Reservation.findReservationById(id);
+      if (
+        current && current.status === "CANCELLED" &&
+        current.consumer_user_id.toString() === req.user._id.toString()
+      ) {
+        response.message = "Reservation is already cancelled";
+        return res.status(200).json(response);
+      }
+      return res.status(409).json({ error: "Reservation changed or expired and could not be cancelled" });
+    }
+
+    let stockRestorationPending = false;
+    try {
+      const restored = await Listing.restoreStock(reservation.listing_id, reservation.quantity);
+      stockRestorationPending = !restored || restored.modifiedCount !== 1;
+    } catch (error) {
+      stockRestorationPending = true;
+    }
+    if (stockRestorationPending) {
+      console.error("Cancelled reservation requires stock reconciliation", id);
+      response.stockRestorationPending = true;
+      response.message = "Reservation cancelled, but stock restoration requires review";
+    } else {
+      response.message = "Reservation cancelled successfully";
+    }
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("Failed to cancel reservation");
+    return res.status(500).json({ error: "Unable to cancel reservation" });
+  }
 }

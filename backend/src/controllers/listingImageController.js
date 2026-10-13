@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
@@ -78,6 +78,56 @@ function imageStorage(res) {
     s3Client = new S3Client({ region, requestChecksumCalculation: "WHEN_REQUIRED" });
   }
   return { client: s3Client, bucket };
+}
+
+export async function loadListingImages(listings, res) {
+  res.setHeader("Cache-Control", "private, no-store");
+  const results = [];
+  const listingIds = [];
+  const imagesByListing = {};
+  for (const listing of listings) {
+    const id = listing._id.toString();
+    if (!imagesByListing[id]) {
+      listingIds.push(listing._id);
+      imagesByListing[id] = [];
+    }
+    const result = JSON.parse(JSON.stringify(listing));
+    result.images = imagesByListing[id];
+    results.push(result);
+  }
+  if (listingIds.length === 0) return results;
+
+  const images = await ListingImage.findImagesByListings(listingIds);
+  let storage;
+  for (const image of images) {
+    if (!image.listing_id) continue;
+    const id = image.listing_id.toString();
+    if (!imagesByListing[id] || !validImageKey(image.s3_object_key, id, image.mime_type)) {
+      continue;
+    }
+    if (!storage) {
+      storage = imageStorage(res);
+      if (!storage) return null;
+    }
+    let url;
+    try {
+      url = await getSignedUrl(storage.client, new GetObjectCommand({
+        Bucket: storage.bucket,
+        Key: image.s3_object_key,
+      }), { expiresIn: 300 });
+    } catch (error) {
+      console.error("Failed to create listing image viewing URL");
+      res.status(503).json({ error: "Unable to load listing images" });
+      return null;
+    }
+    imagesByListing[id].push({
+      _id: image._id,
+      url,
+      sortOrder: image.sort_order,
+      expiresIn: 300,
+    });
+  }
+  return results;
 }
 
 export async function createImageUploadUrl(req, res) {
