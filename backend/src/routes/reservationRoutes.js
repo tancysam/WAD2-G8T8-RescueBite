@@ -10,7 +10,7 @@ import { createReview } from "../controllers/reviewController.js";
 const router = Router();
 
 router.post("/:reservationId/cancel", requireConsumer, cancelReservation);
-router.get("/:reservationId/collection-code", requireConsumer, getCollectionCode);
+router.get("/collection-code", requireConsumer, getCollectionCode);
 router.post("/:reservationId/review", requireConsumer, createReview);
 
 // The controller permits the consumer or the owning business.
