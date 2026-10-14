@@ -33,6 +33,12 @@ async function findImagesByListing(listingId) {
   return images;
 }
 
+async function findImagesByListings(listingIds) {
+  const images = await ListingImage.find({ listing_id: { $in: listingIds } });
+  images.sort((a, b) => a.sort_order - b.sort_order);
+  return images;
+}
+
 function findImageByS3Key(s3ObjectKey) {
   return ListingImage.findOne({ s3_object_key: s3ObjectKey });
 }
@@ -51,6 +57,7 @@ function deleteListingImage(id) {
 
 module.exports = {
   findImagesByListing,
+  findImagesByListings,
   findImageByS3Key,
   addListingImage,
   updateImageSortOrder,
