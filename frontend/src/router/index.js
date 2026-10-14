@@ -8,6 +8,7 @@ import AuthCompleteView from '../views/AuthCompleteView.vue'
 import AllBusinessesView from '../views/business/AllBusinessesView.vue'
 import BusinessProfileView from '../views/business/BusinessProfileView.vue'
 import BusinessDashboardView from '../views/business/BusinessDashboardView.vue'
+import BusinessOrdersView from '../views/business/BusinessOrdersView.vue'
 import RegisterBusinessView from '../views/business/RegisterBusinessView.vue'
 
 const routes = [
@@ -64,6 +65,12 @@ const routes = [
     path: '/business-dashboard',
     name: 'business-dashboard',
     component: BusinessDashboardView,
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
+  },
+  {
+    path: '/business-orders',
+    name: 'business-orders',
+    component: BusinessOrdersView,
     meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
   },
   {
