@@ -3,6 +3,7 @@
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import axios from 'axios'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import placeholderImage from '../../assets/placeholder.jpg'
 
 // Business ID received from Vue Router
 const props = defineProps({
@@ -281,56 +282,6 @@ onUnmounted(() => {
           Get Directions
         </button>
       </section>
-
-      <section class="profile-section">
-        <h1>Available Listings</h1>
-
-        <p v-if="listingsLoading">
-          Loading listings...
-        </p>
-
-        <p v-else-if="listingsError" class="error">
-          {{ listingsError }}
-        </p>
-
-        <p v-else-if="listings.length === 0">
-          No active listings available.
-        </p>
-
-        <div v-else class="listings-grid">
-          <div
-            v-for="listing in listings"
-            :key="listing._id"
-            class="listing-card"
-          >
-            <h2>{{ listing.title }}</h2>
-
-            <p>{{ listing.description }}</p>
-
-            <p>
-              <strong>Original Price:</strong>
-              ${{ listing.original_price_sgd }}
-            </p>
-
-            <p>
-              <strong>Rescue Price:</strong>
-              ${{ listing.rescue_price_sgd }}
-            </p>
-
-            <p>
-              <strong>Quantity Available:</strong>
-              {{ listing.quantity_available }}
-            </p>
-
-            <p>
-              <strong>Collection Ends:</strong>
-              {{ new Date(listing.collection_end_at).toLocaleString('en-SG', {
-                timeZone: 'Asia/Singapore'
-              }) }}
-            </p>
-          </div>
-        </div>
-      </section>
     </div>
   </main>
 </template>
@@ -415,6 +366,8 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
+
+
 /* Error */
 .error {
   color: red;
@@ -437,7 +390,10 @@ onUnmounted(() => {
   .map {
     height: 300px;
   }
-
+  .listing-image {
+    position: absolute;
+    inset: 0;
+  }
   
 }
 </style>
