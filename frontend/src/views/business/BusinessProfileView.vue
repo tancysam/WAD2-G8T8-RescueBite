@@ -3,7 +3,7 @@
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import axios from 'axios'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
-import placeholderImage from '../../assets/placeholder.jpg'
+import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
 
 // Business ID received from Vue Router
 const props = defineProps({
@@ -148,9 +148,7 @@ async function getListings() {
       `http://localhost:8000/api/businesses/${props.businessId}/listings`
     )
 
-    listings.value = response.data.listings
-
-    console.log('Business listings:', listings.value)
+    listings.value = response.data.listings || []
 
   } catch (error) {
     console.error('Error fetching listings:', error)
@@ -282,6 +280,39 @@ onUnmounted(() => {
           Get Directions
         </button>
       </section>
+
+      <section class="listings-section" aria-labelledby="available-listings-heading">
+        <div class="listings-heading">
+          <div>
+            <p class="section-label">AVAILABLE TO RESCUE</p>
+            <h2 id="available-listings-heading">Listings from {{ business.name }}</h2>
+          </div>
+          <span v-if="!listingsLoading && !listingsError" class="listing-count">
+            {{ listings.length }} {{ listings.length === 1 ? 'listing' : 'listings' }}
+          </span>
+        </div>
+
+        <p v-if="listingsLoading" class="listing-state" aria-live="polite">
+          Loading available listings…
+        </p>
+
+        <p v-else-if="listingsError" class="listing-state error" role="alert">
+          {{ listingsError }}
+        </p>
+
+        <div v-else-if="listings.length" class="listing-grid">
+          <CustomerListingCard
+            v-for="listing in listings"
+            :key="listing._id"
+            :listing="listing"
+          />
+        </div>
+
+        <div v-else class="empty-listings">
+          <h3>No listings available right now</h3>
+          <p>Check back later for new food from {{ business.name }}.</p>
+        </div>
+      </section>
     </div>
   </main>
 </template>
@@ -309,6 +340,75 @@ onUnmounted(() => {
 .business-header p {
   color: #555;
   line-height: 1.6;
+}
+
+/* Customer Listings */
+.listings-section {
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid #dfe6df;
+  border-radius: 12px;
+  background-color: #f5f9f2;
+}
+
+.listings-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.section-label {
+  margin: 0 0 5px;
+  color: #718b78;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.listings-heading h2 {
+  margin: 0;
+  color: #256b45;
+  font-size: 26px;
+}
+
+.listing-count {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #45604e;
+  background-color: #e4ede0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.listing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.listing-state,
+.empty-listings {
+  margin: 0;
+  padding: 28px;
+  border-radius: 10px;
+  background-color: white;
+  text-align: center;
+}
+
+.listing-state {
+  color: #66746b;
+}
+
+.empty-listings h3 {
+  margin: 0 0 6px;
+  color: #345b43;
+}
+
+.empty-listings p {
+  margin: 0;
+  color: #748078;
 }
 
 /* Profile Sections */
@@ -387,13 +487,16 @@ onUnmounted(() => {
     padding: 18px;
   }
 
+  .listings-section {
+    padding: 18px;
+  }
+
+  .listing-grid {
+    grid-template-columns: 1fr;
+  }
+
   .map {
     height: 300px;
   }
-  .listing-image {
-    position: absolute;
-    inset: 0;
-  }
-  
 }
 </style>
