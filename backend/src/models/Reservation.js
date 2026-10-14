@@ -17,8 +17,6 @@ const listingSnapshotSchema = new mongoose.Schema(
     collection_start_at: { type: Date, required: true },
     collection_end_at: { type: Date, required: true },
     pickup_address: { type: String, required: true },
-    estimated_weight_kg_per_unit: { type: Number, required: true },
-    estimated_meals_per_unit: { type: Number, required: true },
   },
   { _id: false },
 );

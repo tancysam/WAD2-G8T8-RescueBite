@@ -56,8 +56,6 @@ export async function createListing(req, res) {
       originalPriceSgd: "original_price_sgd",
       rescuePriceSgd: "rescue_price_sgd",
       quantityAvailable: "quantity_available",
-      estimatedWeightKgPerUnit: "estimated_weight_kg_per_unit",
-      estimatedMealsPerUnit: "estimated_meals_per_unit",
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
@@ -126,8 +124,6 @@ export async function createListing(req, res) {
       "original_price_sgd",
       "rescue_price_sgd",
       "quantity_available",
-      "estimated_weight_kg_per_unit",
-      "estimated_meals_per_unit",
     ]) {
       const value = data[field];
 
@@ -157,14 +153,9 @@ export async function createListing(req, res) {
       });
     }
 
-    if (
-      data.original_price_sgd <= 0 ||
-      data.estimated_weight_kg_per_unit <= 0 ||
-      data.estimated_meals_per_unit <= 0
-    ) {
+    if (data.original_price_sgd <= 0) {
       return res.status(400).json({
-        error:
-          "Original price, estimated weight and estimated meals must be greater than zero",
+        error: "Original price must be greater than zero",
       });
     }
 
@@ -755,8 +746,6 @@ export async function updateListing(req, res) {
       original_price_sgd: listing.original_price_sgd,
       rescue_price_sgd: listing.rescue_price_sgd,
       quantity_available: listing.quantity_available,
-      estimated_weight_kg_per_unit: listing.estimated_weight_kg_per_unit,
-      estimated_meals_per_unit: listing.estimated_meals_per_unit,
       collection_start_at: listing.collection_start_at,
       collection_end_at: listing.collection_end_at,
       status: listing.status,
@@ -772,8 +761,6 @@ export async function updateListing(req, res) {
       originalPriceSgd: "original_price_sgd",
       rescuePriceSgd: "rescue_price_sgd",
       quantityAvailable: "quantity_available",
-      estimatedWeightKgPerUnit: "estimated_weight_kg_per_unit",
-      estimatedMealsPerUnit: "estimated_meals_per_unit",
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
@@ -849,8 +836,6 @@ export async function updateListing(req, res) {
       "original_price_sgd",
       "rescue_price_sgd",
       "quantity_available",
-      "estimated_weight_kg_per_unit",
-      "estimated_meals_per_unit",
     ]) {
       const value = data[field];
 
@@ -880,14 +865,9 @@ export async function updateListing(req, res) {
       });
     }
 
-    if (
-      data.original_price_sgd <= 0 ||
-      data.estimated_weight_kg_per_unit <= 0 ||
-      data.estimated_meals_per_unit <= 0
-    ) {
+    if (data.original_price_sgd <= 0) {
       return res.status(400).json({
-        error:
-          "Original price, estimated weight and estimated meals must be greater than zero",
+        error: "Original price must be greater than zero",
       });
     }
 
