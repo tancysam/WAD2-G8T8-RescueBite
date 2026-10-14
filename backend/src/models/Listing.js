@@ -52,14 +52,6 @@ const listingSchema = new mongoose.Schema(
       type: Number,
       required: [true, "quantity_available is required"],
     },
-    estimated_weight_kg_per_unit: {
-      type: Number,
-      required: [true, "estimated_weight_kg_per_unit is required"],
-    },
-    estimated_meals_per_unit: {
-      type: Number,
-      required: [true, "estimated_meals_per_unit is required"],
-    },
     collection_start_at: {
       type: Date,
       required: [true, "collection_start_at is required"],

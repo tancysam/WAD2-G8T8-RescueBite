@@ -65,22 +65,17 @@ export async function createReservation(req, res) {
         return res.status(409).json({ error: "Listing or business details are incomplete" });
       }
     }
-    for (const field of [
-      "original_price_sgd", "rescue_price_sgd",
-      "estimated_weight_kg_per_unit", "estimated_meals_per_unit",
-    ]) {
+    for (const field of ["original_price_sgd", "rescue_price_sgd"]) {
       const value = listing[field];
       if (typeof value !== "number" || value - value !== 0 || value < 0) {
-        return res.status(409).json({ error: "Listing prices or impact estimates are invalid" });
+        return res.status(409).json({ error: "Listing prices are invalid" });
       }
     }
     if (
       listing.original_price_sgd <= 0 ||
-      listing.rescue_price_sgd > listing.original_price_sgd ||
-      listing.estimated_weight_kg_per_unit <= 0 ||
-      listing.estimated_meals_per_unit <= 0
+      listing.rescue_price_sgd > listing.original_price_sgd
     ) {
-      return res.status(409).json({ error: "Listing prices or impact estimates are invalid" });
+      return res.status(409).json({ error: "Listing prices are invalid" });
     }
 
     const data = {
@@ -98,8 +93,6 @@ export async function createReservation(req, res) {
         collection_start_at: listing.collection_start_at,
         collection_end_at: listing.collection_end_at,
         pickup_address: business.address,
-        estimated_weight_kg_per_unit: listing.estimated_weight_kg_per_unit,
-        estimated_meals_per_unit: listing.estimated_meals_per_unit,
       },
     };
     const result = await Listing.reduceStock(
