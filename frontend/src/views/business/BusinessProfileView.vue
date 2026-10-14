@@ -236,7 +236,7 @@ onUnmounted(() => {
 
       <!-- Contact Information -->
       <section class="profile-section">
-        <h1>Contact Information</h1>
+        <h1>Business Information</h1>
 
         <p>
           <strong>Phone:</strong>
@@ -248,10 +248,6 @@ onUnmounted(() => {
           {{ business.address }}
         </p>
 
-        <p>
-          <strong>Postal Code:</strong>
-          {{ business.postal_code }}
-        </p>
         <p>
           <strong>Pickup Instructions:</strong>
           {{
@@ -296,9 +292,11 @@ onUnmounted(() => {
 /* Business Header */
 .business-header {
   background-color: #f0f7f1;
-  padding: 30px;
+  padding: 10px;
+  padding-left: 20px;
   border-radius: 12px;
   margin-bottom: 24px;
+  margin-top: 20px;
 }
 
 .business-header h1 {
