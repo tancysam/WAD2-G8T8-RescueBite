@@ -3,6 +3,7 @@
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import axios from 'axios'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import placeholderImage from '../../assets/placeholder.jpg'
 
 // Business ID received from Vue Router
 const props = defineProps({
@@ -18,6 +19,9 @@ const loading = ref(true)
 const errorMessage = ref('')
 const mapError = ref('')
 const mapElement = ref(null)
+const listings = ref([])
+const listingsLoading = ref(false)
+const listingsError = ref('')
 
 // Google Maps variables
 let map = null
@@ -134,6 +138,32 @@ async function getBusiness() {
   }
 }
 
+async function getListings() {
+  listingsLoading.value = true
+  listingsError.value = ''
+  listings.value = []
+
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/businesses/${props.businessId}/listings`
+    )
+
+    listings.value = response.data.listings
+
+    console.log('Business listings:', listings.value)
+
+  } catch (error) {
+    console.error('Error fetching listings:', error)
+
+    listingsError.value =
+      error.response?.data?.error ||
+      'Unable to retrieve listings.'
+
+  } finally {
+    listingsLoading.value = false
+  }
+}
+
 // Open directions in Google Maps
 function openDirections() {
   const coordinates = business.value?.location?.coordinates
@@ -149,11 +179,15 @@ function openDirections() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// Fetch business when page loads
-onMounted(getBusiness)
+onMounted(() => {
+  getBusiness()
+  getListings()
+})
 
-// Fetch new business if URL ID changes
-watch(() => props.businessId, getBusiness)
+watch(() => props.businessId, () => {
+  getBusiness()
+  getListings()
+})
 
 // Cleanup
 onUnmounted(() => {
@@ -171,6 +205,13 @@ onUnmounted(() => {
 <template>
   <main class="business-profile">
 
+    <!-- Back to Businesses -->
+    <RouterLink
+        to="/businesses"
+        class="back-link"
+      >
+      ← Back to Businesses
+    </RouterLink>
     <!-- Loading -->
     <p v-if="loading">
       Loading business information...
@@ -195,7 +236,7 @@ onUnmounted(() => {
 
       <!-- Contact Information -->
       <section class="profile-section">
-        <h2>Contact Information</h2>
+        <h1>Contact Information</h1>
 
         <p>
           <strong>Phone:</strong>
@@ -211,23 +252,13 @@ onUnmounted(() => {
           <strong>Postal Code:</strong>
           {{ business.postal_code }}
         </p>
-      </section>
-
-      <!-- Pickup Information -->
-      <section class="profile-section">
-        <h2>Pickup Information</h2>
-
         <p>
+          <strong>Pickup Instructions:</strong>
           {{
             business.pickup_instructions ||
             'No pickup instructions provided.'
           }}
         </p>
-      </section>
-
-      <!-- Google Maps -->
-      <section class="profile-section">
-        <h2>Business Location</h2>
 
         <div
           v-if="business.location?.coordinates"
@@ -251,15 +282,6 @@ onUnmounted(() => {
           Get Directions
         </button>
       </section>
-
-      <!-- Back to Businesses -->
-      <RouterLink
-        to="/businesses"
-        class="back-link"
-      >
-        ← Back to Businesses
-      </RouterLink>
-
     </div>
   </main>
 </template>
@@ -298,7 +320,7 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 
-.profile-section h2 {
+.profile-section h1 {
   color: #256b45;
   margin-bottom: 16px;
 }
@@ -344,6 +366,8 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
+
+
 /* Error */
 .error {
   color: red;
@@ -366,5 +390,10 @@ onUnmounted(() => {
   .map {
     height: 300px;
   }
+  .listing-image {
+    position: absolute;
+    inset: 0;
+  }
+  
 }
 </style>
