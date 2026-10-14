@@ -18,6 +18,9 @@ const loading = ref(true)
 const errorMessage = ref('')
 const mapError = ref('')
 const mapElement = ref(null)
+const listings = ref([])
+const listingsLoading = ref(false)
+const listingsError = ref('')
 
 // Google Maps variables
 let map = null
@@ -134,6 +137,32 @@ async function getBusiness() {
   }
 }
 
+async function getListings() {
+  listingsLoading.value = true
+  listingsError.value = ''
+  listings.value = []
+
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/businesses/${props.businessId}/listings`
+    )
+
+    listings.value = response.data.listings
+
+    console.log('Business listings:', listings.value)
+
+  } catch (error) {
+    console.error('Error fetching listings:', error)
+
+    listingsError.value =
+      error.response?.data?.error ||
+      'Unable to retrieve listings.'
+
+  } finally {
+    listingsLoading.value = false
+  }
+}
+
 // Open directions in Google Maps
 function openDirections() {
   const coordinates = business.value?.location?.coordinates
@@ -149,11 +178,15 @@ function openDirections() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// Fetch business when page loads
-onMounted(getBusiness)
+onMounted(() => {
+  getBusiness()
+  getListings()
+})
 
-// Fetch new business if URL ID changes
-watch(() => props.businessId, getBusiness)
+watch(() => props.businessId, () => {
+  getBusiness()
+  getListings()
+})
 
 // Cleanup
 onUnmounted(() => {
@@ -171,6 +204,13 @@ onUnmounted(() => {
 <template>
   <main class="business-profile">
 
+    <!-- Back to Businesses -->
+    <RouterLink
+        to="/businesses"
+        class="back-link"
+      >
+      ← Back to Businesses
+    </RouterLink>
     <!-- Loading -->
     <p v-if="loading">
       Loading business information...
@@ -195,7 +235,7 @@ onUnmounted(() => {
 
       <!-- Contact Information -->
       <section class="profile-section">
-        <h2>Contact Information</h2>
+        <h1>Contact Information</h1>
 
         <p>
           <strong>Phone:</strong>
@@ -211,23 +251,13 @@ onUnmounted(() => {
           <strong>Postal Code:</strong>
           {{ business.postal_code }}
         </p>
-      </section>
-
-      <!-- Pickup Information -->
-      <section class="profile-section">
-        <h2>Pickup Information</h2>
-
         <p>
+          <strong>Pickup Instructions:</strong>
           {{
             business.pickup_instructions ||
             'No pickup instructions provided.'
           }}
         </p>
-      </section>
-
-      <!-- Google Maps -->
-      <section class="profile-section">
-        <h2>Business Location</h2>
 
         <div
           v-if="business.location?.coordinates"
@@ -252,14 +282,55 @@ onUnmounted(() => {
         </button>
       </section>
 
-      <!-- Back to Businesses -->
-      <RouterLink
-        to="/businesses"
-        class="back-link"
-      >
-        ← Back to Businesses
-      </RouterLink>
+      <section class="profile-section">
+        <h1>Available Listings</h1>
 
+        <p v-if="listingsLoading">
+          Loading listings...
+        </p>
+
+        <p v-else-if="listingsError" class="error">
+          {{ listingsError }}
+        </p>
+
+        <p v-else-if="listings.length === 0">
+          No active listings available.
+        </p>
+
+        <div v-else class="listings-grid">
+          <div
+            v-for="listing in listings"
+            :key="listing._id"
+            class="listing-card"
+          >
+            <h2>{{ listing.title }}</h2>
+
+            <p>{{ listing.description }}</p>
+
+            <p>
+              <strong>Original Price:</strong>
+              ${{ listing.original_price_sgd }}
+            </p>
+
+            <p>
+              <strong>Rescue Price:</strong>
+              ${{ listing.rescue_price_sgd }}
+            </p>
+
+            <p>
+              <strong>Quantity Available:</strong>
+              {{ listing.quantity_available }}
+            </p>
+
+            <p>
+              <strong>Collection Ends:</strong>
+              {{ new Date(listing.collection_end_at).toLocaleString('en-SG', {
+                timeZone: 'Asia/Singapore'
+              }) }}
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 </template>
@@ -298,7 +369,7 @@ onUnmounted(() => {
   margin-bottom: 24px;
 }
 
-.profile-section h2 {
+.profile-section h1 {
   color: #256b45;
   margin-bottom: 16px;
 }
@@ -366,5 +437,7 @@ onUnmounted(() => {
   .map {
     height: 300px;
   }
+
+  
 }
 </style>
