@@ -26,6 +26,9 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
       <RouterLink to="/auth/complete">
         Home
       </RouterLink>
+      <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-orders">
+        My orders
+      </RouterLink>
       <RouterLink v-if="profileRole === 'BUSINESS'" to="/businesses">
         Businesses
       </RouterLink>
