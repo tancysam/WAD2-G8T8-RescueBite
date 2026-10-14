@@ -88,6 +88,18 @@ function findActiveBusinesses() {
   return Business.find({ status: "ACTIVE" });
 }
 
+function findNearbyActiveBusinesses(lat, lng, radiusKm) {
+  return Business.find({
+    status: "ACTIVE",
+    location: {
+      $near: {
+        $geometry: { type: "Point", coordinates: [lng, lat] },
+        $maxDistance: radiusKm * 1000,
+      },
+    },
+  });
+}
+
 function addBusiness(data) {
   return Business.create(data);
 }
@@ -106,6 +118,7 @@ module.exports = {
   findBusinessById,
   findBusinessesByOwnerId,
   findActiveBusinesses,
+  findNearbyActiveBusinesses,
   addBusiness,
   updateBusiness,
   setBusinessStatus,

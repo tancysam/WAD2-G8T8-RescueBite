@@ -353,7 +353,73 @@ export async function deleteBusiness(req, res) {
   }
 }
 
+// Flat estimate of food weight per unit rescued (listings do not store weight)
+const KG_PER_UNIT = 0.5;
+
 export async function getBusinessImpact(req, res) {
   // get impact from collected reservations for this business
-  
+  const id = req.params.businessId || req.params.id;
+
+  if (typeof id !== "string" || id.trim() === "") {
+    return res.status(400).json({
+      error: "Business ID is required",
+    });
+  }
+
+  try {
+    const business = await Business.findBusinessById(id);
+
+    if (!business) {
+      return res.status(404).json({
+        error: "Business not found",
+      });
+    }
+
+    if (business.owner_user_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        error: "You do not own this business",
+      });
+    }
+
+    const collected = await Reservation.findCollectedReservationsByBusiness(
+      business._id,
+    );
+
+    let units = 0;
+    let revenue = 0;
+    let savings = 0;
+
+    for (const reservation of collected) {
+      const snapshot = reservation.listing_snapshot;
+
+      units = units + reservation.quantity;
+      revenue = revenue + reservation.quantity * snapshot.rescue_unit_price_sgd;
+      savings =
+        savings +
+        reservation.quantity *
+          (snapshot.original_unit_price_sgd - snapshot.rescue_unit_price_sgd);
+    }
+
+    return res.status(200).json({
+      impact: {
+        reservationsCollected: collected.length,
+        mealsRescued: units,
+        estimatedKgSaved: Number((units * KG_PER_UNIT).toFixed(1)),
+        revenueSgd: Number(revenue.toFixed(2)),
+        customerSavingsSgd: Number(savings.toFixed(2)),
+      },
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        error: "Invalid business ID",
+      });
+    }
+
+    console.error("Failed to get business impact:", error);
+
+    return res.status(500).json({
+      error: "Unable to get business impact",
+    });
+  }
 }

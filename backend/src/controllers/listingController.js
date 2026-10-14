@@ -1,6 +1,11 @@
 import Listing from "../models/Listing.js";
 import Business from "../models/Business.js";
 import Category from "../models/Category.js";
+import ListingImage from "../models/ListingImage.js";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { generateFoodDescription } from "../services/aiService.js";
+import { loadListingImages } from "./listingImageController.js";
 // import aiService from "../services/aiService.js";
 
 export async function createListing(req, res) {
@@ -51,8 +56,6 @@ export async function createListing(req, res) {
       originalPriceSgd: "original_price_sgd",
       rescuePriceSgd: "rescue_price_sgd",
       quantityAvailable: "quantity_available",
-      estimatedWeightKgPerUnit: "estimated_weight_kg_per_unit",
-      estimatedMealsPerUnit: "estimated_meals_per_unit",
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
@@ -121,8 +124,6 @@ export async function createListing(req, res) {
       "original_price_sgd",
       "rescue_price_sgd",
       "quantity_available",
-      "estimated_weight_kg_per_unit",
-      "estimated_meals_per_unit",
     ]) {
       const value = data[field];
 
@@ -152,14 +153,9 @@ export async function createListing(req, res) {
       });
     }
 
-    if (
-      data.original_price_sgd <= 0 ||
-      data.estimated_weight_kg_per_unit <= 0 ||
-      data.estimated_meals_per_unit <= 0
-    ) {
+    if (data.original_price_sgd <= 0) {
       return res.status(400).json({
-        error:
-          "Original price, estimated weight and estimated meals must be greater than zero",
+        error: "Original price must be greater than zero",
       });
     }
 
@@ -290,14 +286,36 @@ export async function getListingsByParams(req, res) {
   // get listing based on category, price
   const query = req.query || {};
 
+  let location = null;
   if (
     query.lat !== undefined ||
     query.lng !== undefined ||
     query.radiusKm !== undefined
   ) {
-    return res.status(400).json({
-      error: "Location search is not supported yet",
-    });
+    if (query.lat === undefined || query.lng === undefined) {
+      return res.status(400).json({ error: "lat and lng must be supplied together for location search" });
+    }
+    location = { radiusKm: 5 };
+    for (const field of ["lat", "lng", "radiusKm"]) {
+      if (field === "radiusKm" && query[field] === undefined) continue;
+      if (typeof query[field] !== "string" || query[field].trim() === "") {
+        return res.status(400).json({ error: field + " must be a number" });
+      }
+      const value = Number(query[field]);
+      if (value - value !== 0) {
+        return res.status(400).json({ error: field + " must be a finite number" });
+      }
+      if (field === "lat" && (value < -90 || value > 90)) {
+        return res.status(400).json({ error: "lat must be between -90 and 90" });
+      }
+      if (field === "lng" && (value < -180 || value > 180)) {
+        return res.status(400).json({ error: "lng must be between -180 and 180" });
+      }
+      if (field === "radiusKm" && (value <= 0 || value > 50)) {
+        return res.status(400).json({ error: "radiusKm must be greater than 0 and at most 50" });
+      }
+      location[field] = value;
+    }
   }
 
   const filters = {};
@@ -433,10 +451,14 @@ export async function getListingsByParams(req, res) {
   }
 
   try {
-    const businesses = await Business.findActiveBusinesses();
+    const businesses = location
+      ? await Business.findNearbyActiveBusinesses(location.lat, location.lng, location.radiusKm)
+      : await Business.findActiveBusinesses();
     const businessIds = [];
+    const businessOrder = {};
 
     for (const business of businesses) {
+      businessOrder[business._id.toString()] = businessIds.length;
       businessIds.push(business._id);
     }
 
@@ -481,6 +503,15 @@ export async function getListingsByParams(req, res) {
       matches.push(listing);
     }
 
+    if (location) {
+      matches.sort((left, right) => {
+        const order = businessOrder[left.business_id.toString()] - businessOrder[right.business_id.toString()];
+        if (order !== 0) return order;
+        const leftId = left._id.toString();
+        const rightId = right._id.toString();
+        return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+      });
+    }
     const start = (pagination.page - 1) * pagination.limit;
     const listings = matches.slice(start, start + pagination.limit);
 
@@ -492,7 +523,9 @@ export async function getListingsByParams(req, res) {
       pagination.totalPages++;
     }
 
-    return res.status(200).json({ listings, pagination });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages, pagination });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -540,7 +573,9 @@ export async function getListingById(req, res) {
       });
     }
 
-    return res.status(200).json({ listing });
+    const listingsWithImages = await loadListingImages([listing], res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listing: listingsWithImages[0] });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -591,7 +626,9 @@ export async function getBusinessListings(req, res) {
       }
     }
 
-    return res.status(200).json({ listings });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -635,7 +672,9 @@ export async function getManagedListings(req, res) {
 
     const listings = await Listing.findListingsByBusiness(business._id);
 
-    return res.status(200).json({ listings });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
@@ -707,8 +746,6 @@ export async function updateListing(req, res) {
       original_price_sgd: listing.original_price_sgd,
       rescue_price_sgd: listing.rescue_price_sgd,
       quantity_available: listing.quantity_available,
-      estimated_weight_kg_per_unit: listing.estimated_weight_kg_per_unit,
-      estimated_meals_per_unit: listing.estimated_meals_per_unit,
       collection_start_at: listing.collection_start_at,
       collection_end_at: listing.collection_end_at,
       status: listing.status,
@@ -724,8 +761,6 @@ export async function updateListing(req, res) {
       originalPriceSgd: "original_price_sgd",
       rescuePriceSgd: "rescue_price_sgd",
       quantityAvailable: "quantity_available",
-      estimatedWeightKgPerUnit: "estimated_weight_kg_per_unit",
-      estimatedMealsPerUnit: "estimated_meals_per_unit",
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
@@ -801,8 +836,6 @@ export async function updateListing(req, res) {
       "original_price_sgd",
       "rescue_price_sgd",
       "quantity_available",
-      "estimated_weight_kg_per_unit",
-      "estimated_meals_per_unit",
     ]) {
       const value = data[field];
 
@@ -832,14 +865,9 @@ export async function updateListing(req, res) {
       });
     }
 
-    if (
-      data.original_price_sgd <= 0 ||
-      data.estimated_weight_kg_per_unit <= 0 ||
-      data.estimated_meals_per_unit <= 0
-    ) {
+    if (data.original_price_sgd <= 0) {
       return res.status(400).json({
-        error:
-          "Original price, estimated weight and estimated meals must be greater than zero",
+        error: "Original price must be greater than zero",
       });
     }
 
@@ -1040,4 +1068,95 @@ export async function deleteListing(req, res) {
 export async function generateListingSuggestions(req, res) {
   // generate listing suggestions based on uploaded image, which will be
   // given to service AI
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.user.role !== "BUSINESS") {
+    return res.status(403).json({ error: "Business access required" });
+  }
+  const body = req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return res.status(400).json({ error: "imageId is required" });
+  }
+  const ids = {
+    listingId: req.params && req.params.listingId,
+    imageId: body.imageId,
+  };
+  for (const field of Object.keys(ids)) {
+    if (typeof ids[field] !== "string" || ids[field].length !== 24) {
+      return res.status(400).json({ error: "Invalid " + field });
+    }
+    ids[field] = ids[field].toLowerCase();
+    for (const character of ids[field]) {
+      if ("0123456789abcdef".indexOf(character) === -1) {
+        return res.status(400).json({ error: "Invalid " + field });
+      }
+    }
+  }
+
+  try {
+    const listing = await Listing.findListingById(ids.listingId);
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+    const business = await Business.findBusinessById(listing.business_id);
+    if (!business) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+    if (business.owner_user_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: "You do not own this listing" });
+    }
+    if (listing.status === "REMOVED") {
+      return res.status(409).json({ error: "Removed listings cannot receive suggestions" });
+    }
+    const images = await ListingImage.findImagesByListing(listing._id);
+    const image = images.find((item) => item._id.toString() === ids.imageId);
+    if (!image) {
+      return res.status(404).json({ error: "Image not found for this listing" });
+    }
+    if (
+      image.mime_type !== "image/jpeg" &&
+      image.mime_type !== "image/png" &&
+      image.mime_type !== "image/webp"
+    ) {
+      return res.status(400).json({ error: "The image must be JPEG, PNG or WebP" });
+    }
+    if (
+      typeof image.s3_object_key !== "string" ||
+      image.s3_object_key.indexOf("listings/" + listing._id.toString() + "/") !== 0
+    ) {
+      return res.status(409).json({ error: "Image storage key does not match this listing" });
+    }
+    const apiKey = process.env.OPENAI_API_KEY;
+    const region = process.env.AWS_REGION;
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!apiKey || !apiKey.trim()) {
+      return res.status(503).json({ error: "AI suggestions are not configured" });
+    }
+    if (!region || !region.trim() || !bucket || !bucket.trim()) {
+      return res.status(503).json({ error: "Image storage is not configured" });
+    }
+
+    const records = await Category.getAllCategories();
+    const categories = [];
+    for (const category of records) {
+      categories.push({ id: category._id.toString(), name: category.name });
+    }
+    const imageUrl = await getSignedUrl(
+      new S3Client({ region }),
+      new GetObjectCommand({ Bucket: bucket, Key: image.s3_object_key }),
+      { expiresIn: 300 },
+    );
+    const result = await generateFoodDescription(imageUrl, categories, listing.original_price_sgd);
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    return res.status(200).json({
+      suggestions: result.suggestions,
+      requiresReview: true,
+    });
+  } catch (error) {
+    console.error("Failed to generate listing suggestions");
+    return res.status(500).json({ error: "Unable to generate listing suggestions" });
+  }
 }

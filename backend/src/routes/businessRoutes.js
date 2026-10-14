@@ -27,7 +27,7 @@ router.get("/:businessId/listings", getBusinessListings);
 router.post("/:businessId/listings", requireBusiness, createListing);
 router.get("/:businessId/managed-listings", requireBusiness, getManagedListings);
 router.get("/:businessId/reservations", requireBusiness, getBusinessReservations);
-router.post("/:businessId/collections/verify", requireBusiness, verifyCollectionCode);
+router.post("/collections/verify", requireBusiness, verifyCollectionCode);
 router.get("/:businessId/reviews", getBusinessReviews);
 router.get("/:businessId/impact", requireBusiness, getBusinessImpact);
 router.get("/:businessId", getBusinessById);

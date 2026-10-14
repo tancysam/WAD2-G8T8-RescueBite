@@ -2,6 +2,7 @@ import BusinessFavourite from "../models/BusinessFavourite.js";
 import ListingFavourite from "../models/ListingFavourite.js";
 import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
+import { loadListingImages } from "./listingImageController.js";
 
 
 // BUSINESS HERE
@@ -208,7 +209,9 @@ export async function getFavouriteListings(req, res) {
       }
     }
 
-    return res.status(200).json({ listings });
+    const listingsWithImages = await loadListingImages(listings, res);
+    if (!listingsWithImages) return;
+    return res.status(200).json({ listings: listingsWithImages });
   } catch (error) {
     console.error("Failed to get favourite listings:", error);
 
