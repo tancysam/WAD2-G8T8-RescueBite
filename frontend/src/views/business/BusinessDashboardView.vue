@@ -151,6 +151,9 @@ onMounted(loadDashboard)
             No reservations have been collected yet. Your impact will appear
             here after your first pickup.
           </p>
+          <RouterLink to="/business-orders" class="btn btn-success mt-3">
+            View all orders
+          </RouterLink>
         </div>
       </div>
     </section>
