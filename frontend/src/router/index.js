@@ -10,6 +10,7 @@ import BusinessProfileView from '../views/business/BusinessProfileView.vue'
 import BusinessDashboardView from '../views/business/BusinessDashboardView.vue'
 import BusinessOrdersView from '../views/business/BusinessOrdersView.vue'
 import RegisterBusinessView from '../views/business/RegisterBusinessView.vue'
+import ListingDetailView from '../views/listings/ListingDetailView.vue'
 
 const routes = [
   {
@@ -54,6 +55,11 @@ const routes = [
     component: BusinessProfileView,
     props: true,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/listings/:listingId',
+    name: 'listing-detail',
+    component: ListingDetailView
   },
   {
     path: '/businesses/:businessId/edit',
