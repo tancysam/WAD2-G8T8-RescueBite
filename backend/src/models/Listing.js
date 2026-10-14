@@ -52,14 +52,6 @@ const listingSchema = new mongoose.Schema(
       type: Number,
       required: [true, "quantity_available is required"],
     },
-    estimated_weight_kg_per_unit: {
-      type: Number,
-      required: [true, "estimated_weight_kg_per_unit is required"],
-    },
-    estimated_meals_per_unit: {
-      type: Number,
-      required: [true, "estimated_meals_per_unit is required"],
-    },
     collection_start_at: {
       type: Date,
       required: [true, "collection_start_at is required"],
@@ -138,15 +130,19 @@ function removeListing(id) {
 
 // TODO: wrap stock reduction + reservation creation in a MongoDB transaction
 // Conditional update so the stock reduction is atomic without a transaction.
-function reduceStock(listingId, expectedQty, newQty) {
+function reduceStock(listingId, expectedQty, newQty, updatedAt) {
   const update = { quantity_available: newQty };
   if (newQty === 0) {
     update.status = "SOLD_OUT";
   }
-  return Listing.updateOne(
-    { _id: listingId, quantity_available: expectedQty },
-    update,
-  );
+  const filter = {
+    _id: listingId,
+    quantity_available: expectedQty,
+    status: "ACTIVE",
+    collection_end_at: { $gte: new Date(Number(new Date()) + 1) },
+  };
+  if (updatedAt !== undefined) filter.updated_at = updatedAt;
+  return Listing.updateOne(filter, update);
 }
 
 // Retries the conditional update a few times in case of concurrent stock changes.
@@ -161,12 +157,15 @@ async function restoreStock(listingId, quantity) {
       quantity_available: listing.quantity_available + quantity,
     };
     if (listing.status === "SOLD_OUT") {
-      update.status = "ACTIVE";
+      update.status = Number(listing.collection_end_at) > Number(new Date()) ? "ACTIVE" : "EXPIRED";
     }
-    result = await Listing.updateOne(
-      { _id: listingId, quantity_available: listing.quantity_available },
-      update,
-    );
+    const filter = {
+      _id: listingId,
+      quantity_available: listing.quantity_available,
+      status: listing.status,
+    };
+    if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
+    result = await Listing.updateOne(filter, update);
     if (result.modifiedCount === 1) {
       return result;
     }
