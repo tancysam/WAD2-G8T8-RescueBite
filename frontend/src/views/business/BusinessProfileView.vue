@@ -2,10 +2,13 @@
 <script setup>
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import axios from 'axios'
+import { useAuth } from '@clerk/vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
 
 // Business ID received from Vue Router
+const { getToken } = useAuth()
+
 const props = defineProps({
   businessId: {
     type: String,
@@ -22,6 +25,11 @@ const mapElement = ref(null)
 const listings = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
+const isFavourite = ref(false)
+const favouriteMessage = ref('')
+const reviews = ref([])
+const reviewsLoading = ref(false)
+const reviewsError = ref('')
 
 // Google Maps variables
 let map = null
@@ -162,6 +170,76 @@ async function getListings() {
   }
 }
 
+async function getHeaders() {
+  const token = await getToken.value()
+  return {
+    Authorization: `Bearer ${token}`
+  }
+}
+
+async function checkFavourite() {
+  try {
+    const headers = await getHeaders()
+    const response = await axios.get(
+      'http://localhost:8000/api/users/me/favourites/businesses',
+      { headers: headers }
+    )
+
+    isFavourite.value = response.data.businesses.some(function (item) {
+      return item._id === props.businessId
+    })
+  } catch (error) {
+    isFavourite.value = false
+  }
+}
+
+async function toggleFavourite() {
+  favouriteMessage.value = ''
+
+  try {
+    const headers = await getHeaders()
+
+    if (isFavourite.value) {
+      await axios.delete(
+        `http://localhost:8000/api/users/me/favourites/businesses/${props.businessId}`,
+        { headers: headers }
+      )
+      isFavourite.value = false
+      favouriteMessage.value = 'Removed from favourites.'
+    } else {
+      await axios.put(
+        `http://localhost:8000/api/users/me/favourites/businesses/${props.businessId}`,
+        {},
+        { headers: headers }
+      )
+      isFavourite.value = true
+      favouriteMessage.value = 'Saved to favourites.'
+    }
+  } catch (error) {
+    favouriteMessage.value = 'Unable to update favourites.'
+  }
+}
+
+async function getReviews() {
+  reviewsLoading.value = true
+  reviewsError.value = ''
+
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/businesses/${props.businessId}/reviews`
+    )
+    reviews.value = response.data.reviews
+  } catch (error) {
+    reviewsError.value = 'Unable to load reviews.'
+  }
+
+  reviewsLoading.value = false
+}
+
+function reviewStars(rating) {
+  return '★'.repeat(rating)
+}
+
 // Open directions in Google Maps
 function openDirections() {
   const coordinates = business.value?.location?.coordinates
@@ -180,11 +258,15 @@ function openDirections() {
 onMounted(() => {
   getBusiness()
   getListings()
+  checkFavourite()
+  getReviews()
 })
 
 watch(() => props.businessId, () => {
   getBusiness()
   getListings()
+  checkFavourite()
+  getReviews()
 })
 
 // Cleanup
@@ -231,6 +313,13 @@ onUnmounted(() => {
           {{ business.description || 'No description available.' }}
         </p>
       </header>
+
+      <div class="favourite-area">
+        <button class="favourite-button" @click="toggleFavourite">
+          {{ isFavourite ? 'Remove from favourites' : 'Save business' }}
+        </button>
+        <p v-if="favouriteMessage">{{ favouriteMessage }}</p>
+      </div>
 
       <!-- Contact Information -->
       <section class="profile-section">
@@ -312,6 +401,18 @@ onUnmounted(() => {
           <h3>No listings available right now</h3>
           <p>Check back later for new food from {{ business.name }}.</p>
         </div>
+      </section>
+      <section class="reviews-section">
+        <h2>Customer reviews</h2>
+
+        <p v-if="reviewsLoading">Loading reviews...</p>
+        <p v-else-if="reviewsError" class="error">{{ reviewsError }}</p>
+        <p v-else-if="reviews.length === 0">No reviews yet.</p>
+
+        <article v-for="review in reviews" :key="review._id" class="review-card">
+          <p class="review-stars">{{ reviewStars(review.rating) }}</p>
+          <p>{{ review.comment || 'No comment added.' }}</p>
+        </article>
       </section>
     </div>
   </main>
@@ -409,6 +510,52 @@ onUnmounted(() => {
 .empty-listings p {
   margin: 0;
   color: #748078;
+}
+
+.favourite-area {
+  margin-bottom: 20px;
+}
+
+.favourite-area p {
+  margin: 8px 0 0;
+  color: #4c6756;
+}
+
+.favourite-button {
+  padding: 10px 16px;
+  border: 1px solid #256b45;
+  border-radius: 8px;
+  color: white;
+  background-color: #256b45;
+  cursor: pointer;
+}
+
+.reviews-section {
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background-color: white;
+}
+
+.reviews-section h2 {
+  color: #256b45;
+}
+
+.review-card {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 9px;
+  background-color: #f5f9f2;
+}
+
+.review-card p {
+  margin: 0 0 6px;
+}
+
+.review-stars {
+  color: #e0a100;
+  font-size: 20px;
 }
 
 /* Profile Sections */
