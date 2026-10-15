@@ -396,6 +396,10 @@ textarea {
 .address-search :deep(gmp-place-autocomplete) {
   width: 100%;
   display: block;
+  color-scheme: light;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
 }
 
 /* Error */

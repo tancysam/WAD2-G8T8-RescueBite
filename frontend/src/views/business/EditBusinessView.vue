@@ -76,7 +76,7 @@ async function getBusiness() {
       phone: emptyIfNull(data.phone),
       address: emptyIfNull(data.address),
       postalCode: emptyIfNull(data.postal_code),
-      pickupInstructions: emptyIfNull(data.pickup_instructions)
+      pickupInstructions: emptyIfNull(data.pickup_instructions),
       name: data.name ?? '',
       description: data.description ?? '',
       phone: data.phone ?? '',
@@ -570,6 +570,10 @@ textarea {
 .address-search :deep(gmp-place-autocomplete) {
   width: 100%;
   display: block;
+  color-scheme: light;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
 }
 
 .field-hint {
