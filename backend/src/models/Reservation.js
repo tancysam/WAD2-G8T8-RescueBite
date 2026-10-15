@@ -17,6 +17,8 @@ const listingSnapshotSchema = new mongoose.Schema(
     collection_start_at: { type: Date, required: true },
     collection_end_at: { type: Date, required: true },
     pickup_address: { type: String, required: true },
+    pickup_instructions: { type: String },
+    pickup_coordinates: { type: [Number] },
   },
   { _id: false },
 );
@@ -105,8 +107,7 @@ function createReservation(data) {
   return Reservation.create(reservationData);
 }
 
-function markCollected(reservationId, code, businessId, verifierUserId) {
-  const collectedAt = new Date();
+function markCollected(reservationId, code, businessId, verifierUserId, collectedAt) {
   return Reservation.updateOne(
     {
       _id: reservationId,

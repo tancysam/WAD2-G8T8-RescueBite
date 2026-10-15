@@ -2,6 +2,7 @@ import Reservation from "../models/Reservation.js";
 import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
 import Review from "../models/Review.js";
+import { getListingThumbnailUrl } from "./listingImageController.js";
 
 export async function createReservation(req, res) {
   // create reservation
@@ -94,6 +95,8 @@ export async function createReservation(req, res) {
         collection_start_at: listing.collection_start_at,
         collection_end_at: listing.collection_end_at,
         pickup_address: business.address,
+        pickup_instructions: business.pickup_instructions || "",
+        pickup_coordinates: business.location.coordinates,
       },
     };
     const result = await Listing.reduceStock(
@@ -169,6 +172,8 @@ export async function getMyReservations(req, res) {
       }
 
       const review = await Review.findReviewByReservation(reservation._id);
+      const business = await Business.findBusinessById(reservation.listing_snapshot.business_id);
+      const thumbnailUrl = await getListingThumbnailUrl(reservation.listing_id);
 
       reservations.push({
         _id: reservation._id,
@@ -183,6 +188,14 @@ export async function getMyReservations(req, res) {
         reserved_at: reservation.reserved_at,
         updated_at: reservation.updated_at,
         review: review,
+        thumbnail_url: thumbnailUrl,
+        pickup_instructions: typeof reservation.listing_snapshot.pickup_instructions === "string"
+          ? reservation.listing_snapshot.pickup_instructions
+          : business ? business.pickup_instructions : "",
+        pickup_coordinates: Array.isArray(reservation.listing_snapshot.pickup_coordinates) &&
+          reservation.listing_snapshot.pickup_coordinates.length === 2
+          ? reservation.listing_snapshot.pickup_coordinates
+          : business && business.location ? business.location.coordinates : [],
       });
     }
 
