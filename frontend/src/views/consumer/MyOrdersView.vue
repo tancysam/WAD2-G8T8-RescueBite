@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import placeholderImage from '../../assets/placeholder.jpg'
@@ -20,10 +20,13 @@ const collectionReservation = ref(null)
 const collectionCode = ref('')
 const collectionLoading = ref(false)
 const collectionError = ref('')
+const collectionStatusError = ref('')
 const reservationToCancel = ref(null)
 const cancelling = ref(false)
 const cancelError = ref('')
 const failedImages = ref({})
+let collectionCheckTimer = null
+let checkingCollection = false
 
 const collectionQrUrl = computed(function () {
   if (!collectionCode.value) return ''
@@ -43,6 +46,26 @@ const filteredReservations = computed(function () {
   })
 })
 
+function newestFirst(list) {
+  const sorted = []
+
+  for (const item of list) {
+    const time = Number(new Date(item.reserved_at))
+    let position = 0
+
+    while (
+      position < sorted.length &&
+      Number(new Date(sorted[position].reserved_at)) > time
+    ) {
+      position = position + 1
+    }
+
+    sorted.splice(position, 0, item)
+  }
+
+  return sorted
+}
+
 async function getHeaders() {
   const token = await getToken.value()
   return {
@@ -61,7 +84,7 @@ async function getReservations() {
       { headers: headers }
     )
 
-    reservations.value = response.data.reservations
+    reservations.value = newestFirst(response.data.reservations)
 
     for (const reservation of reservations.value) {
       reviewForms.value[reservation._id] = {
@@ -108,9 +131,11 @@ async function submitReview(reservation) {
 }
 
 async function showCollectionCode(reservation) {
+  stopCollectionChecks()
   collectionReservation.value = reservation
   collectionCode.value = ''
   collectionError.value = ''
+  collectionStatusError.value = ''
   collectionLoading.value = true
 
   try {
@@ -121,6 +146,9 @@ async function showCollectionCode(reservation) {
     if (collectionReservation.value === reservation) {
       collectionCode.value = response.data.collectionCode
       // set the collectionCode
+      stopCollectionChecks()
+      collectionCheckTimer = setInterval(() => checkCollectionStatus(reservation), 5000)
+      // check for status every 5s
     }
   } catch (error) {
     if (collectionReservation.value === reservation) {
@@ -133,10 +161,53 @@ async function showCollectionCode(reservation) {
   }
 }
 
+function stopCollectionChecks() {
+  if (collectionCheckTimer !== null) clearInterval(collectionCheckTimer)
+  collectionCheckTimer = null
+}
+
+async function checkCollectionStatus(reservation) {
+  if (checkingCollection || collectionReservation.value !== reservation) return
+  checkingCollection = true
+
+  try {
+    const response = await axios.get(`${API_URL}/users/me/reservations`, {
+      headers: await getHeaders()
+    })
+    if (collectionReservation.value !== reservation) return
+
+    const updated = response.data.reservations.find(function (item) {
+      return item._id === reservation._id
+    })
+    if (!updated) {
+      collectionStatusError.value = 'Unable to update collection status. Please refresh My Orders.'
+      return
+    }
+
+    collectionStatusError.value = ''
+    if (updated.status !== 'RESERVED') {
+      reservation.status = updated.status
+      reservation.collected_at = updated.collected_at
+      stopCollectionChecks()
+      if (updated.status !== 'COLLECTED') {
+        collectionError.value = 'This reservation is no longer available for collection.'
+      }
+    }
+  } catch (error) {
+    if (collectionReservation.value === reservation) {
+      collectionStatusError.value = 'Unable to update collection status. Please refresh My Orders.'
+    }
+  } finally {
+    checkingCollection = false
+  }
+}
+
 function closeCollectionCode() {
+  stopCollectionChecks()
   collectionReservation.value = null
   collectionCode.value = ''
   collectionError.value = ''
+  collectionStatusError.value = ''
 }
 
 function openCancelConfirmation(reservation) {
@@ -208,6 +279,7 @@ function directionsUrl(reservation) {
 }
 
 onMounted(getReservations)
+onUnmounted(closeCollectionCode)
 </script>
 
 <template>
@@ -343,15 +415,27 @@ onMounted(getReservations)
         <p v-if="collectionLoading" role="status">Loading your collection QR...</p>
         <p v-else-if="collectionError" class="alert alert-danger" role="alert">{{ collectionError }}</p>
         <div v-else class="text-center">
-          <img
-            :src="collectionQrUrl"
-            alt="Collection QR code"
-            width="250"
-            height="250"
-            class="img-fluid"
-            @error="collectionError = 'Unable to generate your collection QR.'"
-          />
-          <p class="mt-3 mb-0">Show this QR code to the business when you collect your order.</p>
+          <div class="collection-qr-frame">
+            <img
+              :src="collectionQrUrl"
+              :alt="collectionReservation.status === 'COLLECTED' ? 'Collection QR code (no longer valid)' : 'Collection QR code'"
+              width="250"
+              height="250"
+              class="img-fluid"
+              @error="collectionError = 'Unable to generate your collection QR.'"
+            />
+            <div v-if="collectionReservation.status === 'COLLECTED'" class="collection-qr-overlay" aria-hidden="true">
+              <div class="collection-qr-stamp">
+                <span class="collection-qr-line"></span>
+                <span class="collection-qr-tick">✓</span>
+                <span class="collection-qr-line"></span>
+              </div>
+              <strong class="collection-qr-word">COLLECTED</strong>
+            </div>
+          </div>
+          <p v-if="collectionReservation.status === 'COLLECTED'" class="mt-3 mb-0" role="status">Listing collected. You may close this.</p>
+          <p v-else class="mt-3 mb-0">Show this QR code to the business when you collect your order.</p>
+          <p v-if="collectionStatusError" class="alert alert-warning mt-3 mb-0" role="alert">{{ collectionStatusError }}</p>
         </div>
       </div>
     </div>
@@ -519,6 +603,52 @@ textarea {
 .status.collected {
   color: #256b45;
   background-color: #e1f2e5;
+}
+
+.collection-qr-frame {
+  position: relative;
+  display: inline-block;
+}
+
+.collection-qr-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #256b45;
+  background: rgba(225, 242, 229, 0.75);
+}
+
+.collection-qr-stamp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collection-qr-line {
+  width: 42px;
+  border-top: 3px solid #256b45;
+}
+
+.collection-qr-tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  color: white;
+  background: #256b45;
+  font-size: 30px;
+}
+
+.collection-qr-word {
+  padding: 2px 8px;
+  border-bottom: 3px solid #256b45;
+  font-size: 23px;
 }
 
 .order-details {
