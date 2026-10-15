@@ -130,6 +130,27 @@ export async function loadListingImages(listings, res) {
   return results;
 }
 
+export async function getListingThumbnailUrl(listingId) {
+  const images = await ListingImage.findImagesByListing(listingId);
+  const image = images[0];
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION;
+  if (!image || !bucket || !region || !validImageKey(image.s3_object_key, listingId.toString(), image.mime_type)) {
+    return null;
+  }
+
+  try {
+    if (!s3Client) s3Client = new S3Client({ region, requestChecksumCalculation: "WHEN_REQUIRED" });
+    return await getSignedUrl(s3Client, new GetObjectCommand({
+      Bucket: bucket,
+      Key: image.s3_object_key,
+    }), { expiresIn: 300 });
+  } catch (error) {
+    console.error("Failed to create reservation thumbnail URL", error);
+    return null;
+  }
+}
+
 export async function createImageUploadUrl(req, res) {
   // upload listing image, create image upload
   try {
