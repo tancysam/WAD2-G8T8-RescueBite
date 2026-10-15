@@ -354,15 +354,17 @@ onMounted(getListingDetails)
         <template v-else>
           <p class="reserve-collection-details">Collect by {{ formatDate(listing.collection_end_at) }}.</p>
           <label for="reserve-quantity">Quantity</label>
-          <input
+          <select
             id="reserve-quantity"
             v-model.number="reserveQuantity"
-            type="number"
-            min="1"
-            :max="listing.quantity_available"
+            class="form-select"
             required
             autofocus
-          />
+          >
+            <option v-for="quantity in listing.quantity_available" :key="quantity" :value="quantity">
+              {{ quantity }}
+            </option>
+          </select>
           <p v-if="reservationError" class="reserve-error" role="alert">{{ reservationError }}</p>
           <div class="reserve-actions">
             <button type="button" :disabled="reserving" @click="closeReserveModal" class="btn btn-outline-danger">Cancel</button>
@@ -651,7 +653,7 @@ h1 {
 }
 
 .reserve-dialog label,
-.reserve-dialog input {
+.reserve-dialog select {
   display: block;
   width: 100%;
   margin-bottom: 10px;
