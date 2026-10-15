@@ -16,11 +16,16 @@ const loading = ref(true)
 const errorMessage = ref('')
 const successMessage = ref('')
 const selectedReservation = ref(null)
+const reservationToCancel = ref(null)
+const cancelling = ref(false)
+const cancelError = ref('')
 const failedImages = ref({})
 
 const filteredReservations = computed(function () {
   if (selectedStatus.value === 'ALL') {
-    return reservations.value
+    return reservations.value.filter(function (reservation) {
+      return reservation.status !== 'CANCELLED'
+    })
   }
 
   return reservations.value.filter(function (reservation) {
@@ -92,6 +97,47 @@ async function submitReview(reservation) {
   }
 }
 
+function openCancelConfirmation(reservation) {
+  reservationToCancel.value = reservation
+  cancelError.value = ''
+}
+
+function closeCancelConfirmation() {
+  if (!cancelling.value) reservationToCancel.value = null
+}
+
+async function confirmCancellation() {
+  if (!reservationToCancel.value || cancelling.value) return
+
+  cancelling.value = true
+  cancelError.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    const response = await axios.post(
+      `${API_URL}/reservations/${reservationToCancel.value._id}/cancel`,
+      {},
+      { headers: await getHeaders() }
+    )
+    reservationToCancel.value.status = 'CANCELLED'
+    reservationToCancel.value = null
+    if (response.data.stockRestorationPending) {
+      errorMessage.value = 'Reservation cancelled, but the listing quantity needs review by the business.'
+    } else if (response.data.message === 'Reservation is already cancelled') {
+      successMessage.value = 'This reservation was already cancelled.'
+    } else {
+      successMessage.value = 'Reservation cancelled. The listing quantity has been restored.'
+    }
+  } catch (error) {
+    cancelError.value =
+      (error.response && error.response.data && error.response.data.error) ||
+      'Unable to cancel this reservation. Please try again.'
+  } finally {
+    cancelling.value = false
+  }
+}
+
 function formatDate(value) {
   if (!value) return 'Not available'
 
@@ -142,8 +188,14 @@ onMounted(getReservations)
       </label>
     </div>
 
-    <p v-if="successMessage" class="success">{{ successMessage }}</p>
-    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+    <div v-if="successMessage" class="alert alert-success alert-dismissible" role="status">
+      {{ successMessage }}
+      <button type="button" class="btn-close" aria-label="Dismiss message" @click="successMessage = ''"></button>
+    </div>
+    <div v-if="errorMessage" class="alert alert-danger alert-dismissible" role="alert">
+      {{ errorMessage }}
+      <button type="button" class="btn-close" aria-label="Dismiss message" @click="errorMessage = ''"></button>
+    </div>
     <p v-if="loading">Loading your orders...</p>
 
     <p v-else-if="filteredReservations.length === 0" class="empty-message">
@@ -185,9 +237,17 @@ onMounted(getReservations)
           />
         </div>
 
-        <button type="button" class="primary-button" @click="selectedReservation = reservation">
-          View details
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="primary-button" @click="selectedReservation = reservation">
+            View details
+          </button>
+          <button
+            v-if="reservation.status === 'RESERVED'"
+            type="button"
+            class="btn btn-outline-danger"
+            @click="openCancelConfirmation(reservation)"
+          >Cancel order</button>
+        </div>
 
         <div v-if="reservation.status === 'COLLECTED'" class="review-section">
           <div v-if="reservation.review">
@@ -283,6 +343,23 @@ onMounted(getReservations)
           rel="noopener noreferrer"
           class="btn btn-success w-100 fw-semibold"
         >Get directions</a>
+      </div>
+    </div>
+
+    <div v-if="reservationToCancel" class="details-backdrop" @click.self="closeCancelConfirmation">
+      <div class="details-dialog cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-title" @keydown.esc="closeCancelConfirmation">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <h2 id="cancel-title" class="mb-0">Cancel this reservation?</h2>
+          <button type="button" class="btn-close" aria-label="Close confirmation" :disabled="cancelling" @click="closeCancelConfirmation"></button>
+        </div>
+        <p>You will release {{ reservationToCancel.quantity }} unit(s) of {{ reservationToCancel.listing_snapshot.title }} for others to reserve.</p>
+        <p v-if="cancelError" class="alert alert-danger" role="alert">{{ cancelError }}</p>
+        <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+          <button type="button" class="btn btn-outline-secondary" :disabled="cancelling" autofocus @click="closeCancelConfirmation">Keep order</button>
+          <button type="button" class="btn btn-danger" :disabled="cancelling" @click="confirmCancellation">
+            {{ cancelling ? 'Cancelling...' : 'Yes, cancel order' }}
+          </button>
+        </div>
       </div>
     </div>
   </main>
@@ -417,6 +494,10 @@ textarea {
   background: white;
 }
 
+.cancel-dialog {
+  max-width: 430px;
+}
+
 .order-details p {
   margin-bottom: 8px;
 }
@@ -450,25 +531,10 @@ textarea {
   cursor: pointer;
 }
 
-.empty-message,
-.success,
-.error {
+.empty-message {
   padding: 14px;
   border-radius: 8px;
-}
-
-.empty-message {
   background-color: #f1f6ef;
-}
-
-.success {
-  color: #256b45;
-  background-color: #e1f2e5;
-}
-
-.error {
-  color: #b42318;
-  background-color: #fff0ee;
 }
 
 @media (max-width: 600px) {
