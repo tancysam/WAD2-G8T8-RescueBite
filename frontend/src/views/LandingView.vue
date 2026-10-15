@@ -15,7 +15,8 @@ const { isLoaded, isSignedIn } = useAuth()
 
 const isLegacyRegisterUrl = computed(() => route.path === '/' && route.query.mode === 'register')
 const mode = computed(() => route.name === 'register' || isLegacyRegisterUrl.value ? 'register' : 'login')
-const registerRole = ref(getPendingRegistrationRole() ?? 'CONSUMER')
+const pendingRole = getPendingRegistrationRole()
+const registerRole = ref(pendingRole === null || pendingRole === undefined ? 'CONSUMER' : pendingRole)
 
 // This records the registration choice with Clerk. The backend must still
 // validate and create the MongoDB role during the later profile setup step.
