@@ -1,6 +1,7 @@
 import Reservation from "../models/Reservation.js";
 import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
+import Review from "../models/Review.js";
 
 export async function createReservation(req, res) {
   // create reservation
@@ -167,6 +168,8 @@ export async function getMyReservations(req, res) {
         continue;
       }
 
+      const review = await Review.findReviewByReservation(reservation._id);
+
       reservations.push({
         _id: reservation._id,
         consumer_user_id: reservation.consumer_user_id,
@@ -179,6 +182,7 @@ export async function getMyReservations(req, res) {
         cancelled_at: reservation.cancelled_at,
         reserved_at: reservation.reserved_at,
         updated_at: reservation.updated_at,
+        review: review,
       });
     }
 
