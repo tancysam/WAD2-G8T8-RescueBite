@@ -1,6 +1,6 @@
 
 <script setup>
-import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
+import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
@@ -31,6 +31,41 @@ const favouriteMessage = ref('')
 const reviews = ref([])
 const reviewsLoading = ref(false)
 const reviewsError = ref('')
+
+const userRole = ref(null)
+const roleLoading = ref(true)
+
+const backRoute = computed(() => {
+  return userRole.value === 'BUSINESS'
+    ? '/myBusinesses'
+    : '/businesses'
+})
+
+async function getUserRole() {
+  try {
+    roleLoading.value = true
+
+    const token = await getToken.value()
+
+    const response = await axios.get(
+      'http://localhost:8000/api/users/me',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    userRole.value = response.data.user.role
+
+    console.log('Current User Role:', userRole.value)
+
+  } catch (error) {
+    console.error('Error fetching user role:', error)
+  } finally {
+    roleLoading.value = false
+  }
+}
 
 // Google Maps variables
 let map = null
@@ -263,6 +298,7 @@ function openDirections() {
 }
 
 onMounted(() => {
+  getUserRole()
   getBusiness()
   getListings()
 })
@@ -290,10 +326,13 @@ onUnmounted(() => {
 
     <!-- Back to Businesses -->
     <RouterLink
-        to="/businesses"
-        class="back-link"
-      >
-      ← Back to Businesses
+      v-if="!roleLoading"
+      :to="backRoute"
+      class="back-link"
+    >
+      {{ userRole === 'BUSINESS'
+        ? '← Back to My Businesses'
+        : '← Back to Businesses' }}
     </RouterLink>
     <!-- Loading -->
     <p v-if="loading">
