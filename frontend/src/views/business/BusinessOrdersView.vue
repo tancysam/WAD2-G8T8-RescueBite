@@ -265,11 +265,32 @@ onUnmounted(closeScanner)
             <template v-if="collectedOrder">
               <h2 id="verification-title" class="h4 mb-3">Review Collection Details</h2>
               <template v-if="collectedOrder.listingName">
-                <p><strong>Consumer:</strong> {{ collectedOrder.consumerName }}</p>
-                <p><strong>Listing:</strong> {{ collectedOrder.listingName }}</p>
-                <p><strong>Quantity:</strong> {{ collectedOrder.quantity }}</p>
-                <p><strong>Total price:</strong> {{ formatMoney(collectedOrder.totalPrice) }}</p>
-                <p><strong>Collected at:</strong> {{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
+                <section class="card border-0 bg-light mb-3" aria-label="Collection summary">
+                  <div class="card-body">
+                    <div class="row g-3">
+                      <div class="col-4">
+                        <p class="small text-secondary mb-1">Consumer</p>
+                        <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
+                      </div>
+                      <div class="col-4">
+                        <p class="small text-secondary mb-1">Quantity</p>
+                        <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
+                      </div>
+                      <div class="col-4">
+                        <p class="small text-secondary mb-1">Total price</p>
+                        <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
+                      </div>
+                      <div class="col-12">
+                        <p class="small text-secondary mb-1">Listing</p>
+                        <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
+                      </div>
+                      <div class="col-12">
+                        <p class="small text-secondary mb-1">Collected at</p>
+                        <p class="fw-semibold mb-0">{{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </template>
               <p v-else>{{ collectedOrder.message }}</p>
               <button type="button" class="btn btn-success w-100" autofocus @click="confirmCollection">Confirm</button>
@@ -406,7 +427,13 @@ onUnmounted(closeScanner)
 }
 
 .scanner-screen {
+  width: 100%;
   max-width: 520px;
+}
+
+#collection-scanner {
+  width: 100%;
+  overflow: hidden;
 }
 
 .scan-backdrop {
