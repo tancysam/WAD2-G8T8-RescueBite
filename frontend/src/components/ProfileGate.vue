@@ -1,17 +1,17 @@
 <script setup>
+import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useAuth, useUser } from '@clerk/vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthenticatedApi } from '../api/useAuthenticatedApi.js'
 import { clearPendingRegistrationRole, getPendingRegistrationRole } from '../registrationRole.js'
 import { canAccessRoute, homeRouteForRole } from '../roleRouting.js'
 
+const PROFILE_URL = 'http://localhost:8000/api/users/me'
 const emit = defineEmits(['role-change'])
 const router = useRouter()
 const route = useRoute()
-const { isLoaded: authLoaded, isSignedIn } = useAuth()
+const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth()
 const { isLoaded: userLoaded, user } = useUser()
-const api = useAuthenticatedApi()
 
 const phase = ref('loading')
 const errorMessage = ref('')
@@ -32,21 +32,36 @@ const canShowPage = computed(() =>
 function displayNameFor(clerkUser) {
   const name = [clerkUser.fullName, clerkUser.username, clerkUser.firstName]
     .find((value) => typeof value === 'string' && value.trim())
-  return name?.trim() || 'RescueBite member'
+  return name ? name.trim() : 'RescueBite member'
 }
 
 function messageFor(error, action) {
-  if (error.response?.status === 401) {
+  if (error.response && error.response.status === 401) {
     return 'Your session could not be verified. Please sign out and sign in again.'
   }
   if (error.code === 'ERR_NETWORK') {
     return 'Cannot connect to the RescueBite server. Please check that it is running and try again.'
   }
-  if (error.response?.data?.error) return error.response.data.error
+  if (error.response && error.response.data && error.response.data.error) {
+    return error.response.data.error
+  }
   if (error.message === 'The saved profile role does not match your registration choice.') {
     return error.message
   }
   return `Unable to ${action} your profile. Please try again.`
+}
+
+function roleFromResponse(response) {
+  if (!response.data || !response.data.user) return undefined
+  return response.data.user.role
+}
+
+async function authenticatedHeaders() {
+  const token = await getToken.value()
+  if (!token) {
+    throw new Error('Sign in before making a protected API request')
+  }
+  return { Authorization: `Bearer ${token}` }
 }
 
 async function checkProfile(clerkUser) {
@@ -56,13 +71,15 @@ async function checkProfile(clerkUser) {
   profileRole.value = null
 
   try {
-    const response = await api.get('/users/me')
+    const response = await axios.get(PROFILE_URL, {
+      headers: await authenticatedHeaders()
+    })
     if (version !== requestVersion) return
     // An existing MongoDB profile is authoritative, including its saved role.
-    profileRole.value = response.data?.user?.role
+    profileRole.value = roleFromResponse(response)
     clearPendingRegistrationRole()
   } catch (error) {
-    if (error.response?.status !== 404) {
+    if (!error.response || error.response.status !== 404) {
       if (version !== requestVersion) return
       errorMessage.value = messageFor(error, 'check')
       phase.value = 'error'
@@ -71,8 +88,12 @@ async function checkProfile(clerkUser) {
 
     // The pending choice survives a redirect even if Clerk's initial metadata
     // was captured before the user selected Business.
-    const role = getPendingRegistrationRole()
-      ?? clerkUser.unsafeMetadata?.rescuebite_role_intent
+    let role = getPendingRegistrationRole()
+    if (role === null || role === undefined) {
+      role = clerkUser.unsafeMetadata
+        ? clerkUser.unsafeMetadata.rescuebite_role_intent
+        : undefined
+    }
     if (role !== 'CONSUMER' && role !== 'BUSINESS') {
       if (version !== requestVersion) return
       errorMessage.value = 'Your registration account type is missing. Please ask the RescueBite team for help.'
@@ -84,22 +105,25 @@ async function checkProfile(clerkUser) {
     phase.value = 'saving'
 
     try {
-      const response = await api.post('/users/me', {
-        display_name: displayNameFor(clerkUser),
-        role
-      })
-      if (response.data?.user?.role !== role) {
+      const response = await axios.post(
+        PROFILE_URL,
+        { display_name: displayNameFor(clerkUser), role },
+        { headers: await authenticatedHeaders() }
+      )
+      if (roleFromResponse(response) !== role) {
         throw new Error('The saved profile role does not match your registration choice.')
       }
       if (version !== requestVersion) return
       profileRole.value = response.data.user.role
     } catch (createError) {
-      if (createError.response?.status === 409) {
+      if (createError.response && createError.response.status === 409) {
         // Another tab may have created the profile after our first lookup.
         try {
-          const response = await api.get('/users/me')
+          const response = await axios.get(PROFILE_URL, {
+            headers: await authenticatedHeaders()
+          })
           if (version !== requestVersion) return
-          profileRole.value = response.data?.user?.role
+          profileRole.value = roleFromResponse(response)
         } catch (lookupError) {
           if (version !== requestVersion) return
           errorMessage.value = messageFor(lookupError, 'check')
