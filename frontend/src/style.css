@@ -37,3 +37,8 @@ h2,
 h3 {
   font-family: 'Outfit', sans-serif;
 }
+
+#collection-scanner video {
+  max-width: 100%;
+  height: auto;
+}

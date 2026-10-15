@@ -17,6 +17,12 @@ const imageFailed = ref(false)
 const isFavourite = ref(false)
 const canFavourite = ref(false)
 const favouriteMessage = ref('')
+const isConsumer = ref(false)
+const showReserveModal = ref(false)
+const reserveQuantity = ref(1)
+const reserving = ref(false)
+const reservationError = ref('')
+const reservationSuccess = ref(false)
 
 const primaryImage = computed(() => {
   if (imageFailed.value) return placeholderImage
@@ -81,6 +87,7 @@ async function getListingDetails() {
 
     business.value = businessResponse.data.business
     await checkFavourite()
+    await checkConsumerRole()
   } catch (error) {
     console.error('Error fetching listing details:', error)
 
@@ -101,6 +108,58 @@ async function getHeaders() {
   const token = await getToken.value()
   return {
     Authorization: `Bearer ${token}`
+  }
+}
+
+async function checkConsumerRole() {
+  try {
+    const response = await axios.get(`${API_URL}/users/me`, {
+      headers: await getHeaders()
+    })
+    isConsumer.value = response.data.user.role === 'CONSUMER'
+  } catch (error) {
+    console.error('Error checking user role:', error)
+    isConsumer.value = false
+  }
+}
+
+function openReserveModal() {
+  reserveQuantity.value = 1
+  reservationError.value = ''
+  reservationSuccess.value = false
+  showReserveModal.value = true
+}
+
+function closeReserveModal() {
+  if (!reserving.value) showReserveModal.value = false
+}
+
+async function reserveListing() {
+  const quantity = Number(reserveQuantity.value)
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > listing.value.quantity_available) {
+    reservationError.value = 'Choose a quantity within the available stock.'
+    return
+  }
+  if (reserving.value) return
+
+  reserving.value = true
+  reservationError.value = ''
+
+  try {
+    await axios.post(
+      `${API_URL}/listings/${listing.value._id}/reservations`,
+      { quantity: quantity },
+      { headers: await getHeaders() }
+    )
+
+    listing.value.quantity_available = listing.value.quantity_available - quantity
+    reservationSuccess.value = true
+  } catch (error) {
+    reservationError.value =
+      (error.response && error.response.data && error.response.data.error) ||
+      'Unable to reserve this listing. Please try again.'
+  } finally {
+    reserving.value = false
   }
 }
 
@@ -233,6 +292,14 @@ onMounted(getListingDetails)
             {{ listing.quantity_available }} available
           </p>
 
+          <button
+            v-if="isConsumer && listing.quantity_available > 0"
+            type="button"
+            class="favourite-button"
+            @click="openReserveModal"
+          >
+            Reserve listing
+          </button>
           <section class="summary-section">
             <h2>Collection window</h2>
             <p><strong>From:</strong> {{ formatDate(listing.collection_start_at) }}</p>
@@ -265,6 +332,48 @@ onMounted(getListingDetails)
           </RouterLink>
         </aside>
       </div>
+    </div>
+
+    <div v-if="showReserveModal" class="reserve-backdrop" @click.self="closeReserveModal">
+      <form
+        class="reserve-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reserve-title"
+        @submit.prevent="reserveListing"
+        @keydown.esc="closeReserveModal"
+      >
+        <h2 id="reserve-title">{{ reservationSuccess ? 'Reservation confirmed' : `Reserve ${listing.title}` }}</h2>
+        <div v-if="reservationSuccess" role="status">
+          <p>Reserved successfully. You can view your reservation in My Orders.</p>
+          <div class="reserve-actions">
+            <button type="button" class="btn btn-outline-secondary" @click="closeReserveModal">Close</button>
+            <RouterLink :to="{ name: 'my-orders' }" class="btn btn-success">View My Orders</RouterLink>
+          </div>
+        </div>
+        <template v-else>
+          <p class="reserve-collection-details">Collect by {{ formatDate(listing.collection_end_at) }}.</p>
+          <label for="reserve-quantity">Quantity</label>
+          <select
+            id="reserve-quantity"
+            v-model.number="reserveQuantity"
+            class="form-select"
+            required
+            autofocus
+          >
+            <option v-for="quantity in listing.quantity_available" :key="quantity" :value="quantity">
+              {{ quantity }}
+            </option>
+          </select>
+          <p v-if="reservationError" class="reserve-error" role="alert">{{ reservationError }}</p>
+          <div class="reserve-actions">
+            <button type="button" :disabled="reserving" @click="closeReserveModal" class="btn btn-outline-danger">Cancel</button>
+            <button type="submit" :disabled="reserving" class="favourite-button">
+              {{ reserving ? 'Reserving...' : 'Confirm reservation' }}
+            </button>
+          </div>
+        </template>
+      </form>
     </div>
   </main>
 </template>
@@ -514,6 +623,67 @@ h1 {
   margin: 8px 0 0;
   color: #4c6756;
   text-align: center;
+}
+
+.reserve-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.reserve-dialog {
+  width: 100%;
+  max-width: 430px;
+  padding: 24px;
+  border-radius: 12px;
+  background: white;
+}
+
+.reserve-collection-details {
+  padding: 12px 14px;
+  border: 1px solid #c9e3f3;
+  border-radius: 10px;
+  color: #18506b;
+  background-color: #eaf6fd;
+}
+
+.reserve-dialog label,
+.reserve-dialog select {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.reserve-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.reserve-actions > * {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reserve-actions > :first-child {
+  flex: 1;
+}
+
+.reserve-actions > :last-child {
+  flex: 2;
+}
+
+.reserve-error {
+  color: #b42318;
 }
 
 .back-button {
