@@ -64,6 +64,7 @@ async function updateBusiness(data) {
     })
 
     successMessage.value = 'Business updated successfully!'
+    router.push(`/businesses/${businessId}`)
   } catch (error) {
     console.error('Error updating business:', error)
     errorMessage.value = error.response?.data?.error || 'Failed to update business.'
