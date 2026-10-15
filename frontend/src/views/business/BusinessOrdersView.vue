@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
+import { Html5Qrcode } from 'html5-qrcode'
 
 const { getToken } = useAuth()
 
@@ -12,6 +13,10 @@ const reservations = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 const activeTab = ref('ALL')
+const scanOpen = ref(false)
+const scanError = ref('')
+let scanner = null
+let scannerReady = false
 
 const tabs = [
   { key: 'ALL', label: 'All' },
@@ -112,6 +117,42 @@ const visibleReservations = computed(() => {
   return sorted.filter((item) => item.status === activeTab.value)
 })
 
+async function openScanner() {
+  scanOpen.value = true
+  scanError.value = ''
+  await nextTick()
+  if (!scanOpen.value) return
+
+  const current = new Html5Qrcode('collection-scanner')
+  scanner = current
+
+  try {
+    await current.start({ facingMode: 'environment' }, { fps: 10 }, () => {})
+    if (scanner !== current || !scanOpen.value) {
+      await current.stop()
+    } else {
+      scannerReady = true
+    }
+  } catch (error) {
+    if (scanner === current) scanError.value = 'Unable to start the camera. Check camera access and try again.'
+  }
+}
+
+async function closeScanner() {
+  const current = scanner
+  scanner = null
+
+  if (current && scannerReady) {
+    scannerReady = false
+    try {
+      await current.stop()
+    } catch (error) {
+      console.error('Unable to stop the scanner:', error)
+    }
+  }
+  scanOpen.value = false
+}
+
 // Find the owner's active business, then load its reservations
 async function loadOrders() {
   loading.value = true
@@ -156,16 +197,35 @@ async function loadOrders() {
 }
 
 onMounted(loadOrders)
+onUnmounted(closeScanner)
 </script>
 
 <template>
   <main class="orders container py-4 py-md-5">
-    <header class="mb-4">
-      <h1 class="orders-title">Orders</h1>
-      <p v-if="business" class="text-muted mb-0">
-        Reservation history for {{ business.name }}
-      </p>
-    </header>
+    <section v-if="scanOpen" class="scanner-screen mx-auto">
+      <header class="d-flex justify-content-between align-items-start gap-3 mb-4">
+        <div>
+          <h1 class="orders-title">Scan collection QR</h1>
+          <p class="text-muted mb-0">Scan the consumer's QR code to confirm the pickup.</p>
+        </div>
+        <button type="button" class="btn-close" aria-label="Exit scanner" @click="closeScanner"></button>
+      </header>
+      <div v-if="scanError" class="alert alert-danger" role="alert">{{ scanError }}</div>
+      <div id="collection-scanner"></div>
+    </section>
+
+    <template v-else>
+      <header class="mb-4 d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+          <h1 class="orders-title">Orders</h1>
+          <p v-if="business" class="text-muted mb-0">
+            Reservation history for {{ business.name }}
+          </p>
+        </div>
+        <button v-if="business" type="button" class="btn btn-success" @click="openScanner">
+          Scan collection QR
+        </button>
+      </header>
 
     <!-- Loading -->
     <p v-if="loading" class="text-muted">Loading your orders...</p>
@@ -261,6 +321,7 @@ onMounted(loadOrders)
         </div>
       </div>
     </section>
+    </template>
   </main>
 </template>
 
@@ -273,6 +334,10 @@ onMounted(loadOrders)
   margin: 0 0 4px;
   font-size: clamp(28px, 4vw, 44px);
   color: #164936;
+}
+
+.scanner-screen {
+  max-width: 520px;
 }
 
 .nav-tabs .nav-link {
