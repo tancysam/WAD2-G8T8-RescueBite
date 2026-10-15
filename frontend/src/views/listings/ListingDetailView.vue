@@ -15,6 +15,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const imageFailed = ref(false)
 const isFavourite = ref(false)
+const canFavourite = ref(false)
 const favouriteMessage = ref('')
 
 const primaryImage = computed(() => {
@@ -111,10 +112,12 @@ async function checkFavourite() {
       { headers: headers }
     )
 
+    canFavourite.value = true
     isFavourite.value = response.data.listings.some(function (item) {
       return item._id === listing.value._id
     })
   } catch (error) {
+    canFavourite.value = false
     isFavourite.value = false
   }
 }
@@ -246,7 +249,7 @@ onMounted(getListingDetails)
             </p>
           </section>
 
-          <button class="favourite-button" @click="toggleFavourite">
+          <button v-if="canFavourite" class="favourite-button" @click="toggleFavourite">
             {{ isFavourite ? 'Remove from favourites' : 'Save listing' }}
           </button>
           <p v-if="favouriteMessage" class="favourite-message">
