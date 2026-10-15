@@ -3,7 +3,7 @@
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import { importLibrary } from '@googlemaps/js-api-loader'
 import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
 
 // Business ID received from Vue Router
@@ -36,12 +36,6 @@ const reviewsError = ref('')
 let map = null
 let marker = null
 let requestId = 0
-
-// Configure Google Maps
-setOptions({
-  key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  v: 'weekly'
-})
 
 // Load Google Maps
 async function loadMap(businessData) {

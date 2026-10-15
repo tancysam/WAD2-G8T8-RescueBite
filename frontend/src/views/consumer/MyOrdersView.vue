@@ -2,8 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
+import placeholderImage from '../../assets/placeholder.jpg'
+import PickupMap from '../../components/listings/PickupMap.vue'
 
 const API_URL = 'http://localhost:8000/api'
+const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 const { getToken } = useAuth()
 
 const reservations = ref([])
@@ -12,6 +15,8 @@ const reviewForms = ref({})
 const loading = ref(true)
 const errorMessage = ref('')
 const successMessage = ref('')
+const selectedReservation = ref(null)
+const failedImages = ref({})
 
 const filteredReservations = computed(function () {
   if (selectedStatus.value === 'ALL') {
@@ -104,6 +109,16 @@ function totalPrice(reservation) {
   )
 }
 
+function pickupCoordinates(reservation) {
+  const coordinates = reservation.pickup_coordinates
+  if (!Array.isArray(coordinates) || coordinates.length !== 2) return ''
+  return coordinates[1] + ',' + coordinates[0]
+}
+
+function directionsUrl(reservation) {
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + pickupCoordinates(reservation)
+}
+
 onMounted(getReservations)
 </script>
 
@@ -152,23 +167,27 @@ onMounted(getReservations)
         </div>
 
         <div class="order-details">
-          <p><strong>Quantity:</strong> {{ reservation.quantity }}</p>
-          <p><strong>Total:</strong> {{ totalPrice(reservation) }}</p>
-          <p><strong>Pickup:</strong> {{ reservation.listing_snapshot.pickup_address }}</p>
-          <p>
-            <strong>Collection window:</strong>
-            {{ formatDate(reservation.listing_snapshot.collection_start_at) }}
-            to {{ formatDate(reservation.listing_snapshot.collection_end_at) }}
-          </p>
+          <img
+            :src="failedImages[reservation._id] ? placeholderImage : (reservation.thumbnail_url || placeholderImage)"
+            :alt="reservation.thumbnail_url ? reservation.listing_snapshot.title : ''"
+            class="order-thumbnail"
+            @error="failedImages[reservation._id] = true"
+          />
+          <div>
+            <p><strong>Quantity:</strong> {{ reservation.quantity }}</p>
+            <p><strong>Total:</strong> {{ totalPrice(reservation) }}</p>
+            <p><strong>Pickup:</strong> {{ reservation.listing_snapshot.pickup_address }}</p>
+            <p>
+              <strong>Collection window:</strong>
+              {{ formatDate(reservation.listing_snapshot.collection_start_at) }}
+              to {{ formatDate(reservation.listing_snapshot.collection_end_at) }}
+            </p>
+          </div>
         </div>
 
-        <RouterLink
-          v-if="reservation.listing_id"
-          :to="{ name: 'listing-detail', params: { listingId: reservation.listing_id } }"
-          class="primary-button"
-        >
-          View listing
-        </RouterLink>
+        <button type="button" class="primary-button" @click="selectedReservation = reservation">
+          View details
+        </button>
 
         <div v-if="reservation.status === 'COLLECTED'" class="review-section">
           <div v-if="reservation.review">
@@ -206,6 +225,32 @@ onMounted(getReservations)
         </div>
       </article>
     </section>
+
+    <div v-if="selectedReservation" class="details-backdrop" @click.self="selectedReservation = null">
+      <div class="details-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
+        <button type="button" class="close-button" aria-label="Close details" autofocus @click="selectedReservation = null">×</button>
+        <h2 id="details-title">{{ selectedReservation.listing_snapshot.title }}</h2>
+        <p><strong>Business:</strong> {{ selectedReservation.listing_snapshot.business_name }}</p>
+        <p><strong>Status:</strong> {{ selectedReservation.status }}</p>
+        <p><strong>Quantity:</strong> {{ selectedReservation.quantity }}</p>
+        <p><strong>Collection window:</strong> {{ formatDate(selectedReservation.listing_snapshot.collection_start_at) }} to {{ formatDate(selectedReservation.listing_snapshot.collection_end_at) }}</p>
+        <p><strong>Pickup address:</strong> {{ selectedReservation.listing_snapshot.pickup_address }}</p>
+        <p><strong>Pickup instructions:</strong> {{ selectedReservation.pickup_instructions || 'No pickup instructions provided.' }}</p>
+        <PickupMap
+          v-if="pickupCoordinates(selectedReservation) && mapsApiKey"
+          :coordinates="selectedReservation.pickup_coordinates"
+          :name="selectedReservation.listing_snapshot.business_name"
+        />
+        <p v-else>Map unavailable for this pickup location.</p>
+        <a
+          v-if="pickupCoordinates(selectedReservation)"
+          :href="directionsUrl(selectedReservation)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="primary-button"
+        >Get directions</a>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -296,10 +341,53 @@ textarea {
 }
 
 .order-details {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
   margin: 18px 0;
   padding: 16px;
   border-radius: 9px;
   background-color: #f5f7f3;
+}
+
+.order-thumbnail {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.details-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.details-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  border-radius: 12px;
+  background: white;
+}
+
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  border: 0;
+  background: none;
+  font-size: 26px;
+  cursor: pointer;
 }
 
 .order-details p {
@@ -364,6 +452,10 @@ textarea {
   .page-heading,
   .order-heading {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .order-details {
     flex-direction: column;
   }
 }
