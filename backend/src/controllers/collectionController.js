@@ -1,5 +1,6 @@
 import Business from "../models/Business.js";
 import Reservation from "../models/Reservation.js";
+import User from "../models/User.js";
 
 function isHexString(value, length) {
   if (typeof value !== "string" || value.length !== length) {
@@ -96,6 +97,7 @@ export async function getCollectionCode(req, res) {
 
 export async function verifyCollectionCode(req, res) {
   // verify collection code
+  res.setHeader("Cache-Control", "no-store");
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -154,11 +156,14 @@ export async function verifyCollectionCode(req, res) {
       return res.status(409).json({ error });
     }
 
+    const consumer = await User.findUserById(reservation.consumer_user_id);
+    const collectedAt = new Date();
     const result = await Reservation.markCollected(
       reservationId,
       code,
       business._id.toString(),
       req.user._id.toString(),
+      collectedAt,
     );
     if (result.matchedCount !== 1 || result.modifiedCount !== 1) {
       return res.status(409).json({ error: "Reservation is no longer available for collection" });
@@ -168,6 +173,13 @@ export async function verifyCollectionCode(req, res) {
       reservationId,
       status: "COLLECTED",
       message: "Collection completed successfully",
+      collection: {
+        consumerName: consumer ? consumer.display_name : "Consumer",
+        listingName: reservation.listing_snapshot.title,
+        quantity: reservation.quantity,
+        totalPrice: reservation.quantity * reservation.listing_snapshot.rescue_unit_price_sgd,
+        collectedAt,
+      },
     });
   } catch (error) {
     console.error("Failed to verify collection code");

@@ -107,8 +107,7 @@ function createReservation(data) {
   return Reservation.create(reservationData);
 }
 
-function markCollected(reservationId, code, businessId, verifierUserId) {
-  const collectedAt = new Date();
+function markCollected(reservationId, code, businessId, verifierUserId, collectedAt) {
   return Reservation.updateOne(
     {
       _id: reservationId,
