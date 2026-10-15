@@ -99,6 +99,7 @@ onMounted(getBusiness)
 <template>
   <main class="business-page">
     <div class="page-heading">
+      <RouterLink to="/myBusinesses" class="back-link" style="margin-bottom: 10px;">← Back to Businesses</RouterLink>
       <h1>Edit Business</h1>
       <p>Update your business details and collection information.</p>
     </div>
@@ -125,8 +126,6 @@ onMounted(getBusiness)
         {{ deleting ? 'Deleting...' : 'Delete Business' }}
       </button>
     </div>
-
-    <RouterLink to="/businesses" class="back-link">← Back to Businesses</RouterLink>
   </main>
 </template>
 
