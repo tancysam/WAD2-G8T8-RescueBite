@@ -26,6 +26,7 @@ const listings = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
 const isFavourite = ref(false)
+const canFavourite = ref(false)
 const favouriteMessage = ref('')
 const reviews = ref([])
 const reviewsLoading = ref(false)
@@ -187,10 +188,12 @@ async function checkFavourite() {
       { headers: headers }
     )
 
+    canFavourite.value = true
     isFavourite.value = response.data.businesses.some(function (item) {
       return item._id === props.businessId
     })
   } catch (error) {
+    canFavourite.value = false
     isFavourite.value = false
   }
 }
@@ -313,7 +316,7 @@ onUnmounted(() => {
       </header>
 
       <div class="favourite-area">
-        <button class="favourite-button" @click="toggleFavourite">
+        <button v-if="canFavourite" class="favourite-button" @click="toggleFavourite">
           {{ isFavourite ? 'Remove from favourites' : 'Save business' }}
         </button>
         <p v-if="favouriteMessage">{{ favouriteMessage }}</p>
