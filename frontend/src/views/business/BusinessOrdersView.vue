@@ -15,8 +15,11 @@ const errorMessage = ref('')
 const activeTab = ref('ALL')
 const scanOpen = ref(false)
 const scanError = ref('')
+const verifying = ref(false)
+const collectedOrder = ref(null)
+const verificationError = ref(null)
 let scanner = null
-let scannerReady = false
+let scannerStart = null
 
 const tabs = [
   { key: 'ALL', label: 'All' },
@@ -120,6 +123,7 @@ const visibleReservations = computed(() => {
 async function openScanner() {
   scanOpen.value = true
   scanError.value = ''
+  verificationError.value = null
   await nextTick()
   if (!scanOpen.value) return
 
@@ -127,30 +131,71 @@ async function openScanner() {
   scanner = current
 
   try {
-    await current.start({ facingMode: 'environment' }, { fps: 10 }, () => {})
-    if (scanner !== current || !scanOpen.value) {
-      await current.stop()
-    } else {
-      scannerReady = true
-    }
+    scannerStart = current.start({ facingMode: 'environment' }, { fps: 10 }, verifyScannedCode)
+    await scannerStart
   } catch (error) {
     if (scanner === current) scanError.value = 'Unable to start the camera. Check camera access and try again.'
+  } finally {
+    if (scanner === current) scannerStart = null
+  }
+}
+
+async function stopCamera() {
+  const current = scanner
+  const starting = scannerStart
+  scanner = null
+  scannerStart = null
+
+  if (!current) return
+  try {
+    if (starting) await starting
+    await current.stop()
+  } catch (error) {
+    console.error('Unable to stop the scanner:', error)
+  }
+  try {
+    current.clear()
+  } catch (error) {
+    console.error('Unable to clear the scanner:', error)
   }
 }
 
 async function closeScanner() {
-  const current = scanner
-  scanner = null
-
-  if (current && scannerReady) {
-    scannerReady = false
-    try {
-      await current.stop()
-    } catch (error) {
-      console.error('Unable to stop the scanner:', error)
-    }
-  }
+  await stopCamera()
   scanOpen.value = false
+  collectedOrder.value = null
+  verificationError.value = null
+}
+
+async function verifyScannedCode(collectionCode) {
+  if (verifying.value || !scanOpen.value) return
+  verifying.value = true
+  await stopCamera()
+
+  try {
+    const token = await getToken.value()
+    const response = await axios.post(
+      `${API_URL}/businesses/collections/verify`,
+      { businessId: business.value._id, collectionCode },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (scanOpen.value) collectedOrder.value = response.data.collection || {
+      message: 'Collection saved, but the server did not return the order details. Select Confirmed to refresh Orders.'
+    }
+  } catch (error) {
+    if (scanOpen.value) {
+      const backendError = error.response && error.response.data && error.response.data.error
+      verificationError.value = backendError || 'Unable to verify this QR code. Please try again.'
+    }
+  } finally {
+    verifying.value = false
+  }
+}
+
+async function confirmCollection() {
+  await closeScanner()
+  activeTab.value = 'ALL'
+  await loadOrders()
 }
 
 // Find the owner's active business, then load its reservations
@@ -208,10 +253,34 @@ onUnmounted(closeScanner)
           <h1 class="orders-title">Scan collection QR</h1>
           <p class="text-muted mb-0">Scan the consumer's QR code to confirm the pickup.</p>
         </div>
-        <button type="button" class="btn-close" aria-label="Exit scanner" @click="closeScanner"></button>
+        <button type="button" class="btn-close" aria-label="Exit scanner" :disabled="verifying" @click="closeScanner"></button>
       </header>
       <div v-if="scanError" class="alert alert-danger" role="alert">{{ scanError }}</div>
-      <div id="collection-scanner"></div>
+      <p v-if="verifying" role="status">Verifying collection...</p>
+      <div v-show="!verifying && !collectedOrder && !verificationError" id="collection-scanner"></div>
+
+      <div v-if="collectedOrder || verificationError" class="scan-backdrop">
+        <section class="card scan-dialog" role="dialog" aria-modal="true" aria-labelledby="verification-title">
+          <div class="card-body">
+            <template v-if="collectedOrder">
+              <h2 id="verification-title" class="h4 mb-3">Review Collection Details</h2>
+              <template v-if="collectedOrder.listingName">
+                <p><strong>Consumer:</strong> {{ collectedOrder.consumerName }}</p>
+                <p><strong>Listing:</strong> {{ collectedOrder.listingName }}</p>
+                <p><strong>Quantity:</strong> {{ collectedOrder.quantity }}</p>
+                <p><strong>Total price:</strong> {{ formatMoney(collectedOrder.totalPrice) }}</p>
+                <p><strong>Collected at:</strong> {{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
+              </template>
+              <p v-else>{{ collectedOrder.message }}</p>
+              <button type="button" class="btn btn-success w-100" autofocus @click="confirmCollection">Confirm</button>
+            </template>
+            <template v-else>
+              <h2 id="verification-title" class="h4 mb-3" role="alert">{{ verificationError }}</h2>
+              <button type="button" class="btn btn-success w-100" autofocus @click="openScanner">Try again</button>
+            </template>
+          </div>
+        </section>
+      </div>
     </section>
 
     <template v-else>
@@ -338,6 +407,22 @@ onUnmounted(closeScanner)
 
 .scanner-screen {
   max-width: 520px;
+}
+
+.scan-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.scan-dialog {
+  width: 100%;
+  max-width: 430px;
 }
 
 .nav-tabs .nav-link {
