@@ -20,7 +20,7 @@ async function registerBusiness(data) {
     await axios.post(`${API_URL}/businesses`, data, {
       headers: { Authorization: `Bearer ${token}` }
     })
-
+    
     router.push('/businesses')
   } catch (error) {
     console.error('Error registering business:', error)
