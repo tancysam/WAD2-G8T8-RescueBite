@@ -16,10 +16,20 @@ const loading = ref(true)
 const errorMessage = ref('')
 const successMessage = ref('')
 const selectedReservation = ref(null)
+const collectionReservation = ref(null)
+const collectionCode = ref('')
+const collectionLoading = ref(false)
+const collectionError = ref('')
 const reservationToCancel = ref(null)
 const cancelling = ref(false)
 const cancelError = ref('')
 const failedImages = ref({})
+
+const collectionQrUrl = computed(function () {
+  if (!collectionCode.value) return ''
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(collectionCode.value)
+  // send collectionCode to goQR for encoding to QR image
+})
 
 const filteredReservations = computed(function () {
   if (selectedStatus.value === 'ALL') {
@@ -95,6 +105,38 @@ async function submitReview(reservation) {
       errorMessage.value = 'Unable to submit your review.'
     }
   }
+}
+
+async function showCollectionCode(reservation) {
+  collectionReservation.value = reservation
+  collectionCode.value = ''
+  collectionError.value = ''
+  collectionLoading.value = true
+
+  try {
+    const response = await axios.get(`${API_URL}/reservations/collection-code`, {
+      headers: await getHeaders(),
+      params: { reservationId: reservation._id }
+    })
+    if (collectionReservation.value === reservation) {
+      collectionCode.value = response.data.collectionCode
+      // set the collectionCode
+    }
+  } catch (error) {
+    if (collectionReservation.value === reservation) {
+      collectionError.value =
+        (error.response && error.response.data && error.response.data.error) ||
+        'Unable to load your collection code.'
+    }
+  } finally {
+    if (collectionReservation.value === reservation) collectionLoading.value = false
+  }
+}
+
+function closeCollectionCode() {
+  collectionReservation.value = null
+  collectionCode.value = ''
+  collectionError.value = ''
 }
 
 function openCancelConfirmation(reservation) {
@@ -238,7 +280,13 @@ onMounted(getReservations)
         </div>
 
         <div class="d-flex flex-wrap gap-2">
-          <button type="button" class="primary-button" @click="selectedReservation = reservation">
+          <button
+            v-if="reservation.status === 'RESERVED'"
+            type="button"
+            class="primary-button"
+            @click="showCollectionCode(reservation)"
+          >Show collection QR</button>
+          <button type="button" class="btn btn-outline-success" @click="selectedReservation = reservation">
             View details
           </button>
           <button
@@ -285,6 +333,28 @@ onMounted(getReservations)
         </div>
       </article>
     </section>
+
+    <div v-if="collectionReservation" class="details-backdrop" @click.self="closeCollectionCode">
+      <div class="details-dialog cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="collection-title" @keydown.esc="closeCollectionCode">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <h2 id="collection-title" class="mb-0">Collection QR code</h2>
+          <button type="button" class="btn-close" aria-label="Close collection code" autofocus @click="closeCollectionCode"></button>
+        </div>
+        <p v-if="collectionLoading" role="status">Loading your collection QR...</p>
+        <p v-else-if="collectionError" class="alert alert-danger" role="alert">{{ collectionError }}</p>
+        <div v-else class="text-center">
+          <img
+            :src="collectionQrUrl"
+            alt="Collection QR code"
+            width="250"
+            height="250"
+            class="img-fluid"
+            @error="collectionError = 'Unable to generate your collection QR.'"
+          />
+          <p class="mt-3 mb-0">Show this QR code to the business when you collect your order.</p>
+        </div>
+      </div>
+    </div>
 
     <div v-if="selectedReservation" class="details-backdrop" @click.self="selectedReservation = null">
       <div class="details-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
@@ -542,8 +612,7 @@ textarea {
     padding: 18px;
   }
 
-  .page-heading,
-  .order-heading {
+  .page-heading {
     align-items: flex-start;
     flex-direction: column;
   }
