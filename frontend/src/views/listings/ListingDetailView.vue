@@ -2,16 +2,21 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import { useAuth } from '@clerk/vue'
 import placeholderImage from '../../assets/placeholder.jpg'
 
 const API_URL = 'http://localhost:8000/api'
 const route = useRoute()
+const { getToken } = useAuth()
 
 const listing = ref(null)
 const business = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
 const imageFailed = ref(false)
+const isFavourite = ref(false)
+const canFavourite = ref(false)
+const favouriteMessage = ref('')
 
 const primaryImage = computed(() => {
   if (imageFailed.value) return placeholderImage
@@ -75,6 +80,7 @@ async function getListingDetails() {
     )
 
     business.value = businessResponse.data.business
+    await checkFavourite()
   } catch (error) {
     console.error('Error fetching listing details:', error)
 
@@ -88,6 +94,59 @@ async function getListingDetails() {
   }
 
   loading.value = false
+}
+
+
+async function getHeaders() {
+  const token = await getToken.value()
+  return {
+    Authorization: `Bearer ${token}`
+  }
+}
+
+async function checkFavourite() {
+  try {
+    const headers = await getHeaders()
+    const response = await axios.get(
+      `${API_URL}/users/me/favourites/listings`,
+      { headers: headers }
+    )
+
+    canFavourite.value = true
+    isFavourite.value = response.data.listings.some(function (item) {
+      return item._id === listing.value._id
+    })
+  } catch (error) {
+    canFavourite.value = false
+    isFavourite.value = false
+  }
+}
+
+async function toggleFavourite() {
+  favouriteMessage.value = ''
+
+  try {
+    const headers = await getHeaders()
+
+    if (isFavourite.value) {
+      await axios.delete(
+        `${API_URL}/users/me/favourites/listings/${listing.value._id}`,
+        { headers: headers }
+      )
+      isFavourite.value = false
+      favouriteMessage.value = 'Removed from favourites.'
+    } else {
+      await axios.put(
+        `${API_URL}/users/me/favourites/listings/${listing.value._id}`,
+        {},
+        { headers: headers }
+      )
+      isFavourite.value = true
+      favouriteMessage.value = 'Saved to favourites.'
+    }
+  } catch (error) {
+    favouriteMessage.value = 'Unable to update favourites.'
+  }
 }
 
 onMounted(getListingDetails)
@@ -189,6 +248,13 @@ onMounted(getListingDetails)
               {{ business.pickup_instructions }}
             </p>
           </section>
+
+          <button v-if="canFavourite" class="favourite-button" @click="toggleFavourite">
+            {{ isFavourite ? 'Remove from favourites' : 'Save listing' }}
+          </button>
+          <p v-if="favouriteMessage" class="favourite-message">
+            {{ favouriteMessage }}
+          </p>
 
           <RouterLink
             v-if="business"
@@ -425,6 +491,29 @@ h1 {
   padding: 10px;
   border-radius: 8px;
   background-color: #f5f7f2;
+}
+
+.favourite-button {
+  width: 100%;
+  margin-top: 22px;
+  padding: 11px 14px;
+  border: 1px solid #256b45;
+  border-radius: 8px;
+  color: white;
+  background-color: #256b45;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.favourite-button:hover {
+  background-color: #1b5034;
+}
+
+.favourite-message {
+  margin: 8px 0 0;
+  color: #4c6756;
+  text-align: center;
 }
 
 .back-button {
