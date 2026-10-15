@@ -14,6 +14,8 @@ import ListingDetailView from '../views/listings/ListingDetailView.vue'
 import BusinessListingsView from '../views/business/BusinessListingsView.vue'
 import CreateListingView from '../views/business/CreateListingView.vue'
 import EditListingView from '../views/business/EditListingView.vue'
+import FavouritesView from '../views/consumer/FavouritesView.vue'
+import MyOrdersView from '../views/consumer/MyOrdersView.vue'
 
 const routes = [
   {
@@ -62,7 +64,20 @@ const routes = [
   {
     path: '/listings/:listingId',
     name: 'listing-detail',
-    component: ListingDetailView
+    component: ListingDetailView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/favourites',
+    name: 'favourites',
+    component: FavouritesView,
+    meta: { requiresAuth: true, requiredRole: 'CONSUMER' }
+  },
+  {
+    path: '/my-orders',
+    name: 'my-orders',
+    component: MyOrdersView,
+    meta: { requiresAuth: true, requiredRole: 'CONSUMER' }
   },
   {
     path: '/businesses/:businessId/edit',
