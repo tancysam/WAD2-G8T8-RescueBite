@@ -34,6 +34,7 @@ const reviewsError = ref('')
 
 const userRole = ref(null)
 const roleLoading = ref(true)
+const isOwner = ref(false)
 
 const backRoute = computed(() => {
   return userRole.value === 'BUSINESS'
@@ -43,8 +44,6 @@ const backRoute = computed(() => {
 
 async function getUserRole() {
   try {
-    roleLoading.value = true
-
     const token = await getToken.value()
 
     const response = await axios.get(
@@ -57,11 +56,30 @@ async function getUserRole() {
     )
 
     userRole.value = response.data.user.role
+    isOwner.value = false
 
-    console.log('Current User Role:', userRole.value)
+    // Only check ownership for business accounts
+    if (userRole.value === 'BUSINESS') {
+      const ownedResponse = await axios.get(
+        'http://localhost:8000/api/businesses/ownedBusinesses',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      for (const business of ownedResponse.data.businesses) {
+        if (business._id === props.businessId) {
+          isOwner.value = true
+          break
+        }
+      }
+    }
 
   } catch (error) {
     console.error('Error fetching user role:', error)
+    isOwner.value = false
   } finally {
     roleLoading.value = false
   }
@@ -304,6 +322,8 @@ onMounted(() => {
 })
 
 watch(() => props.businessId, () => {
+  isOwner.value = false
+  getUserRole()
   getBusiness()
   getListings()
 })
@@ -356,15 +376,12 @@ onUnmounted(() => {
         </p>
 
         <RouterLink
-        v-if="userRole === 'BUSINESS'"
-          :to="{
-            name: 'edit-business',
-            params: { businessId: business._id }
-          }"
+          v-if="userRole === 'BUSINESS' && isOwner"
+          :to="`/businesses/${businessId}/edit`"
           class="edit-button"
-      >
-        Edit Business
-      </RouterLink>
+        >
+          Edit Business
+        </RouterLink>
       </header>
 
       <div class="favourite-area">
