@@ -26,6 +26,10 @@ const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
+function emptyIfNull(value) {
+  return value === null || value === undefined ? '' : value
+}
+
 // Load existing business details
 async function getBusiness() {
   try {
@@ -53,19 +57,19 @@ async function getBusiness() {
     }
 
     business.value = {
-      name: data.name ?? '',
-      description: data.description ?? '',
-      phone: data.phone ?? '',
-      address: data.address ?? '',
-      postalCode: data.postal_code ?? '',
-      pickupInstructions: data.pickup_instructions ?? ''
+      name: emptyIfNull(data.name),
+      description: emptyIfNull(data.description),
+      phone: emptyIfNull(data.phone),
+      address: emptyIfNull(data.address),
+      postalCode: emptyIfNull(data.postal_code),
+      pickupInstructions: emptyIfNull(data.pickup_instructions)
     }
 
   } catch (error) {
     console.error('Error fetching business:', error)
 
     errorMessage.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Failed to load business details.'
   } finally {
     loading.value = false
@@ -96,7 +100,7 @@ async function updateBusiness() {
     console.error('Error updating business:', error)
 
     errorMessage.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Failed to update business.'
   } finally {
     saving.value = false

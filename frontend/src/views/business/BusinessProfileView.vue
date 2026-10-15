@@ -36,7 +36,7 @@ setOptions({
 
 // Load Google Maps
 async function loadMap(businessData) {
-  const coordinates = businessData.location?.coordinates
+  const coordinates = businessData.location ? businessData.location.coordinates : undefined
 
   if (
     !Array.isArray(coordinates) ||
@@ -118,7 +118,7 @@ async function getBusiness() {
     await nextTick()
 
     // Display business location
-    if (business.value?.location) {
+    if (business.value && business.value.location) {
       await loadMap(business.value)
     }
 
@@ -128,7 +128,7 @@ async function getBusiness() {
     console.error('Error fetching business:', error)
 
     errorMessage.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Unable to retrieve business information.'
 
   } finally {
@@ -156,7 +156,7 @@ async function getListings() {
     console.error('Error fetching listings:', error)
 
     listingsError.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Unable to retrieve listings.'
 
   } finally {
@@ -166,7 +166,9 @@ async function getListings() {
 
 // Open directions in Google Maps
 function openDirections() {
-  const coordinates = business.value?.location?.coordinates
+  const coordinates = business.value && business.value.location
+    ? business.value.location.coordinates
+    : undefined
 
   if (!coordinates) return
 
@@ -261,7 +263,7 @@ onUnmounted(() => {
         </p>
 
         <div
-          v-if="business.location?.coordinates"
+          v-if="business.location && business.location.coordinates"
           ref="mapElement"
           class="map"
         ></div>
@@ -275,7 +277,7 @@ onUnmounted(() => {
         </p>
 
         <button
-          v-if="business.location?.coordinates"
+          v-if="business.location && business.location.coordinates"
           class="directions-button"
           @click="openDirections"
         >
