@@ -166,14 +166,8 @@ onMounted(getReservations)
           </span>
         </div>
 
-        <div class="order-details">
-          <img
-            :src="failedImages[reservation._id] ? placeholderImage : (reservation.thumbnail_url || placeholderImage)"
-            :alt="reservation.thumbnail_url ? reservation.listing_snapshot.title : ''"
-            class="order-thumbnail"
-            @error="failedImages[reservation._id] = true"
-          />
-          <div>
+        <div class="order-details d-flex flex-column-reverse flex-sm-row">
+          <div class="order-text">
             <p><strong>Quantity:</strong> {{ reservation.quantity }}</p>
             <p><strong>Total:</strong> {{ totalPrice(reservation) }}</p>
             <p><strong>Pickup:</strong> {{ reservation.listing_snapshot.pickup_address }}</p>
@@ -183,6 +177,12 @@ onMounted(getReservations)
               to {{ formatDate(reservation.listing_snapshot.collection_end_at) }}
             </p>
           </div>
+          <img
+            :src="failedImages[reservation._id] ? placeholderImage : (reservation.thumbnail_url || placeholderImage)"
+            :alt="reservation.thumbnail_url ? reservation.listing_snapshot.title : ''"
+            class="order-thumbnail align-self-center align-self-sm-start"
+            @error="failedImages[reservation._id] = true"
+          />
         </div>
 
         <button type="button" class="primary-button" @click="selectedReservation = reservation">
@@ -228,26 +228,56 @@ onMounted(getReservations)
 
     <div v-if="selectedReservation" class="details-backdrop" @click.self="selectedReservation = null">
       <div class="details-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
-        <button type="button" class="close-button" aria-label="Close details" autofocus @click="selectedReservation = null">×</button>
-        <h2 id="details-title">{{ selectedReservation.listing_snapshot.title }}</h2>
-        <p><strong>Business:</strong> {{ selectedReservation.listing_snapshot.business_name }}</p>
-        <p><strong>Status:</strong> {{ selectedReservation.status }}</p>
-        <p><strong>Quantity:</strong> {{ selectedReservation.quantity }}</p>
-        <p><strong>Collection window:</strong> {{ formatDate(selectedReservation.listing_snapshot.collection_start_at) }} to {{ formatDate(selectedReservation.listing_snapshot.collection_end_at) }}</p>
-        <p><strong>Pickup address:</strong> {{ selectedReservation.listing_snapshot.pickup_address }}</p>
-        <p><strong>Pickup instructions:</strong> {{ selectedReservation.pickup_instructions || 'No pickup instructions provided.' }}</p>
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+          <div>
+            <p class="small text-uppercase text-secondary fw-semibold mb-1">Reservation details</p>
+            <h2 id="details-title" class="mb-1">{{ selectedReservation.listing_snapshot.title }}</h2>
+            <p class="text-secondary mb-0">{{ selectedReservation.listing_snapshot.business_name }}</p>
+          </div>
+          <button type="button" class="btn btn-light border rounded-circle flex-shrink-0" aria-label="Close details" autofocus @click="selectedReservation = null">×</button>
+        </div>
+
+        <section class="card border-0 bg-light mb-3" aria-label="Reservation summary">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <p class="small text-secondary mb-1">Status</p>
+                <span :class="['status', selectedReservation.status.toLowerCase()]">{{ selectedReservation.status }}</span>
+              </div>
+              <div class="col-sm-6">
+                <p class="small text-secondary mb-1">Quantity</p>
+                <p class="fw-semibold mb-0">{{ selectedReservation.quantity }}</p>
+              </div>
+              <div class="col-12">
+                <p class="small text-secondary mb-1">Pick up by</p>
+                <p class="fw-semibold mb-0">{{ formatDate(selectedReservation.listing_snapshot.collection_end_at) }}</p>
+              </div>
+              <div class="col-12">
+                <p class="small text-secondary mb-1">Pickup address</p>
+                <p class="fw-semibold mb-0">{{ selectedReservation.listing_snapshot.pickup_address }}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="alert alert-info mb-3">
+          <h3 class="h6 fw-semibold mb-1">Pickup instructions</h3>
+          <p class="mb-0">{{ selectedReservation.pickup_instructions || 'No pickup instructions provided.' }}</p>
+        </div>
+
+        <h3 class="h6 fw-semibold mb-2">Pickup location</h3>
         <PickupMap
           v-if="pickupCoordinates(selectedReservation) && mapsApiKey"
           :coordinates="selectedReservation.pickup_coordinates"
           :name="selectedReservation.listing_snapshot.business_name"
         />
-        <p v-else>Map unavailable for this pickup location.</p>
+        <p v-else class="text-secondary">Map unavailable for this pickup location.</p>
         <a
           v-if="pickupCoordinates(selectedReservation)"
           :href="directionsUrl(selectedReservation)"
           target="_blank"
           rel="noopener noreferrer"
-          class="primary-button"
+          class="btn btn-success w-100 fw-semibold"
         >Get directions</a>
       </div>
     </div>
@@ -341,7 +371,6 @@ textarea {
 }
 
 .order-details {
-  display: flex;
   align-items: flex-start;
   gap: 16px;
   margin: 18px 0;
@@ -350,9 +379,14 @@ textarea {
   background-color: #f5f7f3;
 }
 
+.order-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .order-thumbnail {
-  width: 100px;
-  height: 100px;
+  width: 200px;
+  height: 150px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
@@ -370,7 +404,6 @@ textarea {
 }
 
 .details-dialog {
-  position: relative;
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
@@ -378,16 +411,6 @@ textarea {
   padding: 24px;
   border-radius: 12px;
   background: white;
-}
-
-.close-button {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  border: 0;
-  background: none;
-  font-size: 26px;
-  cursor: pointer;
 }
 
 .order-details p {
@@ -456,7 +479,8 @@ textarea {
   }
 
   .order-details {
-    flex-direction: column;
+    gap: 12px;
   }
+
 }
 </style>
