@@ -10,6 +10,12 @@ import BusinessProfileView from '../views/business/BusinessProfileView.vue'
 import BusinessDashboardView from '../views/business/BusinessDashboardView.vue'
 import BusinessOrdersView from '../views/business/BusinessOrdersView.vue'
 import RegisterBusinessView from '../views/business/RegisterBusinessView.vue'
+import ListingDetailView from '../views/listings/ListingDetailView.vue'
+import BusinessListingsView from '../views/business/BusinessListingsView.vue'
+import CreateListingView from '../views/business/CreateListingView.vue'
+import EditListingView from '../views/business/EditListingView.vue'
+import FavouritesView from '../views/consumer/FavouritesView.vue'
+import MyOrdersView from '../views/consumer/MyOrdersView.vue'
 
 const routes = [
   {
@@ -56,6 +62,24 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/listings/:listingId',
+    name: 'listing-detail',
+    component: ListingDetailView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/favourites',
+    name: 'favourites',
+    component: FavouritesView,
+    meta: { requiresAuth: true, requiredRole: 'CONSUMER' }
+  },
+  {
+    path: '/my-orders',
+    name: 'my-orders',
+    component: MyOrdersView,
+    meta: { requiresAuth: true, requiredRole: 'CONSUMER' }
+  },
+  {
     path: '/businesses/:businessId/edit',
     name: 'edit-business',
     component: () => import('../views/business/EditBusinessView.vue'),
@@ -71,6 +95,25 @@ const routes = [
     path: '/business-orders',
     name: 'business-orders',
     component: BusinessOrdersView,
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
+  },
+  // Business Listing Routes
+  {
+    path: '/business-listings',
+    name: 'business-listings',
+    component: BusinessListingsView,
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
+  },
+  {
+    path: '/business-listings/create',
+    name: 'business-listing-create',
+    component: CreateListingView,
+    meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
+  },
+  {
+    path: '/business-listings/:businessId/:listingId/edit',
+    name: 'business-listing-edit',
+    component: EditListingView,
     meta: { requiresAuth: true, requiredRole: 'BUSINESS' }
   },
   {
