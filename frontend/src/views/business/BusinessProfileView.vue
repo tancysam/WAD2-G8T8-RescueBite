@@ -116,6 +116,8 @@ async function getBusiness() {
     if (currentRequest !== requestId) return
 
     business.value = response.data.business
+    await checkFavourite()
+    await getReviews()
 
     console.log('Business loaded:', business.value)
 
@@ -258,15 +260,11 @@ function openDirections() {
 onMounted(() => {
   getBusiness()
   getListings()
-  checkFavourite()
-  getReviews()
 })
 
 watch(() => props.businessId, () => {
   getBusiness()
   getListings()
-  checkFavourite()
-  getReviews()
 })
 
 // Cleanup
