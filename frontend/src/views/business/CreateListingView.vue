@@ -23,6 +23,7 @@ const uploadedImageKey = ref('')
 const attachedImageId = ref('')
 const imageAttached = ref(false)
 const suggestionsReady = ref(false)
+const manualMode = ref(false)
 
 const listing = ref({
   listingType: '',
@@ -47,11 +48,15 @@ const selectedBusiness = computed(() => {
 })
 
 const formLocked = computed(() => {
-  return createdListingId.value !== '' && !suggestionsReady.value
+  return createdListingId.value !== '' &&
+    !suggestionsReady.value &&
+    !manualMode.value
 })
 
 const submitText = computed(() => {
   if (saving.value) return 'Saving...'
+  if (manualMode.value && createdListingId.value !== '') return 'Save manual details'
+  if (manualMode.value) return 'Create listing manually'
   if (suggestionsReady.value) return 'Save suggested changes'
   if (createdListingId.value !== '' && imageAttached.value) {
     return 'Retry AI suggestions'
@@ -147,6 +152,14 @@ function selectImage(event) {
   }
 
   imageFile.value = file
+}
+
+// Manual Listing Entry
+function enterManualMode() {
+  errorMessage.value = ''
+  informationMessage.value = 'Enter the listing details manually. ' +
+    'The selected image will still be saved with the listing.'
+  manualMode.value = true
 }
 
 // Listing Validation
@@ -466,10 +479,82 @@ async function saveSuggestedChanges() {
   saving.value = false
 }
 
+// Create or Update Listing Without AI
+async function saveManualListing() {
+  errorMessage.value = ''
+
+  if (!validateListing()) return
+
+  saving.value = true
+  let currentStep = 'create'
+
+  try {
+    const token = await getToken.value()
+
+    if (createdListingId.value === '') {
+      const draftData = prepareListingData()
+      draftData.status = 'DRAFT'
+
+      const createResponse = await axios.post(
+        API_URL + '/businesses/' + selectedBusinessId.value + '/listings',
+        draftData,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token
+          }
+        }
+      )
+
+      createdListingId.value = createResponse.data.listing._id
+    }
+
+    currentStep = 'image'
+    await uploadListingImage(createdListingId.value, token)
+
+    currentStep = 'update'
+
+    // PATCH is used because this is the update method provided by the backend.
+    await axios.patch(
+      API_URL + '/listings/' + createdListingId.value,
+      prepareListingData(),
+      {
+        headers: {
+          Authorization: 'Bearer ' + token
+        }
+      }
+    )
+
+    router.push({ name: 'business-listings' })
+  } catch (error) {
+    console.error('Error saving manual listing:', error)
+
+    if (currentStep === 'image') {
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage.value = 'The listing details were saved, but the image upload failed: ' +
+          error.response.data.error + '. Use the button below to retry.'
+      } else {
+        errorMessage.value = 'The listing details were saved, but the image upload failed. ' +
+          'Use the button below to retry.'
+      }
+    } else if (error.response && error.response.data && error.response.data.error) {
+      errorMessage.value = error.response.data.error
+    } else {
+      errorMessage.value = 'Unable to save the listing.'
+    }
+  }
+
+  saving.value = false
+}
+
 // Create Draft and Generate Suggestions
 async function createListing() {
   errorMessage.value = ''
   informationMessage.value = ''
+
+  if (manualMode.value) {
+    await saveManualListing()
+    return
+  }
 
   if (suggestionsReady.value) {
     await saveSuggestedChanges()
@@ -509,10 +594,10 @@ async function createListing() {
     if (currentStep === 'suggestions') {
       if (error.response && error.response.data && error.response.data.error) {
         errorMessage.value = 'The listing and image were saved, but AI suggestions failed: ' +
-          error.response.data.error + '. You can retry or keep the original listing.'
+          error.response.data.error + '. You can retry or enter the details manually.'
       } else {
         errorMessage.value = 'The listing and image were saved, but AI suggestions failed. ' +
-          'You can retry or keep the original listing.'
+          'You can retry or enter the details manually.'
       }
     } else if (currentStep === 'image') {
       if (error.response && error.response.data && error.response.data.error) {
@@ -566,10 +651,14 @@ onMounted(loadPage)
         </span>
       </div>
 
-      <p v-if="!suggestionsReady" class="text-muted">
+      <p v-if="!suggestionsReady && !manualMode" class="text-muted">
         Select a business, listing type and image, then enter the original price,
         available quantity and collection times. AI can suggest the title, description,
         category and rescue price.
+      </p>
+
+      <p v-if="manualMode" class="text-muted">
+        Complete the listing details below. AI suggestions will not be requested.
       </p>
 
       <div class="row g-3">
@@ -635,9 +724,12 @@ onMounted(loadPage)
             id="categoryId"
             v-model="listing.categoryId"
             class="form-select"
+            :required="manualMode || suggestionsReady"
             :disabled="formLocked"
           >
-            <option value="" disabled>Let AI suggest</option>
+            <option value="" disabled>
+              {{ manualMode ? 'Select a category' : 'Let AI suggest' }}
+            </option>
             <option
               v-for="category in categories"
               :key="category._id"
@@ -655,7 +747,8 @@ onMounted(loadPage)
             v-model.trim="listing.title"
             type="text"
             class="form-control"
-            placeholder="Let AI suggest a title"
+            :placeholder="manualMode ? 'Enter listing title' : 'Let AI suggest a title'"
+            :required="manualMode || suggestionsReady"
             :disabled="formLocked"
           />
         </div>
@@ -667,7 +760,7 @@ onMounted(loadPage)
             v-model.trim="listing.description"
             class="form-control"
             rows="3"
-            placeholder="Let AI suggest a description"
+            :placeholder="manualMode ? 'Enter a description' : 'Let AI suggest a description'"
             :disabled="formLocked"
           ></textarea>
         </div>
@@ -695,6 +788,7 @@ onMounted(loadPage)
             class="form-control"
             min="0"
             step="0.01"
+            :required="manualMode || suggestionsReady"
             :disabled="formLocked"
           />
         </div>
@@ -811,6 +905,15 @@ onMounted(loadPage)
       <div class="d-flex gap-2 mt-4">
         <button type="submit" class="btn btn-success" :disabled="saving">
           {{ submitText }}
+        </button>
+        <button
+          v-if="!suggestionsReady && !manualMode"
+          type="button"
+          class="btn btn-outline-success"
+          :disabled="saving"
+          @click="enterManualMode"
+        >
+          Enter details manually
         </button>
         <RouterLink :to="{ name: 'business-listings' }" class="btn btn-outline-secondary">
           Cancel
