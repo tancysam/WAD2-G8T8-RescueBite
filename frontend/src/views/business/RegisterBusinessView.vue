@@ -147,7 +147,7 @@ async function registerBusiness() {
     console.error('Error registering business:', error)
 
     errorMessage.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Failed to register business.'
   } finally {
     saving.value = false

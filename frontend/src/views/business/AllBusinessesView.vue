@@ -77,7 +77,7 @@ async function getMyBusiness() {
     console.error('Error fetching my business:', error)
 
     myBusinessError.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Unable to retrieve your business.'
   } finally {
     myBusinessLoading.value = false
@@ -100,7 +100,7 @@ async function getBusinesses() {
     console.error('Error fetching businesses:', error)
 
     errorMessage.value =
-      error.response?.data?.error ||
+      (error.response && error.response.data && error.response.data.error) ||
       'Unable to retrieve businesses.'
   } finally {
     loading.value = false
