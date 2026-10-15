@@ -240,13 +240,17 @@ onMounted(getReservations)
         <section class="card border-0 bg-light mb-3" aria-label="Reservation summary">
           <div class="card-body">
             <div class="row g-3">
-              <div class="col-sm-6">
+              <div class="col-sm-4">
                 <p class="small text-secondary mb-1">Status</p>
                 <span :class="['status', selectedReservation.status.toLowerCase()]">{{ selectedReservation.status }}</span>
               </div>
-              <div class="col-sm-6">
+              <div class="col-sm-4">
                 <p class="small text-secondary mb-1">Quantity</p>
                 <p class="fw-semibold mb-0">{{ selectedReservation.quantity }}</p>
+              </div>
+              <div class="col-sm-4">
+                <p class="small text-secondary mb-1">Total price</p>
+                <p class="fw-semibold mb-0">{{ totalPrice(selectedReservation) }}</p>
               </div>
               <div class="col-12">
                 <p class="small text-secondary mb-1">Pick up by</p>
