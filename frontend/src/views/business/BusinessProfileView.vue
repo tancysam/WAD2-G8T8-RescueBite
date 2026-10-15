@@ -354,6 +354,17 @@ onUnmounted(() => {
         <p>
           {{ business.description || 'No description available.' }}
         </p>
+
+        <RouterLink
+        v-if="userRole === 'BUSINESS'"
+          :to="{
+            name: 'edit-business',
+            params: { businessId: business._id }
+          }"
+          class="edit-button"
+      >
+        Edit Business
+      </RouterLink>
       </header>
 
       <div class="favourite-area">
@@ -417,6 +428,16 @@ onUnmounted(() => {
           <span v-if="!listingsLoading && !listingsError" class="listing-count">
             {{ listings.length }} {{ listings.length === 1 ? 'listing' : 'listings' }}
           </span>
+        </div>
+        <div>
+          <RouterLink
+            v-if="userRole === 'BUSINESS'"
+              :to="{name: 'business-listings',}"
+              class="edit-button"
+              style="margin-bottom: 10px"
+          >
+            Edit Listings
+          </RouterLink>
         </div>
 
         <p v-if="listingsLoading" class="listing-state" aria-live="polite">
@@ -653,7 +674,20 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
+/* Edit Business Button */
+.edit-button {
+  display: inline-block;
+  background-color: white;
+  color: #256b45;
+  border: 1px solid #256b45;
+  text-decoration: none;
+  padding: 9px 15px;
+  border-radius: 8px;
+}
 
+.edit-button:hover {
+  background-color: #e8f5e9;
+}
 
 /* Error */
 .error {
