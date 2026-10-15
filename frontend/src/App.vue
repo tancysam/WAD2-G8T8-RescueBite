@@ -42,7 +42,7 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
       <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-orders">
         My orders
       </RouterLink>
-      <RouterLink v-if="profileRole === 'BUSINESS'" to="/businesses">
+      <RouterLink v-if="profileRole === 'BUSINESS'" to="/myBusinesses">
         Businesses
       </RouterLink>
       <Show when="signed-in">

@@ -1,6 +1,6 @@
 
 <script setup>
-import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue'
+import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
@@ -31,6 +31,59 @@ const favouriteMessage = ref('')
 const reviews = ref([])
 const reviewsLoading = ref(false)
 const reviewsError = ref('')
+
+const userRole = ref(null)
+const roleLoading = ref(true)
+const isOwner = ref(false)
+
+const backRoute = computed(() => {
+  return userRole.value === 'BUSINESS'
+    ? '/myBusinesses'
+    : '/businesses'
+})
+
+async function getUserRole() {
+  try {
+    const token = await getToken.value()
+
+    const response = await axios.get(
+      'http://localhost:8000/api/users/me',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    userRole.value = response.data.user.role
+    isOwner.value = false
+
+    // Only check ownership for business accounts
+    if (userRole.value === 'BUSINESS') {
+      const ownedResponse = await axios.get(
+        'http://localhost:8000/api/businesses/ownedBusinesses',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      for (const business of ownedResponse.data.businesses) {
+        if (business._id === props.businessId) {
+          isOwner.value = true
+          break
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error fetching user role:', error)
+    isOwner.value = false
+  } finally {
+    roleLoading.value = false
+  }
+}
 
 // Google Maps variables
 let map = null
@@ -263,11 +316,14 @@ function openDirections() {
 }
 
 onMounted(() => {
+  getUserRole()
   getBusiness()
   getListings()
 })
 
 watch(() => props.businessId, () => {
+  isOwner.value = false
+  getUserRole()
   getBusiness()
   getListings()
 })
@@ -290,10 +346,13 @@ onUnmounted(() => {
 
     <!-- Back to Businesses -->
     <RouterLink
-        to="/businesses"
-        class="back-link"
-      >
-      ← Back to Businesses
+      v-if="!roleLoading"
+      :to="backRoute"
+      class="back-link"
+    >
+      {{ userRole === 'BUSINESS'
+        ? '← Back to My Businesses'
+        : '← Back to Businesses' }}
     </RouterLink>
     <!-- Loading -->
     <p v-if="loading">
@@ -315,6 +374,14 @@ onUnmounted(() => {
         <p>
           {{ business.description || 'No description available.' }}
         </p>
+
+        <RouterLink
+          v-if="userRole === 'BUSINESS' && isOwner"
+          :to="`/businesses/${businessId}/edit`"
+          class="edit-button"
+        >
+          Edit Business
+        </RouterLink>
       </header>
 
       <div class="favourite-area">
@@ -326,7 +393,7 @@ onUnmounted(() => {
 
       <!-- Contact Information -->
       <section class="profile-section">
-        <h1>Contact Information</h1>
+        <h1>Business Information</h1>
 
         <p>
           <strong>Phone:</strong>
@@ -338,10 +405,6 @@ onUnmounted(() => {
           {{ business.address }}
         </p>
 
-        <p>
-          <strong>Postal Code:</strong>
-          {{ business.postal_code }}
-        </p>
         <p>
           <strong>Pickup Instructions:</strong>
           {{
@@ -382,6 +445,16 @@ onUnmounted(() => {
           <span v-if="!listingsLoading && !listingsError" class="listing-count">
             {{ listings.length }} {{ listings.length === 1 ? 'listing' : 'listings' }}
           </span>
+        </div>
+        <div>
+          <RouterLink
+            v-if="userRole === 'BUSINESS'"
+              :to="{name: 'business-listings',}"
+              class="edit-button"
+              style="margin-bottom: 10px"
+          >
+            Edit Listings
+          </RouterLink>
         </div>
 
         <p v-if="listingsLoading" class="listing-state" aria-live="polite">
@@ -431,9 +504,11 @@ onUnmounted(() => {
 /* Business Header */
 .business-header {
   background-color: #f0f7f1;
-  padding: 30px;
+  padding: 10px;
+  padding-left: 20px;
   border-radius: 12px;
   margin-bottom: 24px;
+  margin-top: 20px;
 }
 
 .business-header h1 {
@@ -616,7 +691,20 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
+/* Edit Business Button */
+.edit-button {
+  display: inline-block;
+  background-color: white;
+  color: #256b45;
+  border: 1px solid #256b45;
+  text-decoration: none;
+  padding: 9px 15px;
+  border-radius: 8px;
+}
 
+.edit-button:hover {
+  background-color: #e8f5e9;
+}
 
 /* Error */
 .error {
