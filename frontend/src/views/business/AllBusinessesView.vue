@@ -18,12 +18,6 @@ const businesses = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 
-// Current user's business
-const myBusinesses = ref([])
-const myBusinessLoading = ref(false)
-const myBusinessError = ref('')
-
-
 // Retrieve user role from MongoDB
 async function getUserRole() {
   if (!user.value) return
@@ -50,37 +44,6 @@ async function getUserRole() {
 
   } catch (error) {
     console.error('Error fetching user role:', error)
-  }
-}
-// Retrieve businesses owned by current user
-async function getMyBusiness() {
-  myBusinessLoading.value = true
-  myBusinessError.value = ''
-
-  try {
-    const token = await getToken.value()
-
-    const response = await axios.get(
-      `${API_URL}/users/me/businesses`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    )
-
-    myBusinesses.value = response.data.businesses
-
-    console.log('My Businesses:', myBusinesses.value)
-
-  } catch (error) {
-    console.error('Error fetching my business:', error)
-
-    myBusinessError.value =
-      (error.response && error.response.data && error.response.data.error) ||
-      'Unable to retrieve your business.'
-  } finally {
-    myBusinessLoading.value = false
   }
 }
 
@@ -127,93 +90,6 @@ watch(
 
 <template>
   <main class="businesses-page">
-
-    <!-- My Business: BUSINESS Users Only -->
-<!-- My Businesses: BUSINESS Users Only -->
-    <section v-if="isBusiness" class="my-business-section">
-
-      <h1>My Businesses</h1>
-
-        <div style="margin-bottom: 25px;">
-          <RouterLink
-              to="/register-business"
-              class="view-button"
-            >
-            Register Business
-          </RouterLink>
-        </div>
-
-      <p v-if="myBusinessLoading">
-        Loading your businesses...
-      </p>
-
-      <p v-else-if="myBusinessError" class="error">
-        {{ myBusinessError }}
-      </p>
-
-      <!-- Registered Businesses -->
-      <div v-else-if="myBusinesses.length > 0" class="business-grid">
-
-        <div
-          v-for="business in myBusinesses"
-          :key="business._id"
-          class="business-card"
-        >
-          <div class="card-header">
-            <h2>{{ business.name }}</h2>
-            <p>{{ business.status }}</p>
-          </div>
-
-          <div class="card-body">
-            <p class="description">
-              {{ business.description || 'No description available.' }}
-            </p>
-
-            <p class="address">
-              📍 {{ business.address }}
-            </p>
-
-            <p class="postal-code">
-              Singapore {{ business.postal_code }}
-            </p>
-
-            <div class="business-actions">
-              <RouterLink
-                :to="{
-                  name: 'business-profile',
-                  params: { businessId: business._id }
-                }"
-                class="view-button"
-              >
-                Preview Business
-              </RouterLink>
-
-              <RouterLink
-                :to="{
-                  name: 'edit-business',
-                  params: { businessId: business._id }
-                }"
-                class="edit-button"
-              >
-                Edit Business
-            </RouterLink>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-
-      <!-- No Registered Businesses -->
-      <div v-else class="register-business-card">
-        <h2>No Businesses Owned Yet</h2>
-
-        <p>
-          You do not have any businesses registered to your account yet.
-        </p>
-      </div>
-
-    </section>
 
     <!-- Discover Businesses -->
     <h1>Discover Businesses</h1>
