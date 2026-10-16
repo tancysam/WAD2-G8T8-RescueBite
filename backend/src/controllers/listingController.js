@@ -2,6 +2,7 @@ import Listing from "../models/Listing.js";
 import Business from "../models/Business.js";
 import Category from "../models/Category.js";
 import ListingImage from "../models/ListingImage.js";
+import Cascade from "../models/cascade.js";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFoodDescription } from "../services/aiService.js";
@@ -117,6 +118,12 @@ export async function createListing(req, res) {
     if (!category) {
       return res.status(404).json({
         error: "Category not found",
+      });
+    }
+
+    if (category.archived_at) {
+      return res.status(400).json({
+        error: "Category is archived",
       });
     }
 
@@ -832,6 +839,15 @@ export async function updateListing(req, res) {
       });
     }
 
+    if (
+      data.category_id.toString() !== listing.category_id.toString() &&
+      category.archived_at
+    ) {
+      return res.status(400).json({
+        error: "Category is archived",
+      });
+    }
+
     for (const field of [
       "original_price_sgd",
       "rescue_price_sgd",
@@ -1039,7 +1055,7 @@ export async function deleteListing(req, res) {
       });
     }
 
-    const result = await Listing.removeListing(listing._id);
+    const result = await Cascade.softDeleteListing(listing._id);
 
     if (result.matchedCount === 0) {
       return res.status(404).json({

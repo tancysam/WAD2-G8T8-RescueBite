@@ -6,6 +6,7 @@ import {
 } from "../middleware/auth.js";
 import {
   createMyProfile,
+  deleteMyProfile,
   getMyProfile,
   updateMyProfile,
 } from "../controllers/userController.js";
@@ -18,6 +19,7 @@ const router = Router();
 router.post("/me", requireAuth, createMyProfile);
 router.get("/me", requireAuth, getMyProfile);
 router.patch("/me", requireAuth, updateMyProfile);
+router.delete("/me", requireAuth, deleteMyProfile);
 router.get("/me/businesses", requireBusiness, getBusinessByUserId);
 router.get("/me/reservations", requireConsumer, getMyReservations);
 router.use("/me/favourites", favouriteRoutes);

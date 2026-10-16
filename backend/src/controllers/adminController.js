@@ -1,6 +1,8 @@
 import Business from "../models/Business.js";
+import Category from "../models/Category.js";
 import Listing from "../models/Listing.js";
 import Review from "../models/Review.js";
+import Cascade from "../models/cascade.js";
 
 export async function getBusinessesForAdmin(req, res) {
   // get businesses for admin
@@ -118,7 +120,12 @@ export async function updateBusinessStatus(req, res) {
       });
     }
 
-    const result = await Business.setBusinessStatus(business._id, body.status);
+    let result;
+    if (body.status === "INACTIVE" || body.status === "REJECTED") {
+      result = await Cascade.softDeleteBusiness(business._id, body.status, false);
+    } else {
+      result = await Business.setBusinessStatus(business._id, body.status);
+    }
 
     if (result.matchedCount === 0) {
       return res.status(404).json({
@@ -169,7 +176,7 @@ export async function deleteListingAsAdmin(req, res) {
       });
     }
 
-    const result = await Listing.removeListing(listing._id);
+    const result = await Cascade.softDeleteListing(listing._id);
 
     if (result.matchedCount === 0) {
       return res.status(404).json({
@@ -232,6 +239,118 @@ export async function deleteReviewAsAdmin(req, res) {
 
     return res.status(500).json({
       error: "Unable to delete review as admin",
+    });
+  }
+}
+
+export async function getCategoriesForAdmin(req, res) {
+  // get all categories for admin
+  try {
+    const categories = await Category.getAllCategories();
+
+    return res.status(200).json({ categories });
+  } catch (error) {
+    console.error("Failed to get categories for admin:", error);
+
+    return res.status(500).json({
+      error: "Unable to get categories",
+    });
+  }
+}
+
+export async function updateCategoryArchived(req, res) {
+  // archive or unarchive a category
+  const id = req.params.categoryId || req.params.id;
+
+  if (typeof id !== "string" || id.trim() === "") {
+    return res.status(400).json({
+      error: "Category ID is required",
+    });
+  }
+
+  const body = req.body;
+
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    typeof body.archived !== "boolean"
+  ) {
+    return res.status(400).json({
+      error: "archived must be a boolean",
+    });
+  }
+
+  try {
+    const category = await Category.findCategoryById(id);
+
+    if (!category) {
+      return res.status(404).json({
+        error: "Category not found",
+      });
+    }
+
+    await Category.setCategoryArchived(category._id, body.archived);
+
+    return res.status(200).json({
+      message: "Category updated successfully",
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        error: "Invalid category ID",
+      });
+    }
+
+    console.error("Failed to update category:", error);
+
+    return res.status(500).json({
+      error: "Unable to update category",
+    });
+  }
+}
+
+export async function deleteCategoryAsAdmin(req, res) {
+  // delete category
+  const id = req.params.categoryId || req.params.id;
+
+  if (typeof id !== "string" || id.trim() === "") {
+    return res.status(400).json({
+      error: "Category ID is required",
+    });
+  }
+
+  try {
+    const category = await Category.findCategoryById(id);
+
+    if (!category) {
+      return res.status(404).json({
+        error: "Category not found",
+      });
+    }
+
+    const inUse = await Listing.listingExistsForCategory(category._id);
+
+    if (inUse) {
+      return res.status(409).json({
+        error: "Category is in use; archive it instead",
+      });
+    }
+
+    await Category.deleteCategory(category._id);
+
+    return res.status(204).end();
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        error: "Invalid category ID",
+      });
+    }
+
+    console.error("Failed to delete category as admin:", error);
+
+    return res.status(500).json({
+      error: "Unable to delete category as admin",
     });
   }
 }

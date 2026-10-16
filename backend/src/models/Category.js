@@ -13,12 +13,20 @@ const categorySchema = new mongoose.Schema({
     unique: true,
     trim: true,
   },
+  archived_at: {
+    type: Date,
+    default: null,
+  },
 });
 
 const Category = mongoose.model("Category", categorySchema, "categories");
 
 function getAllCategories() {
   return Category.find();
+}
+
+function getActiveCategories() {
+  return Category.find({ archived_at: null });
 }
 
 function findCategoryById(id) {
@@ -45,12 +53,21 @@ function deleteCategory(id) {
   return Category.deleteOne({ _id: id });
 }
 
+function setCategoryArchived(id, archived) {
+  return Category.updateOne(
+    { _id: id },
+    { archived_at: archived ? new Date() : null },
+  );
+}
+
 module.exports = {
   getAllCategories,
+  getActiveCategories,
   findCategoryById,
   findCategoryByName,
   findCategoryBySlug,
   addCategory,
   updateCategory,
   deleteCategory,
+  setCategoryArchived,
 };
