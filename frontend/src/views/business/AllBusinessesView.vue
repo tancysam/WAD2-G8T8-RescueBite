@@ -14,9 +14,9 @@ const userRole = ref(null)
 const isBusiness = computed(() => userRole.value === 'BUSINESS')
 
 // All businesses
-const businesses = ref([])
-const loading = ref(true)
-const errorMessage = ref('')
+const listings = ref([])
+const listingsLoading = ref(false)
+const listingsError = ref('')
 
 // Retrieve user role from MongoDB
 async function getUserRole() {
