@@ -18,6 +18,9 @@ const businesses = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 
+// for searchbar
+const searchQuery = ref('')
+
 // Retrieve user role from MongoDB
 async function getUserRole() {
   if (!user.value) return
@@ -70,6 +73,13 @@ async function getBusinesses() {
   }
 }
 
+//searchbar
+const filteredBusinesses = computed(() => {
+  return businesses.value.filter((business) => {
+    return business.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  })
+})
+
 // Load all businesses
 onMounted(getBusinesses)
 
@@ -95,6 +105,14 @@ watch(
     <h1>Discover Businesses</h1>
     <p>Explore food businesses rescuing surplus food near you.</p>
 
+    <!--searchbar-->
+    <input
+      v-model="searchQuery"
+      type="text"
+      placeholder="Search businesses..."
+      class="search-bar"
+    />
+
     <!-- Loading -->
     <p v-if="loading">Loading businesses...</p>
 
@@ -104,15 +122,15 @@ watch(
     </p>
 
     <!-- No Businesses -->
-    <p v-else-if="businesses.length === 0">
-      No businesses available.
+    <p v-else-if="filteredBusinesses.length === 0">
+      No businesses found.
     </p>
 
     <!-- Business Cards -->
     <div v-else class="business-grid">
 
       <div
-        v-for="business in businesses"
+        v-for="business in filteredBusinesses"
         :key="business._id"
         class="business-card"
       >
@@ -301,4 +319,19 @@ watch(
   background-color: #e8f5e9;
 }
 
+
+.search-bar {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: #256b45;
+}
 </style>
