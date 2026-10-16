@@ -17,6 +17,7 @@ import EditListingView from '../views/business/EditListingView.vue'
 import FavouritesView from '../views/consumer/FavouritesView.vue'
 import MyOrdersView from '../views/consumer/MyOrdersView.vue'
 import MyBusinessesView from '../views/business/MyBusinessesView.vue'
+import ExploreView from '../views/consumer/ExploreView.vue'
 
 const routes = [
   {
@@ -125,9 +126,16 @@ const routes = [
   },
   {
     path: '/register-business',
-    name: 'Register Business',
+    name: 'register-business',
     component: RegisterBusinessView,
     meta: { requiresAuth: true, requiredRole: 'BUSINESS'}
+  },
+  //landing page for consumers
+  {
+    path: '/explore',
+    name: 'explore',
+    component: ExploreView,
+    meta: { requiresAuth: true, requiredRole: 'CONSUMER' }
   }
 ]
 
