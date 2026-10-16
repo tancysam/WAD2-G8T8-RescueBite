@@ -141,6 +141,13 @@ function cancelReservation(reservationId, consumerUserId) {
   );
 }
 
+function findOpenReservationsByConsumer(consumerUserId) {
+  return Reservation.find({
+    consumer_user_id: consumerUserId,
+    status: "RESERVED",
+  });
+}
+
 function findOverdueReservations() {
   return Reservation.find({
     status: "RESERVED",
@@ -165,6 +172,7 @@ module.exports = {
   createReservation,
   markCollected,
   cancelReservation,
+  findOpenReservationsByConsumer,
   findOverdueReservations,
   expireReservation,
 };

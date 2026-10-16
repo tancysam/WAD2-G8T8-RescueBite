@@ -65,6 +65,14 @@ const listingSchema = new mongoose.Schema(
       default: "DRAFT",
       enum: LISTING_STATUSES,
     },
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
+    images_purged_at: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -128,6 +136,38 @@ function removeListing(id) {
   return Listing.updateOne({ _id: id }, { status: "REMOVED" });
 }
 
+async function softDeleteListing(id) {
+  const result = await Listing.updateOne({ _id: id }, { status: "REMOVED" });
+  await Listing.updateOne(
+    { _id: id, deleted_at: null },
+    { deleted_at: new Date() },
+  );
+  return result;
+}
+
+function findCascadableListingsByBusiness(businessId) {
+  return Listing.find({
+    business_id: businessId,
+    status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT"] },
+  });
+}
+
+function findListingsPendingImagePurge(cutoff) {
+  return Listing.find({
+    status: "REMOVED",
+    images_purged_at: null,
+    collection_end_at: { $lte: cutoff },
+  });
+}
+
+function markImagesPurged(id) {
+  return Listing.updateOne({ _id: id }, { images_purged_at: new Date() });
+}
+
+function listingExistsForCategory(categoryId) {
+  return Listing.exists({ category_id: categoryId });
+}
+
 // TODO: wrap stock reduction + reservation creation in a MongoDB transaction
 // Conditional update so the stock reduction is atomic without a transaction.
 function reduceStock(listingId, expectedQty, newQty, updatedAt) {
@@ -184,6 +224,11 @@ module.exports = {
   updateListing,
   setListingStatus,
   removeListing,
+  softDeleteListing,
+  findCascadableListingsByBusiness,
+  findListingsPendingImagePurge,
+  markImagesPurged,
+  listingExistsForCategory,
   reduceStock,
   restoreStock,
 };

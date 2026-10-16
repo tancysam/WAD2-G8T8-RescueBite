@@ -3,7 +3,7 @@ import Category from "../models/Category.js";
 export async function getCategories(req, res) {
   // get all categories
   try {
-    const categories = await Category.getAllCategories();
+    const categories = await Category.getActiveCategories();
 
     return res.status(200).json({ categories });
   } catch (error) {
