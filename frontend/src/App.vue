@@ -27,8 +27,9 @@ async function getNotifications() {
   try {
     const token = await getToken.value()
     const response = await axios.get('http://localhost:8000/api/notifications', 
-      {headers:{Authorization: `Bearer ${token}`}})
-    notifications.value = response.data.notifications || []
+      {headers:{Authorization: `Bearer ${token}`}, params: {page: page.value}})
+    notifications.value.push(...response.data.notifications)
+    hasMore.value = response.data.hasMore
   } catch (error) {
     console.error(error.response?.data?.error || error.message)
   }
@@ -37,7 +38,7 @@ async function getNotifications() {
 async function markNotificationsAsRead() {
   try {
     const token = await getToken.value()
-    const notificationIds = notifications.value.map(notifs => notifs._id)
+    const notificationIds = notifications.value.slice(-5).map(notif => notif._id)
     if (notificationIds.length===0) return
     await axios.patch('http://localhost:8000/api/notifications/read',
       {notificationIds}, {headers: {Authorization: `Bearer ${token}`}})
@@ -49,6 +50,9 @@ async function markNotificationsAsRead() {
 async function toggleNotifications() {
   showNotifications.value = !showNotifications.value
   if (showNotifications.value) {
+    page.value = 1
+    notifications.value=[]
+
     await getNotifications()
     await markNotificationsAsRead()
   }
@@ -106,6 +110,12 @@ onMounted(getNotifications)
           <div v-for="notif in notifications" :key="notif._id" class="notification-item">
             <p>{{ notif.message }}</p>
           </div>
+          <button
+            v-if="hasMore"
+            @click="page++; getNotifications().then(markNotificationsAsRead)"
+          >
+            Show More
+          </button>
         </div>
       </div>
 
