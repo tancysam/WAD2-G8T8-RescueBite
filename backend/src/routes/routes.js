@@ -6,6 +6,7 @@ import categoryRoutes from "./categoryRoutes.js";
 import reservationRoutes from "./reservationRoutes.js";
 import reviewRoutes from "./reviewRoutes.js";
 import adminRoutes from "./adminRoutes.js";
+import notificationRoutes from "./notificationRoutes.js"
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use("/listings", listingRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/reservations", reservationRoutes);
 router.use("/reviews", reviewRoutes);
+router.use("/notifications", notificationRoutes);
 
 
 export default router;

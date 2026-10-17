@@ -14,6 +14,9 @@ importers:
       '@googlemaps/js-api-loader':
         specifier: ^2.1.3
         version: 2.1.3
+      '@lucide/vue':
+        specifier: ^1.58.0
+        version: 1.58.0(vue@3.5.43)
       axios:
         specifier: ^1.20.0
         version: 1.20.0(debug@4.4.3)
@@ -79,6 +82,11 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
+
+  '@lucide/vue@1.58.0':
+    resolution: {integrity: sha512-HW7yrGw9OUC1TzldLep1d4p1Uc1OCRWLJwzKHm9C3V9Z4/9GADN84NDlyeTzgrcD8yxXs8/SVh8CpKFaA+OPRg==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@oxc-project/types@0.152.0':
     resolution: {integrity: sha512-oM/5rLBm2tPkg0iBgkH/FOeR3PCDpY19GTgAZjMFM8h9WI9VW7cLgzp6nwtarYKmovavIQZ+Fe/RKX/8C8O/Rw==}
@@ -589,6 +597,10 @@ snapshots:
       '@types/google.maps': 3.66.5
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
+
+  '@lucide/vue@1.58.0(vue@3.5.43)':
+    dependencies:
+      vue: 3.5.43
 
   '@oxc-project/types@0.152.0': {}
 
