@@ -5,10 +5,12 @@ import { Show, UserButton } from '@clerk/vue'
 import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
 import ProfileGate from './components/ProfileGate.vue'
+import {Bell} from '@lucide/vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
 const profileRole = ref(null)
+const hasUnread = ref(true) // its true now because im testing
 
 watch(() => route.meta.requiresAuth, (requiresAuth) => {
   if (!requiresAuth) profileRole.value = null
@@ -48,6 +50,13 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
       <RouterLink v-if="profileRole === 'BUSINESS'" to="/myBusinesses">
         Businesses
       </RouterLink>
+      <button class="notification-button">
+          <Bell :size="24" color="white" fill="white"/>
+          <span
+              v-if="hasUnread"
+              class="notification-dot"
+          ></span>
+      </button>
       <Show when="signed-in">
         <UserButton />
       </Show>
@@ -104,5 +113,26 @@ nav a {
 
 nav a:hover {
   text-decoration: underline;
+}
+
+.notification-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.notification-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 9px;
+    height: 9px;
+    background-color: red;
+    border-radius: 50%;
 }
 </style>
