@@ -1,19 +1,23 @@
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { Show, UserButton } from '@clerk/vue'
 import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
 import ProfileGate from './components/ProfileGate.vue'
 import {Bell} from '@lucide/vue'
 import axios from 'axios'
+import { useAuth } from '@clerk/vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
 const profileRole = ref(null)
-const hasUnread = ref(true) // its true now because im testing
+const hasUnread = ref(false)
 const notifications = ref([])
 const showNotifications = ref(false);
+const page = ref(1)
+const hasMore = ref(false)
+const { getToken } = useAuth()
 
 watch(() => route.meta.requiresAuth, (requiresAuth) => {
   if (!requiresAuth) profileRole.value = null
@@ -30,6 +34,27 @@ async function getNotifications() {
   }
 }
 
+async function markNotificationsAsRead() {
+  try {
+    const token = await getToken.value()
+    const notificationIds = notifications.value.map(notifs => notifs._id)
+    if (notificationIds.length===0) return
+    await axios.patch('http://localhost:8000/api/notifications/read',
+      {notificationIds}, {headers: {Authorization: `Bearer ${token}`}})
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message)
+  }
+}
+
+async function toggleNotifications() {
+  showNotifications.value = !showNotifications.value
+  if (showNotifications.value) {
+    await getNotifications()
+    await markNotificationsAsRead()
+  }
+}
+
+onMounted(getNotifications)
 </script>
 
 <template>
@@ -68,7 +93,7 @@ async function getNotifications() {
       <div class="notification-container">
         <button 
           class="notification-button"
-          @click="showNotifications = !showNotifications; if(showNotifications) getNotifications()"
+          @click="toggleNotifications"
         >
             <Bell :size="24" color="white" fill="white"/>
             <span v-if="hasUnread" class="notification-dot"></span>
@@ -78,7 +103,7 @@ async function getNotifications() {
           <p v-if="notifications.length===0">
             No notifications
           </p>
-          <div v-for="notif in notifications" :key="notification._id" class="notification-item">
+          <div v-for="notif in notifications" :key="notif._id" class="notification-item">
             <p>{{ notif.message }}</p>
           </div>
         </div>

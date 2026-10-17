@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema(
             required: true,
             trim: true
         },
-        isRead: {
+        is_read: {
             type: Boolean,
             default: false
         }
@@ -30,15 +30,14 @@ notificationSchema.index({
     created_at: -1
 });
 
-const Notifications = mongoose.model("Notification", notificationSchema, "notifications")
+const Notification = mongoose.model("Notification", notificationSchema, "notifications")
 
 //retrieves notifications respective to the user
 function findNotificationsByUser(userId, skip=0, limit=5) {
-    return Notification.find({user_id: userId}
+    return Notification.find({user_id: userId})
         .sort({created_at: -1, _id:-1})
         .skip(skip)
-        .limit(limit)
-    );
+        .limit(limit);
 }
 
 // checks if user has any unread notifs
