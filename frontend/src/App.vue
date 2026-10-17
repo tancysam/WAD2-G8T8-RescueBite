@@ -58,6 +58,19 @@ async function toggleNotifications() {
   }
 }
 
+async function clearAllNotifications() {
+  try {
+    const token = await getToken.value()
+    await axios.delete('http://localhost:8000/api/notifications/read',
+      {headers: {Authorization: `Bearer ${token}`}})
+    
+    notifications.value = []
+    hasMore.value = false
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message)
+  }
+}
+
 onMounted(getNotifications)
 </script>
 
@@ -115,6 +128,12 @@ onMounted(getNotifications)
             @click="page++; getNotifications().then(markNotificationsAsRead)"
           >
             Show More
+          </button>
+          <button
+            v-if="notifications.length > 0"
+            @click="clearAllNotifications"
+          >
+            Clear All
           </button>
         </div>
       </div>
@@ -220,5 +239,9 @@ nav a:hover {
 .notification-item {
     padding: 10px 0;
     border-bottom: 1px solid #eee;
+}
+
+.notification-popup button {
+  cursor: pointer;
 }
 </style>
