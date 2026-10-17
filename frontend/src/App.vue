@@ -6,15 +6,30 @@ import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
 import ProfileGate from './components/ProfileGate.vue'
 import {Bell} from '@lucide/vue'
+import axios from 'axios'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
 const profileRole = ref(null)
 const hasUnread = ref(true) // its true now because im testing
+const notifications = ref([])
+const showNotifications = ref(false);
 
 watch(() => route.meta.requiresAuth, (requiresAuth) => {
   if (!requiresAuth) profileRole.value = null
 })
+
+async function getNotifications() {
+  try {
+    const token = await getToken.value()
+    const response = await axios.get('http://localhost:8000/api/notifications', 
+      {headers:{Authorization: `Bearer ${token}`}})
+    notifications.value = response.data.notifications || []
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message)
+  }
+}
+
 </script>
 
 <template>
@@ -50,13 +65,26 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
       <RouterLink v-if="profileRole === 'BUSINESS'" to="/myBusinesses">
         Businesses
       </RouterLink>
-      <button class="notification-button">
-          <Bell :size="24" color="white" fill="white"/>
-          <span
-              v-if="hasUnread"
-              class="notification-dot"
-          ></span>
-      </button>
+      <div class="notification-container">
+        <button 
+          class="notification-button"
+          @click="showNotifications = !showNotifications; if(showNotifications) getNotifications()"
+        >
+            <Bell :size="24" color="white" fill="white"/>
+            <span v-if="hasUnread" class="notification-dot"></span>
+        </button>
+        <div v-if="showNotifications" class="notification-popup">
+          <h3>Notifications</h3>
+          <p v-if="notifications.length===0">
+            No notifications
+          </p>
+          <div v-for="notif in notifications" :key="notification._id" class="notification-item">
+            <p>{{ notif.message }}</p>
+          </div>
+        </div>
+      </div>
+
+
       <Show when="signed-in">
         <UserButton />
       </Show>
@@ -115,6 +143,10 @@ nav a:hover {
   text-decoration: underline;
 }
 
+.notification-container {
+    position: relative;
+}
+
 .notification-button {
     position: relative;
     display: flex;
@@ -134,5 +166,24 @@ nav a:hover {
     height: 9px;
     background-color: red;
     border-radius: 50%;
+}
+
+.notification-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 300px;
+    padding: 15px;
+    background: white;
+    color: black;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+.notification-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
 }
 </style>
