@@ -1,6 +1,7 @@
 import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
 import Reservation from "../models/Reservation.js";
+import Cascade from "../models/cascade.js";
 
 export async function createBusiness(req, res) {
   // creation of business
@@ -327,7 +328,11 @@ export async function deleteBusiness(req, res) {
       });
     }
 
-    const result = await Business.setBusinessStatus(business._id, "INACTIVE");
+    const result = await Cascade.softDeleteBusiness(
+      business._id,
+      "INACTIVE",
+      true,
+    );
 
     if (result.matchedCount === 0) {
       return res.status(404).json({

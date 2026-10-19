@@ -63,6 +63,10 @@ const businessSchema = new mongoose.Schema(
       default: "PENDING",
       enum: BUSINESS_STATUSES,
     },
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -112,6 +116,13 @@ function setBusinessStatus(id, status) {
   return Business.updateOne({ _id: id }, { status: status });
 }
 
+function markBusinessDeleted(id) {
+  return Business.updateOne(
+    { _id: id, deleted_at: null },
+    { deleted_at: new Date() },
+  );
+}
+
 module.exports = {
   BUSINESS_STATUSES,
   getAllBusinesses,
@@ -122,4 +133,5 @@ module.exports = {
   addBusiness,
   updateBusiness,
   setBusinessStatus,
+  markBusinessDeleted,
 };

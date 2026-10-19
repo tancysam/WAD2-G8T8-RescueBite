@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema(
       required: [true, "role is required"],
       enum: USER_ROLES,
     },
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -46,8 +50,15 @@ function updateUser(id, update) {
   return User.updateOne({ _id: id }, update);
 }
 
-function deleteUser(id) {
-  return User.deleteOne({ _id: id });
+function anonymiseUser(id) {
+  return User.updateOne(
+    { _id: id },
+    {
+      display_name: "Deleted user",
+      clerk_user_id: "deleted:" + id.toString(),
+      deleted_at: new Date(),
+    },
+  );
 }
 
 module.exports = {
@@ -57,5 +68,5 @@ module.exports = {
   getAllUsers,
   addUser,
   updateUser,
-  deleteUser,
+  anonymiseUser,
 };
