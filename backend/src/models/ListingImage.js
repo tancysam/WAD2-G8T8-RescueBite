@@ -70,7 +70,7 @@ async function deleteImageObjectsForListing(listingId) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION;
   if (!bucket || !bucket.trim() || !region || !region.trim()) {
-    return false;
+    return { configured: false, failedKeys: [] };
   }
   if (!s3Client) {
     s3Client = new S3Client({
@@ -78,6 +78,7 @@ async function deleteImageObjectsForListing(listingId) {
       requestChecksumCalculation: "WHEN_REQUIRED",
     });
   }
+  const failedKeys = [];
   const prefix = "listings/" + listingId + "/";
   let continuationToken;
   do {
@@ -93,18 +94,23 @@ async function deleteImageObjectsForListing(listingId) {
       }
     }
     if (objects.length > 0) {
-      await s3Client.send(
+      const response = await s3Client.send(
         new DeleteObjectsCommand({
           Bucket: bucket,
           Delete: { Objects: objects },
         }),
       );
+      if (Array.isArray(response.Errors)) {
+        for (const err of response.Errors) {
+          failedKeys.push(err.Key);
+        }
+      }
     }
     continuationToken = page.IsTruncated
       ? page.NextContinuationToken
       : undefined;
   } while (continuationToken !== undefined);
-  return true;
+  return { configured: true, failedKeys: failedKeys };
 }
 
 module.exports = {

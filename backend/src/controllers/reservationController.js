@@ -113,7 +113,7 @@ export async function createReservation(req, res) {
       if (error.name === "ValidationError" || error.name === "CastError" || error.code === 11000) {
         try {
           const restored = await Listing.restoreStock(listing._id, quantity);
-          if (!restored || restored.modifiedCount !== 1) {
+          if (!restored) {
             console.error("Reservation failed and stock restoration needs reconciliation for listing", listing._id.toString());
           }
         } catch (restoreError) {
@@ -450,15 +450,22 @@ export async function cancelReservation(req, res) {
 
     let stockRestorationPending = false;
     try {
-      const restored = await Listing.restoreStock(reservation.listing_id, reservation.quantity);
-      stockRestorationPending = !restored || restored.modifiedCount !== 1;
+      const restored = await Listing.restoreStock(reservation.listing_id, reservation.quantity, reservation._id);
+      stockRestorationPending = !restored;
+      if (restored) {
+        try {
+          await Reservation.clearStockRestorePending(reservation._id);
+        } catch (clearError) {
+          console.error("Failed to clear stock restore pending flag for reservation", id);
+        }
+      }
     } catch (error) {
       stockRestorationPending = true;
     }
     if (stockRestorationPending) {
       console.error("Cancelled reservation requires stock reconciliation", id);
       response.stockRestorationPending = true;
-      response.message = "Reservation cancelled, but stock restoration requires review";
+      response.message = "Reservation cancelled; stock restoration will be retried automatically";
     } else {
       response.message = "Reservation cancelled successfully";
     }
