@@ -73,6 +73,10 @@ const listingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    restored_reservation_ids: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -148,7 +152,7 @@ async function softDeleteListing(id) {
 function findCascadableListingsByBusiness(businessId) {
   return Listing.find({
     business_id: businessId,
-    status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT"] },
+    status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT", "EXPIRED"] },
   });
 }
 
@@ -186,12 +190,22 @@ function reduceStock(listingId, expectedQty, newQty, updatedAt) {
 }
 
 // Retries the conditional update a few times in case of concurrent stock changes.
-async function restoreStock(listingId, quantity) {
-  let result = null;
+async function restoreStock(listingId, quantity, reservationId) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const listing = await Listing.findOne({ _id: listingId });
     if (!listing) {
-      return result;
+      return false;
+    }
+    const restoredIds = Array.isArray(listing.restored_reservation_ids)
+      ? listing.restored_reservation_ids
+      : [];
+    if (
+      reservationId !== undefined &&
+      restoredIds.some(function (id) {
+        return id.toString() === reservationId.toString();
+      })
+    ) {
+      return true;
     }
     const update = {
       quantity_available: listing.quantity_available + quantity,
@@ -199,18 +213,22 @@ async function restoreStock(listingId, quantity) {
     if (listing.status === "SOLD_OUT") {
       update.status = Number(listing.collection_end_at) > Number(new Date()) ? "ACTIVE" : "EXPIRED";
     }
+    if (reservationId !== undefined) {
+      update.restored_reservation_ids = restoredIds.slice();
+      update.restored_reservation_ids.push(reservationId);
+    }
     const filter = {
       _id: listingId,
       quantity_available: listing.quantity_available,
       status: listing.status,
     };
     if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
-    result = await Listing.updateOne(filter, update);
+    const result = await Listing.updateOne(filter, update);
     if (result.modifiedCount === 1) {
-      return result;
+      return true;
     }
   }
-  return result;
+  return false;
 }
 
 module.exports = {

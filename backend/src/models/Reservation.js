@@ -54,6 +54,7 @@ const reservationSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    stock_restore_pending: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: "reserved_at", updatedAt: "updated_at" } },
 );
@@ -61,6 +62,7 @@ const reservationSchema = new mongoose.Schema(
 reservationSchema.index({ consumer_user_id: 1, reserved_at: 1 });
 reservationSchema.index({ listing_id: 1, status: 1 });
 reservationSchema.index({ status: 1, expires_at: 1 });
+reservationSchema.index({ stock_restore_pending: 1 });
 
 const Reservation = mongoose.model(
   "Reservation",
@@ -137,7 +139,11 @@ function cancelReservation(reservationId, consumerUserId) {
       expires_at: { $gte: deadline },
       "listing_snapshot.collection_end_at": { $gte: deadline },
     },
-    { status: "CANCELLED", cancelled_at: cancelledAt },
+    {
+      status: "CANCELLED",
+      cancelled_at: cancelledAt,
+      stock_restore_pending: true,
+    },
   );
 }
 
@@ -158,7 +164,18 @@ function findOverdueReservations() {
 function expireReservation(reservationId) {
   return Reservation.updateOne(
     { _id: reservationId, status: "RESERVED" },
-    { status: "EXPIRED" },
+    { status: "EXPIRED", stock_restore_pending: true },
+  );
+}
+
+function findPendingStockRestores() {
+  return Reservation.find({ stock_restore_pending: true });
+}
+
+function clearStockRestorePending(reservationId) {
+  return Reservation.updateOne(
+    { _id: reservationId, stock_restore_pending: true },
+    { stock_restore_pending: false },
   );
 }
 
@@ -175,4 +192,6 @@ module.exports = {
   findOpenReservationsByConsumer,
   findOverdueReservations,
   expireReservation,
+  findPendingStockRestores,
+  clearStockRestorePending,
 };
