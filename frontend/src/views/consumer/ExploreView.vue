@@ -28,6 +28,7 @@ const businesses = ref([])
 const businessMarkers = []
 let AdvancedMarkerElement = null
 let infoWindow = null
+let isOpeningInfoWindow = false
 
 // Google Maps API
 setOptions({
@@ -58,6 +59,11 @@ async function initMap() {
 
         // Listen for completed map movements
         mapListener = map.addListener('idle', () => {
+
+            if (isOpeningInfoWindow) {
+                isOpeningInfoWindow = false
+                return
+            }
             const bounds = map.getBounds()
 
             if (bounds) {
@@ -165,6 +171,9 @@ function updateBusinessMarkers() {
         })
 
         marker.addListener('click', ()=>{
+
+            isOpeningInfoWindow = true
+
             const content = document.createElement('div')
             const name = document.createElement('h3')
             const address = document.createElement('p')
