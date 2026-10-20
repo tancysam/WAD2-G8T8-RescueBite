@@ -3,8 +3,10 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import axios from 'axios'
 import CustomerListingCard from '@/components/listings/CustomerListingCard.vue'
+import {useRouter} from 'vue-router'
 
 const API_URL = 'http://localhost:8000/api'
+const router = useRouter()
 
 // Google Maps
 const mapElement = ref(null)
@@ -21,6 +23,12 @@ let mapListener = null
 let searchTimeout = null
 let latestRequest = 0
 let isDestroyed = false
+// for the map pins on the map
+const businesses = ref([])
+const businessMarkers = []
+let AdvancedMarkerElement = null
+let infoWindow = null
+let isOpeningInfoWindow = false
 
 // Google Maps API
 setOptions({
@@ -30,17 +38,32 @@ setOptions({
 // Initialise Google Maps
 async function initMap() {
     try {
-        const { Map } = await importLibrary('maps')
+        const { Map, InfoWindow } = await importLibrary('maps')
+        const markerLibrary = await importLibrary('marker')
+
+        // for the map pin
+        AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement
 
         if (isDestroyed || !mapElement.value) return
 
         map = new Map(mapElement.value, {
             center: { lat: 1.3521, lng: 103.8198 },
-            zoom: 15
+            zoom: 15,
+            mapId: '13484fcc455d81ef9c7b2de5'
         })
+
+        infoWindow = new InfoWindow()
+
+        // display pins when map is ready
+        updateBusinessMarkers()
 
         // Listen for completed map movements
         mapListener = map.addListener('idle', () => {
+
+            if (isOpeningInfoWindow) {
+                isOpeningInfoWindow = false
+                return
+            }
             const bounds = map.getBounds()
 
             if (bounds) {
@@ -90,6 +113,89 @@ async function initMap() {
     }
 }
 
+async function getBusinesses(){
+    try {
+        const response = await axios.get(`${API_URL}/businesses`)
+        console.log('Full API response:', response.data)
+        if (isDestroyed) return
+        
+            businesses.value = response.data.businesses || []
+            console.log('Businesses retrieved:', businesses.value)
+            updateBusinessMarkers()
+
+    } catch (error) {
+        console.error('Error fetching businesses:', error)
+    }
+}
+
+// for removing map pins when they are no longer within map bounds
+function clearBusinessMarkers() {
+    if (infoWindow){infoWindow.close()}
+    for (const marker of businessMarkers) {marker.map=null}
+    businessMarkers.length=0
+}
+
+function updateBusinessMarkers() {
+    if (!map || !AdvancedMarkerElement) return
+    clearBusinessMarkers()
+    if (!mapBounds.value) return
+
+    const { north, south, east, west } = mapBounds.value
+
+    for (const business of businesses.value) {
+        //skip getting coordinates for businesses that dont have coords
+        if (!business.location?.coordinates) continue
+        const [lng, lat] = business.location.coordinates
+
+        // checks if coordinate values are infinite
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+
+        // Check whether business is within map boundaries
+        const withinBounds = lat >= south && lat <= north &&
+            (west <= east ? lng >= west && lng <= east : lng >= west || lng <= east)
+
+        if (!withinBounds) continue
+
+        // Check if business has available listings
+        const hasListings =  listings.value.some((listing)=>{
+            const businessId = listing.business_id?._id || listing.business_id
+            return String(businessId) === String(business._id)})
+
+        if (!hasListings) continue
+
+        const marker = new AdvancedMarkerElement({
+            map: map,
+            position: { lat, lng },
+            title: business.name,
+            gmpClickable: true
+        })
+
+        marker.addListener('click', ()=>{
+
+            isOpeningInfoWindow = true
+
+            const content = document.createElement('div')
+            const name = document.createElement('h3')
+            const address = document.createElement('p')
+            const button = document.createElement('button')
+
+            name.textContent = business.name
+            address.textContent = business.address
+            button.textContent = 'See More'
+            button.className = 'btn btn-success'
+
+            button.addEventListener('click', ()=>{router.push(`/businesses/${business._id}`)})
+
+            content.append(name, address, button)
+
+            infoWindow.setContent(content)
+            infoWindow.open({ map, anchor: marker })
+        })
+
+        businessMarkers.push(marker)
+    }
+}
+
 // Retrieve listings within the map area
 async function getVisibleListings() {
     if (!mapBounds.value) return
@@ -106,23 +212,10 @@ async function getVisibleListings() {
     const lng = (east + west) / 2
 
     // Calculate radius based on visible map height
-    const radiusKm = Math.min(
-        50,
-        Math.max(0.1, (north - south) * 111 / 2)
-    )
+    const radiusKm = Math.min(50,Math.max(0.1, (north - south) * 111 / 2))
 
     try {
-        const response = await axios.get(
-            `${API_URL}/listings`,
-            {
-                params: {
-                    lat,
-                    lng,
-                    radiusKm,
-                    limit: 100
-                }
-            }
-        )
+        const response = await axios.get(`${API_URL}/listings`,{params: {lat, lng, radiusKm, limit:100}})
 
         if (isDestroyed || requestId !== latestRequest) return
 
@@ -130,14 +223,17 @@ async function getVisibleListings() {
 
         console.log('Visible listings:', listings.value)
 
+        updateBusinessMarkers()
+
     } catch (error) {
         if (isDestroyed || requestId !== latestRequest) return
 
         console.error('Error fetching listings:', error)
 
-        listingsError.value =
-            error.response?.data?.error ||
-            'Unable to retrieve listings.'
+        listingsError.value = error.response?.data?.error || 'Unable to retrieve listings.'
+
+        listings.value = []
+        clearBusinessMarkers()
 
     } finally {
         if (!isDestroyed && requestId === latestRequest) {
@@ -165,6 +261,7 @@ watch(mapBounds, () => {
 // When component loads
 onMounted(() => {
     isDestroyed = false
+    getBusinesses()
     initMap()
 })
 
@@ -181,8 +278,16 @@ onUnmounted(() => {
         mapListener.remove()
     }
 
+    if (infoWindow) {
+        infoWindow.close()
+    }
+
+    clearBusinessMarkers()
+
     map = null
     mapListener = null
+    infoWindow = null
+    AdvancedMarkerElement = null
 })
 </script>
 
