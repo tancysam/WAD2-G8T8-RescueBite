@@ -3,12 +3,11 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
+import { API_URL } from '@/config'
 
 const route = useRoute()
 const router = useRouter()
 const { getToken } = useAuth()
-
-const API_URL = 'http://localhost:8000/api'
 
 // Edit Listing Page Data
 const business = ref(null)

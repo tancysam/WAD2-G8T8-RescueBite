@@ -3,11 +3,10 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
 import { useUser, useAuth } from '@clerk/vue'
+import { API_URL } from '@/config'
 
 const { user, isLoaded } = useUser()
 const { getToken } = useAuth()
-
-const API_URL = 'http://localhost:8000/api'
 
 // User role
 const userRole = ref(null)

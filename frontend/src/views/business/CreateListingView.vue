@@ -3,11 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
+import { API_URL } from '@/config'
 
 const router = useRouter()
 const { getToken } = useAuth()
-
-const API_URL = 'http://localhost:8000/api'
 
 // Create Listing Page Data
 const businesses = ref([])

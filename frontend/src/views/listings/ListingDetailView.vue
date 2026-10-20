@@ -4,8 +4,8 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import placeholderImage from '../../assets/placeholder.jpg'
+import { API_URL } from '@/config'
 
-const API_URL = 'http://localhost:8000/api'
 const route = useRoute()
 const { getToken } = useAuth()
 

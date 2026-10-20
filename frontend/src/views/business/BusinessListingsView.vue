@@ -3,10 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import BusinessListingCard from '../../components/business/BusinessListingCard.vue'
+import { API_URL } from '@/config'
 
 const { getToken } = useAuth()
-
-const API_URL = 'http://localhost:8000/api'
 
 // Business Listing Data
 const businesses = ref([])

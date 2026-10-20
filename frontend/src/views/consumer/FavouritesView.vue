@@ -3,8 +3,8 @@ import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import placeholderImage from '../../assets/placeholder.jpg'
+import { API_URL } from '@/config'
 
-const API_URL = 'http://localhost:8000/api'
 const { getToken } = useAuth()
 
 const businesses = ref([])

@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { importLibrary } from '@googlemaps/js-api-loader'
 import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
+import { API_URL } from '@/config'
 
 // Business ID received from Vue Router
 const { getToken } = useAuth()
@@ -47,7 +48,7 @@ async function getUserRole() {
     const token = await getToken.value()
 
     const response = await axios.get(
-      'http://localhost:8000/api/users/me',
+      `${API_URL}/users/me`,
       {
         headers: {
           Authorization: `Bearer ${token}`
@@ -61,7 +62,7 @@ async function getUserRole() {
     // Only check ownership for business accounts
     if (userRole.value === 'BUSINESS') {
       const ownedResponse = await axios.get(
-        'http://localhost:8000/api/businesses/ownedBusinesses',
+        `${API_URL}/businesses/ownedBusinesses`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -158,7 +159,7 @@ async function getBusiness() {
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/api/businesses/${props.businessId}`
+      `${API_URL}/businesses/${props.businessId}`
     )
 
     if (currentRequest !== requestId) return
@@ -203,7 +204,7 @@ async function getListings() {
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/api/businesses/${props.businessId}/listings`
+      `${API_URL}/businesses/${props.businessId}/listings`
     )
 
     listings.value = response.data.listings || []
@@ -231,7 +232,7 @@ async function checkFavourite() {
   try {
     const headers = await getHeaders()
     const response = await axios.get(
-      'http://localhost:8000/api/users/me/favourites/businesses',
+      `${API_URL}/users/me/favourites/businesses`,
       { headers: headers }
     )
 
@@ -253,14 +254,14 @@ async function toggleFavourite() {
 
     if (isFavourite.value) {
       await axios.delete(
-        `http://localhost:8000/api/users/me/favourites/businesses/${props.businessId}`,
+        `${API_URL}/users/me/favourites/businesses/${props.businessId}`,
         { headers: headers }
       )
       isFavourite.value = false
       favouriteMessage.value = 'Removed from favourites.'
     } else {
       await axios.put(
-        `http://localhost:8000/api/users/me/favourites/businesses/${props.businessId}`,
+        `${API_URL}/users/me/favourites/businesses/${props.businessId}`,
         {},
         { headers: headers }
       )
@@ -278,7 +279,7 @@ async function getReviews() {
 
   try {
     const response = await axios.get(
-      `http://localhost:8000/api/businesses/${props.businessId}/reviews`
+      `${API_URL}/businesses/${props.businessId}/reviews`
     )
     reviews.value = response.data.reviews
   } catch (error) {
