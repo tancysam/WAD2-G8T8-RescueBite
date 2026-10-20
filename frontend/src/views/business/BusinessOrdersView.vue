@@ -9,6 +9,8 @@ const { getToken } = useAuth()
 const API_URL = 'http://localhost:8000/api'
 
 const business = ref(null)
+const businesses = ref([])
+const selectedBusinessId = ref('')
 const reservations = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
@@ -198,7 +200,41 @@ async function confirmCollection() {
   await loadOrders()
 }
 
-// Find the owner's active business, then load its reservations
+// Load the reservations of the business that is currently chosen
+async function loadReservations() {
+  const token = await getToken.value()
+  const response = await axios.get(
+    `${API_URL}/businesses/${business.value._id}/reservations`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+
+  reservations.value = response.data.reservations
+}
+
+// When the owner picks another business from the dropdown
+async function changeBusiness() {
+  for (const item of businesses.value) {
+    if (item._id === selectedBusinessId.value) {
+      business.value = item
+    }
+  }
+
+  loading.value = true
+  errorMessage.value = ''
+  activeTab.value = 'ALL'
+  reservations.value = []
+
+  try {
+    await loadReservations()
+  } catch (error) {
+    console.error('Error loading orders:', error)
+    errorMessage.value = 'Unable to load your orders.'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Find the owner's active businesses, then load the first one's reservations
 async function loadOrders() {
   loading.value = true
   errorMessage.value = ''
@@ -212,22 +248,21 @@ async function loadOrders() {
       { headers: headers }
     )
 
+    businesses.value = []
     for (const item of ownedResponse.data.businesses) {
-      if (item.status === 'ACTIVE' && business.value === null) {
-        business.value = item
+      if (item.status === 'ACTIVE') {
+        businesses.value.push(item)
       }
     }
 
-    if (business.value === null) {
+    if (businesses.value.length === 0) {
       return
     }
 
-    const response = await axios.get(
-      `${API_URL}/businesses/${business.value._id}/reservations`,
-      { headers: headers }
-    )
+    business.value = businesses.value[0]
+    selectedBusinessId.value = business.value._id
 
-    reservations.value = response.data.reservations
+    await loadReservations()
   } catch (error) {
     console.error('Error loading orders:', error)
 
@@ -311,6 +346,17 @@ onUnmounted(closeScanner)
           <p v-if="business" class="text-muted mb-0">
             Reservation history for {{ business.name }}
           </p>
+          <select
+            v-if="businesses.length > 1"
+            v-model="selectedBusinessId"
+            class="form-select form-select-sm mt-2"
+            aria-label="Choose business"
+            @change="changeBusiness"
+          >
+            <option v-for="item in businesses" :key="item._id" :value="item._id">
+              {{ item.name }}
+            </option>
+          </select>
         </div>
         <button v-if="business" type="button" class="btn btn-success" @click="openScanner">
           Scan collection QR

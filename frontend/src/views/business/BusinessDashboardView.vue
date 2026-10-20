@@ -8,6 +8,8 @@ const { getToken } = useAuth()
 const API_URL = 'http://localhost:8000/api'
 
 const business = ref(null)
+const businesses = ref([])
+const selectedBusinessId = ref('')
 const impact = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
@@ -50,7 +52,40 @@ const hasCollected = computed(() => {
   return impact.value !== null && impact.value.reservationsCollected > 0
 })
 
-// Find the owner's active business, then load its impact
+// Load the impact of the business that is currently chosen
+async function loadImpact() {
+  const token = await getToken.value()
+  const impactResponse = await axios.get(
+    `${API_URL}/businesses/${business.value._id}/impact`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+
+  impact.value = impactResponse.data.impact
+}
+
+// When the owner picks another business from the dropdown
+async function changeBusiness() {
+  for (const item of businesses.value) {
+    if (item._id === selectedBusinessId.value) {
+      business.value = item
+    }
+  }
+
+  loading.value = true
+  errorMessage.value = ''
+  impact.value = null
+
+  try {
+    await loadImpact()
+  } catch (error) {
+    console.error('Error loading impact dashboard:', error)
+    errorMessage.value = 'Unable to load your impact dashboard.'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Find the owner's active businesses, then load the first one's impact
 async function loadDashboard() {
   loading.value = true
   errorMessage.value = ''
@@ -64,22 +99,21 @@ async function loadDashboard() {
       { headers: headers }
     )
 
+    businesses.value = []
     for (const item of ownedResponse.data.businesses) {
-      if (item.status === 'ACTIVE' && business.value === null) {
-        business.value = item
+      if (item.status === 'ACTIVE') {
+        businesses.value.push(item)
       }
     }
 
-    if (business.value === null) {
+    if (businesses.value.length === 0) {
       return
     }
 
-    const impactResponse = await axios.get(
-      `${API_URL}/businesses/${business.value._id}/impact`,
-      { headers: headers }
-    )
+    business.value = businesses.value[0]
+    selectedBusinessId.value = business.value._id
 
-    impact.value = impactResponse.data.impact
+    await loadImpact()
   } catch (error) {
     console.error('Error loading impact dashboard:', error)
 
@@ -101,6 +135,17 @@ onMounted(loadDashboard)
     <header class="mb-4">
       <h1 class="dashboard-title">Business impact dashboard</h1>
       <p v-if="business" class="text-muted mb-0">{{ business.name }}</p>
+      <select
+        v-if="businesses.length > 1"
+        v-model="selectedBusinessId"
+        class="form-select form-select-sm mt-2 w-auto"
+        aria-label="Choose business"
+        @change="changeBusiness"
+      >
+        <option v-for="item in businesses" :key="item._id" :value="item._id">
+          {{ item.name }}
+        </option>
+      </select>
     </header>
 
     <!-- Loading -->
