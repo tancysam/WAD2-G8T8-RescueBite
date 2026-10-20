@@ -65,6 +65,18 @@ const listingSchema = new mongoose.Schema(
       default: "DRAFT",
       enum: LISTING_STATUSES,
     },
+    deleted_at: {
+      type: Date,
+      default: null,
+    },
+    images_purged_at: {
+      type: Date,
+      default: null,
+    },
+    restored_reservation_ids: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -128,6 +140,38 @@ function removeListing(id) {
   return Listing.updateOne({ _id: id }, { status: "REMOVED" });
 }
 
+async function softDeleteListing(id) {
+  const result = await Listing.updateOne({ _id: id }, { status: "REMOVED" });
+  await Listing.updateOne(
+    { _id: id, deleted_at: null },
+    { deleted_at: new Date() },
+  );
+  return result;
+}
+
+function findCascadableListingsByBusiness(businessId) {
+  return Listing.find({
+    business_id: businessId,
+    status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT", "EXPIRED"] },
+  });
+}
+
+function findListingsPendingImagePurge(cutoff) {
+  return Listing.find({
+    status: "REMOVED",
+    images_purged_at: null,
+    collection_end_at: { $lte: cutoff },
+  });
+}
+
+function markImagesPurged(id) {
+  return Listing.updateOne({ _id: id }, { images_purged_at: new Date() });
+}
+
+function listingExistsForCategory(categoryId) {
+  return Listing.exists({ category_id: categoryId });
+}
+
 // TODO: wrap stock reduction + reservation creation in a MongoDB transaction
 // Conditional update so the stock reduction is atomic without a transaction.
 function reduceStock(listingId, expectedQty, newQty, updatedAt) {
@@ -146,12 +190,22 @@ function reduceStock(listingId, expectedQty, newQty, updatedAt) {
 }
 
 // Retries the conditional update a few times in case of concurrent stock changes.
-async function restoreStock(listingId, quantity) {
-  let result = null;
+async function restoreStock(listingId, quantity, reservationId) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const listing = await Listing.findOne({ _id: listingId });
     if (!listing) {
-      return result;
+      return false;
+    }
+    const restoredIds = Array.isArray(listing.restored_reservation_ids)
+      ? listing.restored_reservation_ids
+      : [];
+    if (
+      reservationId !== undefined &&
+      restoredIds.some(function (id) {
+        return id.toString() === reservationId.toString();
+      })
+    ) {
+      return true;
     }
     const update = {
       quantity_available: listing.quantity_available + quantity,
@@ -159,18 +213,22 @@ async function restoreStock(listingId, quantity) {
     if (listing.status === "SOLD_OUT") {
       update.status = Number(listing.collection_end_at) > Number(new Date()) ? "ACTIVE" : "EXPIRED";
     }
+    if (reservationId !== undefined) {
+      update.restored_reservation_ids = restoredIds.slice();
+      update.restored_reservation_ids.push(reservationId);
+    }
     const filter = {
       _id: listingId,
       quantity_available: listing.quantity_available,
       status: listing.status,
     };
     if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
-    result = await Listing.updateOne(filter, update);
+    const result = await Listing.updateOne(filter, update);
     if (result.modifiedCount === 1) {
-      return result;
+      return true;
     }
   }
-  return result;
+  return false;
 }
 
 module.exports = {
@@ -184,6 +242,11 @@ module.exports = {
   updateListing,
   setListingStatus,
   removeListing,
+  softDeleteListing,
+  findCascadableListingsByBusiness,
+  findListingsPendingImagePurge,
+  markImagesPurged,
+  listingExistsForCategory,
   reduceStock,
   restoreStock,
 };

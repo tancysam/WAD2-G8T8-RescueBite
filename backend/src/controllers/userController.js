@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Cascade from "../models/cascade.js";
 
 export async function createMyProfile(req, res) {
 
@@ -108,6 +109,35 @@ export async function updateMyProfile(req, res) {
 
     return res.status(500).json({
       error: "Unable to update profile",
+    });
+  }
+}
+
+export async function deleteMyProfile(req, res) {
+  // delete profile
+  try {
+    if (!req.user) {
+      return res.status(404).json({
+        error: "Profile not found",
+      });
+    }
+
+    if (req.user.role === "ADMIN") {
+      return res.status(403).json({
+        error: "Admin accounts cannot be deleted",
+      });
+    }
+
+    await Cascade.softDeleteUser(req.user);
+
+    return res.status(200).json({
+      message: "Profile deleted successfully",
+    });
+  } catch (error) {
+    console.error("Failed to delete profile:", error);
+
+    return res.status(500).json({
+      error: "Unable to delete profile",
     });
   }
 }

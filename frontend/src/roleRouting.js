@@ -1,5 +1,5 @@
 export function homeRouteForRole(role) {
-  if (role === 'CONSUMER') return 'all-businesses'
+  if (role === 'CONSUMER') return 'explore'
   if (role === 'BUSINESS') return 'business-dashboard'
   return null
 }
