@@ -59,9 +59,19 @@ function removeBusinessFavourite(consumerUserId, businessId) {
   });
 }
 
+function removeFavouritesByBusiness(businessId) {
+  return BusinessFavourite.deleteMany({ business_id: businessId });
+}
+
+function removeFavouritesByConsumer(consumerUserId) {
+  return BusinessFavourite.deleteMany({ consumer_user_id: consumerUserId });
+}
+
 module.exports = {
   findFavouritesByConsumer,
   findBusinessFavourite,
   addBusinessFavourite,
   removeBusinessFavourite,
+  removeFavouritesByBusiness,
+  removeFavouritesByConsumer,
 };

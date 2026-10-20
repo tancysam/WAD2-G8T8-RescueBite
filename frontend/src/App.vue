@@ -1,10 +1,10 @@
-
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { Show, UserButton } from '@clerk/vue'
 import { useRoute } from 'vue-router'
 import { RouterView, RouterLink } from 'vue-router'
 import ProfileGate from './components/ProfileGate.vue'
+import NotificationBell from './components/notifications/NotificationBell.vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
@@ -23,8 +23,8 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
     </RouterLink>
 
     <nav>
-      <RouterLink to="/auth/complete">
-        Home
+      <RouterLink v-if="profileRole === 'CONSUMER'" to="/explore">
+        Explore
       </RouterLink>
       <RouterLink v-if="profileRole === 'CONSUMER'" to="/businesses">
         Businesses
@@ -36,6 +36,9 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
         My orders
       </RouterLink>
       <!-- Business Listing Navigation -->
+      <RouterLink v-if="profileRole === 'BUSINESS'" to="/auth/complete">
+        Dashboard
+      </RouterLink>
       <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-listings">
         Manage listings
       </RouterLink>
@@ -46,6 +49,7 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
         Businesses
       </RouterLink>
       <Show when="signed-in">
+        <NotificationBell />
         <UserButton />
       </Show>
     </nav>

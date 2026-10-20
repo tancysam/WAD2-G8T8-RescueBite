@@ -1,4 +1,11 @@
 const mongoose = require("mongoose");
+const {
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
+  S3Client,
+} = require("@aws-sdk/client-s3");
+
+let s3Client;
 
 const listingImageSchema = new mongoose.Schema(
   {
@@ -55,6 +62,57 @@ function deleteListingImage(id) {
   return ListingImage.deleteOne({ _id: id });
 }
 
+function deleteImagesByListing(listingId) {
+  return ListingImage.deleteMany({ listing_id: listingId });
+}
+
+async function deleteImageObjectsForListing(listingId) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION;
+  if (!bucket || !bucket.trim() || !region || !region.trim()) {
+    return { configured: false, failedKeys: [] };
+  }
+  if (!s3Client) {
+    s3Client = new S3Client({
+      region: region,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+    });
+  }
+  const failedKeys = [];
+  const prefix = "listings/" + listingId + "/";
+  let continuationToken;
+  do {
+    const listInput = { Bucket: bucket, Prefix: prefix };
+    if (continuationToken !== undefined) {
+      listInput.ContinuationToken = continuationToken;
+    }
+    const page = await s3Client.send(new ListObjectsV2Command(listInput));
+    const objects = [];
+    if (Array.isArray(page.Contents)) {
+      for (const item of page.Contents) {
+        objects.push({ Key: item.Key });
+      }
+    }
+    if (objects.length > 0) {
+      const response = await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: objects },
+        }),
+      );
+      if (Array.isArray(response.Errors)) {
+        for (const err of response.Errors) {
+          failedKeys.push(err.Key);
+        }
+      }
+    }
+    continuationToken = page.IsTruncated
+      ? page.NextContinuationToken
+      : undefined;
+  } while (continuationToken !== undefined);
+  return { configured: true, failedKeys: failedKeys };
+}
+
 module.exports = {
   findImagesByListing,
   findImagesByListings,
@@ -62,4 +120,6 @@ module.exports = {
   addListingImage,
   updateImageSortOrder,
   deleteListingImage,
+  deleteImagesByListing,
+  deleteImageObjectsForListing,
 };

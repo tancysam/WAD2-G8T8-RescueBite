@@ -52,9 +52,19 @@ function removeListingFavourite(consumerUserId, listingId) {
   });
 }
 
+function removeFavouritesByListing(listingId) {
+  return ListingFavourite.deleteMany({ listing_id: listingId });
+}
+
+function removeFavouritesByConsumer(consumerUserId) {
+  return ListingFavourite.deleteMany({ consumer_user_id: consumerUserId });
+}
+
 module.exports = {
   findFavouritesByConsumer,
   findListingFavourite,
   addListingFavourite,
   removeListingFavourite,
+  removeFavouritesByListing,
+  removeFavouritesByConsumer,
 };
