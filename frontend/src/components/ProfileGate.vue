@@ -5,8 +5,9 @@ import { useAuth, useUser } from '@clerk/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clearPendingRegistrationRole, getPendingRegistrationRole } from '../registrationRole.js'
 import { canAccessRoute, homeRouteForRole } from '../roleRouting.js'
+import { API_URL } from '@/config'
 
-const PROFILE_URL = 'http://localhost:8000/api/users/me'
+const PROFILE_URL = `${API_URL}/users/me`
 const emit = defineEmits(['role-change'])
 const router = useRouter()
 const route = useRoute()

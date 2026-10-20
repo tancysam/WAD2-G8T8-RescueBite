@@ -4,10 +4,10 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
 import BusinessForm from '@/components/business/BusinessForm.vue'
+import { API_URL } from '@/config'
 
 const router = useRouter()
 const { getToken } = useAuth()
-const API_URL = 'http://localhost:8000/api'
 const saving = ref(false)
 const errorMessage = ref('')
 

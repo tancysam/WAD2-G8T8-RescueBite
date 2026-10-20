@@ -2,10 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
+import { API_URL } from '@/config'
 
 const { getToken } = useAuth()
-
-const API_URL = 'http://localhost:8000/api'
 
 const business = ref(null)
 const businesses = ref([])

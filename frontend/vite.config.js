@@ -12,7 +12,9 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_GOOGLE_MAPS_API_KEY':
         JSON.stringify(env.VITE_GOOGLE_MAPS_API_KEY),
       'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY':
-        JSON.stringify(env.VITE_CLERK_PUBLISHABLE_KEY)
+        JSON.stringify(env.VITE_CLERK_PUBLISHABLE_KEY),
+      'import.meta.env.VITE_API_URL':
+        JSON.stringify(env.VITE_API_URL)
     },
     resolve: {
       alias: {

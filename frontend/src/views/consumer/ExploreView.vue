@@ -3,9 +3,9 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import axios from 'axios'
 import CustomerListingCard from '@/components/listings/CustomerListingCard.vue'
-import {useRouter} from 'vue-router'
+import { useRouter } from 'vue-router'
+import { API_URL } from '@/config'
 
-const API_URL = 'http://localhost:8000/api'
 const router = useRouter()
 
 // Google Maps
