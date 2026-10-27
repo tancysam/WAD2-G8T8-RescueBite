@@ -5,10 +5,13 @@ import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { importLibrary } from '@googlemaps/js-api-loader'
 import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
+import DisplayHeading from '../../components/DisplayHeading.vue'
 import { API_URL } from '@/config'
 
 // Business ID received from Vue Router
 const { getToken } = useAuth()
+
+const stars = [1, 2, 3, 4, 5]
 
 const props = defineProps({
   businessId: {
@@ -289,10 +292,6 @@ async function getReviews() {
   reviewsLoading.value = false
 }
 
-function reviewStars(rating) {
-  return '★'.repeat(rating)
-}
-
 // Open directions in Google Maps
 function openDirections() {
   const coordinates = business.value && business.value.location
@@ -338,398 +337,245 @@ onUnmounted(() => {
 
 <template>
   <main class="business-profile">
+    <section class="container-xxl px-4 pt-4">
+      <!-- Back to Businesses -->
+      <RouterLink
+        v-if="!roleLoading"
+        :to="backRoute"
+        class="rb-label back-link"
+      >
+        {{ userRole === 'BUSINESS' ? '← Back to my businesses' : '← Back to businesses' }}
+      </RouterLink>
+    </section>
 
-    <!-- Back to Businesses -->
-    <RouterLink
-      v-if="!roleLoading"
-      :to="backRoute"
-      class="back-link"
-    >
-      {{ userRole === 'BUSINESS'
-        ? '← Back to My Businesses'
-        : '← Back to Businesses' }}
-    </RouterLink>
-    <!-- Loading -->
-    <p v-if="loading">
-      Loading business information...
-    </p>
+    <section class="container-xxl px-4 pb-5">
+      <!-- Loading -->
+      <p v-if="loading" class="rb-label mt-4">Loading business information…</p>
 
-    <!-- Error -->
-    <p v-else-if="errorMessage" class="error">
-      {{ errorMessage }}
-    </p>
+      <!-- Error -->
+      <p v-else-if="errorMessage" class="rb-note error mt-4" role="alert">
+        {{ errorMessage }}
+      </p>
 
-    <!-- Business Profile -->
-    <div v-else-if="business">
-
-      <!-- Business Header -->
-      <header class="business-header">
-        <h1>{{ business.name }}</h1>
-
-        <p>
-          {{ business.description || 'No description available.' }}
-        </p>
-
-        <RouterLink
-          v-if="userRole === 'BUSINESS' && isOwner"
-          :to="`/businesses/${businessId}/edit`"
-          class="edit-button"
-        >
-          Edit Business
-        </RouterLink>
-      </header>
-
-      <div class="favourite-area">
-        <button v-if="canFavourite" class="favourite-button" @click="toggleFavourite">
-          {{ isFavourite ? 'Remove from favourites' : 'Save business' }}
-        </button>
-        <p v-if="favouriteMessage">{{ favouriteMessage }}</p>
-      </div>
-
-      <!-- Contact Information -->
-      <section class="profile-section">
-        <h1>Business Information</h1>
-
-        <p>
-          <strong>Phone:</strong>
-          {{ business.phone || 'Not provided' }}
-        </p>
-
-        <p>
-          <strong>Address:</strong>
-          {{ business.address }}
-        </p>
-
-        <p>
-          <strong>Pickup Instructions:</strong>
-          {{
-            business.pickup_instructions ||
-            'No pickup instructions provided.'
-          }}
-        </p>
-
-        <div
-          v-if="business.location && business.location.coordinates"
-          ref="mapElement"
-          class="map"
-        ></div>
-
-        <p v-else>
-          Location unavailable.
-        </p>
-
-        <p v-if="mapError" class="error">
-          {{ mapError }}
-        </p>
-
-        <button
-          v-if="business.location && business.location.coordinates"
-          class="directions-button"
-          @click="openDirections"
-        >
-          Get Directions
-        </button>
-      </section>
-
-      <section class="listings-section" aria-labelledby="available-listings-heading">
-        <div class="listings-heading">
-          <div>
-            <p class="section-label">AVAILABLE TO RESCUE</p>
-            <h2 id="available-listings-heading">Listings from {{ business.name }}</h2>
+      <!-- Business Profile -->
+      <template v-else-if="business">
+        <!-- Business Header -->
+        <header class="d-flex flex-wrap align-items-end justify-content-between gap-4 mt-4">
+          <div class="header-copy">
+            <p class="rb-script rb-kicker fs-3">rescue from</p>
+            <DisplayHeading :size="128">{{ business.name }}</DisplayHeading>
+            <p class="description">
+              {{ business.description || 'No description available.' }}
+            </p>
           </div>
-          <span v-if="!listingsLoading && !listingsError" class="listing-count">
-            {{ listings.length }} {{ listings.length === 1 ? 'listing' : 'listings' }}
-          </span>
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <RouterLink
+              v-if="userRole === 'BUSINESS' && isOwner"
+              :to="`/businesses/${businessId}/edit`"
+              class="rb-pill rb-pill-line"
+            >
+              Edit business
+            </RouterLink>
+            <button
+              v-if="canFavourite"
+              type="button"
+              class="rb-pill save-button"
+              :aria-pressed="isFavourite"
+              @click="toggleFavourite"
+            >
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
+              {{ isFavourite ? 'Saved' : 'Save business' }}
+            </button>
+          </div>
+        </header>
+        <p v-if="favouriteMessage" class="rb-label mt-3 text-end" aria-live="polite">{{ favouriteMessage }}</p>
+
+        <div class="row g-4 mt-4">
+          <!-- Contact Information -->
+          <aside class="col-lg-4">
+            <section class="info-panel p-4" aria-labelledby="info-heading">
+              <h2 id="info-heading" class="rb-display display-6 mb-3">Visit</h2>
+
+              <dl class="info-list">
+                <div><dt class="rb-label">Phone</dt><dd>{{ business.phone || 'Not provided' }}</dd></div>
+                <div><dt class="rb-label">Address</dt><dd>{{ business.address }}</dd></div>
+                <div><dt class="rb-label">Pickup instructions</dt><dd>{{ business.pickup_instructions || 'No pickup instructions provided.' }}</dd></div>
+              </dl>
+
+              <div
+                v-if="business.location && business.location.coordinates"
+                ref="mapElement"
+                class="map"
+              ></div>
+              <p v-else class="rb-label">Location unavailable.</p>
+
+              <p v-if="mapError" class="rb-note error mt-3" role="alert">{{ mapError }}</p>
+
+              <button
+                v-if="business.location && business.location.coordinates"
+                type="button"
+                class="rb-pill rb-pill-dark w-100 mt-3"
+                @click="openDirections"
+              >
+                Get directions
+              </button>
+            </section>
+          </aside>
+
+          <!-- Listings -->
+          <section class="col-lg-8" aria-labelledby="available-listings-heading">
+            <div class="section-head">
+              <div>
+                <p class="rb-label mb-1">Available to rescue</p>
+                <h2 id="available-listings-heading" class="rb-display display-6 mb-0">Listings</h2>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                <span v-if="!listingsLoading && !listingsError" class="rb-label">
+                  {{ listings.length }} {{ listings.length === 1 ? 'listing' : 'listings' }}
+                </span>
+                <RouterLink
+                  v-if="userRole === 'BUSINESS'"
+                  :to="{ name: 'business-listings' }"
+                  class="rb-pill rb-pill-line rb-pill-sm"
+                >
+                  Edit listings
+                </RouterLink>
+              </div>
+            </div>
+
+            <p v-if="listingsLoading" class="rb-label mt-4" aria-live="polite">
+              Loading available listings…
+            </p>
+
+            <p v-else-if="listingsError" class="rb-note error mt-4" role="alert">
+              {{ listingsError }}
+            </p>
+
+            <div v-else-if="listings.length" class="row row-cols-1 row-cols-md-2 g-4 mt-1">
+              <div v-for="(listing, index) in listings" :key="listing._id" class="col d-flex">
+                <CustomerListingCard class="w-100" :listing="listing" :index="index" :business-name="business.name" />
+              </div>
+            </div>
+
+            <div v-else class="rb-empty mt-4">
+              <p class="rb-display display-6 mb-2">Nothing listed right now</p>
+              <p class="mb-0">Check back later for new food from {{ business.name }}.</p>
+            </div>
+          </section>
         </div>
-        <div>
-          <RouterLink
-            v-if="userRole === 'BUSINESS'"
-              :to="{name: 'business-listings',}"
-              class="edit-button"
-              style="margin-bottom: 10px"
-          >
-            Edit Listings
-          </RouterLink>
-        </div>
 
-        <p v-if="listingsLoading" class="listing-state" aria-live="polite">
-          Loading available listings…
-        </p>
+        <!-- Reviews -->
+        <section class="reviews mt-5" aria-labelledby="reviews-heading">
+          <div class="section-head">
+            <h2 id="reviews-heading" class="rb-display display-6 mb-0">Customer reviews</h2>
+            <span v-if="!reviewsLoading && !reviewsError" class="rb-label">{{ reviews.length }} {{ reviews.length === 1 ? 'review' : 'reviews' }}</span>
+          </div>
 
-        <p v-else-if="listingsError" class="listing-state error" role="alert">
-          {{ listingsError }}
-        </p>
+          <p v-if="reviewsLoading" class="rb-label mt-4">Loading reviews…</p>
+          <p v-else-if="reviewsError" class="rb-note error mt-4" role="alert">{{ reviewsError }}</p>
+          <p v-else-if="reviews.length === 0" class="rb-empty mt-4">No reviews yet.</p>
 
-        <div v-else-if="listings.length" class="listing-grid">
-          <CustomerListingCard
-            v-for="listing in listings"
-            :key="listing._id"
-            :listing="listing"
-          />
-        </div>
-
-        <div v-else class="empty-listings">
-          <h3>No listings available right now</h3>
-          <p>Check back later for new food from {{ business.name }}.</p>
-        </div>
-      </section>
-      <section class="reviews-section">
-        <h2>Customer reviews</h2>
-
-        <p v-if="reviewsLoading">Loading reviews...</p>
-        <p v-else-if="reviewsError" class="error">{{ reviewsError }}</p>
-        <p v-else-if="reviews.length === 0">No reviews yet.</p>
-
-        <article v-for="review in reviews" :key="review._id" class="review-card">
-          <p class="review-stars">{{ reviewStars(review.rating) }}</p>
-          <p>{{ review.comment || 'No comment added.' }}</p>
-        </article>
-      </section>
-    </div>
+          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mt-1">
+            <div v-for="review in reviews" :key="review._id" class="col">
+              <article class="review-card h-100">
+                <p class="star-row" :aria-label="review.rating + ' out of 5'">
+                  <svg
+                    v-for="star in stars.slice(0, review.rating)"
+                    :key="star"
+                    aria-hidden="true"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  ><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z"></path></svg>
+                </p>
+                <p class="mb-0">{{ review.comment || 'No comment added.' }}</p>
+              </article>
+            </div>
+          </div>
+        </section>
+      </template>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.business-profile {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 30px;
-}
-
-/* Business Header */
-.business-header {
-  background-color: #f0f7f1;
-  padding: 10px;
-  padding-left: 20px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  margin-top: 20px;
-}
-
-.business-header h1 {
-  color: #256b45;
-  margin-bottom: 10px;
-}
-
-.business-header p {
-  color: #555;
-  line-height: 1.6;
-}
-
-/* Customer Listings */
-.listings-section {
-  margin-bottom: 24px;
-  padding: 24px;
-  border: 1px solid #dfe6df;
-  border-radius: 12px;
-  background-color: #f5f9f2;
-}
-
-.listings-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 20px;
-}
-
-.section-label {
-  margin: 0 0 5px;
-  color: #718b78;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-
-.listings-heading h2 {
-  margin: 0;
-  color: #256b45;
-  font-size: 26px;
-}
-
-.listing-count {
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: #45604e;
-  background-color: #e4ede0;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.listing-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-.listing-state,
-.empty-listings {
-  margin: 0;
-  padding: 28px;
-  border-radius: 10px;
-  background-color: white;
-  text-align: center;
-}
-
-.listing-state {
-  color: #66746b;
-}
-
-.empty-listings h3 {
-  margin: 0 0 6px;
-  color: #345b43;
-}
-
-.empty-listings p {
-  margin: 0;
-  color: #748078;
-}
-
-.favourite-area {
-  margin-bottom: 20px;
-}
-
-.favourite-area p {
-  margin: 8px 0 0;
-  color: #4c6756;
-}
-
-.favourite-button {
-  padding: 10px 16px;
-  border: 1px solid #256b45;
-  border-radius: 8px;
-  color: white;
-  background-color: #256b45;
-  cursor: pointer;
-}
-
-.reviews-section {
-  margin-bottom: 24px;
-  padding: 24px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-}
-
-.reviews-section h2 {
-  color: #256b45;
-}
-
-.review-card {
-  margin-top: 14px;
-  padding: 16px;
-  border-radius: 9px;
-  background-color: #f5f9f2;
-}
-
-.review-card p {
-  margin: 0 0 6px;
-}
-
-.review-stars {
-  color: #e0a100;
-  font-size: 20px;
-}
-
-/* Profile Sections */
-.profile-section {
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-}
-
-.profile-section h1 {
-  color: #256b45;
-  margin-bottom: 16px;
-}
-
-.profile-section p {
-  margin-bottom: 12px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-/* Google Maps */
-.map {
-  width: 100%;
-  height: 400px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-}
-
-/* Directions Button */
-.directions-button {
-  background-color: #256b45;
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.directions-button:hover {
-  background-color: #1b5034;
-}
-
-/* Back Link */
 .back-link {
-  display: inline-block;
-  margin-top: 15px;
-  color: #256b45;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #191200;
   text-decoration: none;
-  font-weight: bold;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  color: #8a6200;
 }
 
-/* Edit Business Button */
-.edit-button {
-  display: inline-block;
-  background-color: white;
-  color: #256b45;
-  border: 1px solid #256b45;
-  text-decoration: none;
-  padding: 9px 15px;
-  border-radius: 8px;
+.header-copy {
+  max-width: 900px;
 }
 
-.edit-button:hover {
-  background-color: #e8f5e9;
+.description {
+  max-width: 640px;
+  margin: 20px 0 0;
+  font-size: 18px;
+  line-height: 27px;
 }
 
-/* Error */
-.error {
-  color: red;
+.save-button {
+  color: #000;
+  background-color: transparent;
 }
 
-/* Mobile */
-@media (max-width: 600px) {
-  .business-profile {
-    padding: 16px;
-  }
+.save-button:hover {
+  color: #f4b30c;
+  background-color: #000;
+}
 
-  .business-header {
-    padding: 20px;
-  }
+.info-panel {
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
 
-  .profile-section {
-    padding: 18px;
-  }
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 0 20px;
+}
 
-  .listings-section {
-    padding: 18px;
-  }
+.info-list dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 24px;
+}
 
-  .listing-grid {
-    grid-template-columns: 1fr;
-  }
+.map {
+  width: 100%;
+  height: 300px;
+}
 
-  .map {
-    height: 300px;
-  }
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #000;
+}
+
+.review-card {
+  padding: 20px 24px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+.star-row {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  color: #8a6200;
 }
 </style>

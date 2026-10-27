@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
+import DisplayHeading from '../../components/DisplayHeading.vue'
 import BusinessListingCard from '../../components/business/BusinessListingCard.vue'
 import { API_URL } from '@/config'
 
@@ -201,140 +202,119 @@ onMounted(loadListings)
 </script>
 
 <template>
-  <main class="listings-page container py-4 py-md-5">
-    <!-- Business Listings Header -->
-    <header class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-      <div>
-        <h1 class="page-title">Manage listings</h1>
-        <p v-if="selectedBusiness" class="text-muted mb-0">
-          Listings for {{ selectedBusiness.name }}
-        </p>
-      </div>
-
-      <RouterLink
-        v-if="selectedBusiness"
-        :to="{ name: 'business-listing-create' }"
-        class="btn btn-success"
-      >
-        Create listing
-      </RouterLink>
-    </header>
-
-    <p v-if="loading" class="text-muted">Loading your listings...</p>
-
-    <div v-else-if="errorMessage" class="alert alert-danger" role="alert">
-      {{ errorMessage }}
-    </div>
-
-    <div v-else-if="businesses.length === 0" class="alert alert-warning" role="alert">
-      You do not have an active business yet.
-      <RouterLink to="/register-business" class="alert-link">
-        Register a business
-      </RouterLink>
-    </div>
-
-    <section v-else>
-      <!-- Business Selector -->
-      <div class="row mb-4">
-        <div class="col-12 col-md-6">
-          <label for="businessId" class="form-label">Business</label>
-          <select
-            id="businessId"
-            v-model="selectedBusinessId"
-            class="form-select"
-            @change="changeBusiness"
-          >
-            <option
-              v-for="item in businesses"
-              :key="item._id"
-              :value="item._id"
+  <main class="listings-page">
+    <section class="container-xxl px-4 pt-5">
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+        <div>
+          <p class="rb-script rb-kicker fs-3">what’s on the shelf</p>
+          <DisplayHeading :size="144">Manage listings</DisplayHeading>
+          <p v-if="selectedBusiness" class="rb-label mt-2">Listings for {{ selectedBusiness.name }}</p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <label v-if="businesses.length > 1" for="businessId" class="rb-label d-flex align-items-center gap-2">
+            Business
+            <select
+              id="businessId"
+              v-model="selectedBusinessId"
+              class="rb-select"
+              @change="changeBusiness"
             >
-              {{ item.name }}
-            </option>
-          </select>
+              <option v-for="item in businesses" :key="item._id" :value="item._id">
+                {{ item.name }}
+              </option>
+            </select>
+          </label>
+          <RouterLink
+            v-if="selectedBusiness"
+            :to="{ name: 'business-listing-create' }"
+            class="rb-pill rb-pill-dark"
+          >
+            + Create listing
+          </RouterLink>
         </div>
       </div>
+    </section>
 
-      <div v-if="listingToRemove" class="alert alert-warning" role="alert">
-        <p class="mb-2">
-          Remove <strong>{{ listingToRemove.title }}</strong>? Customers will no longer see it.
-        </p>
-        <p v-if="removeError" class="text-danger mb-2">{{ removeError }}</p>
-        <div class="d-flex gap-2">
-          <button
-            type="button"
-            class="btn btn-danger btn-sm"
-            :disabled="removing"
-            @click="confirmRemove"
-          >
-            {{ removing ? 'Removing...' : 'Confirm remove' }}
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline-secondary btn-sm"
-            :disabled="removing"
-            @click="cancelRemove"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
+    <section class="container-xxl px-4 pt-5 pb-5">
+      <p v-if="loading" class="rb-label">Loading your listings…</p>
 
-      <!-- Listing Status Tabs -->
-      <ul class="nav nav-tabs flex-nowrap overflow-auto mb-4">
-        <li v-for="tab in tabs" :key="tab.key" class="nav-item">
-          <button
-            type="button"
-            class="nav-link text-nowrap"
-            :class="{ active: activeTab === tab.key }"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }} ({{ counts[tab.key] }})
-          </button>
-        </li>
-      </ul>
-
-      <p v-if="visibleListings.length === 0" class="text-muted">
-        No listings in this tab.
+      <p v-else-if="errorMessage" class="rb-note error" role="alert">
+        {{ errorMessage }}
       </p>
 
-      <!-- Business Listing Cards -->
-      <div v-else class="row g-3">
-        <div
-          v-for="listing in visibleListings"
-          :key="listing._id"
-          class="col-12 col-lg-6"
-        >
-          <BusinessListingCard
-            :listing="listing"
-            :category-name="categoryName(listing.category_id)"
-            :business-id="selectedBusinessId"
-            @request-remove="askToRemove"
-          />
-        </div>
+      <div v-else-if="businesses.length === 0" class="rb-note">
+        <span>You do not have an active business yet.</span>
+        <RouterLink to="/register-business" class="rb-pill rb-pill-dark rb-pill-sm">Register a business</RouterLink>
       </div>
+
+      <template v-else>
+        <div v-if="listingToRemove" class="rb-note mb-4" role="alert">
+          <div>
+            <p class="mb-0">
+              Remove <strong>{{ listingToRemove.title }}</strong>? Customers will no longer see it.
+            </p>
+            <p v-if="removeError" class="remove-error mb-0 mt-2">{{ removeError }}</p>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="rb-pill rb-pill-dark rb-pill-sm"
+              :disabled="removing"
+              @click="confirmRemove"
+            >
+              {{ removing ? 'Removing…' : 'Confirm remove' }}
+            </button>
+            <button
+              type="button"
+              class="rb-pill rb-pill-line rb-pill-sm"
+              :disabled="removing"
+              @click="cancelRemove"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Listing Status Filters -->
+        <div class="rb-chip-row" role="group" aria-label="Filter by status">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            type="button"
+            class="rb-chip"
+            :class="{ active: activeTab === tab.key }"
+            :aria-pressed="activeTab === tab.key"
+            @click="activeTab = tab.key"
+          >
+            {{ tab.label }} <span class="ms-1">{{ counts[tab.key] }}</span>
+          </button>
+        </div>
+
+        <div v-if="visibleListings.length === 0" class="rb-empty mt-4">
+          <p class="rb-display display-6 mb-2">Nothing here yet</p>
+          <p class="mb-0">No listings in this tab.</p>
+        </div>
+
+        <!-- Business Listing Cards -->
+        <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+          <div v-for="(listing, index) in visibleListings" :key="listing._id" class="col d-flex">
+            <BusinessListingCard
+              class="w-100"
+              :listing="listing"
+              :index="index"
+              :category-name="categoryName(listing.category_id)"
+              :business-id="selectedBusinessId"
+              @request-remove="askToRemove"
+            />
+          </div>
+        </div>
+      </template>
     </section>
   </main>
 </template>
 
 <style scoped>
-/* Business Listings Page */
-.listings-page {
-  color: #173d2c;
-}
-
-.page-title {
-  margin: 0 0 4px;
-  color: #164936;
-  font-size: 38px;
-}
-
-.nav-tabs .nav-link {
-  color: #256b45;
-}
-
-.nav-tabs .nav-link.active {
-  color: #164936;
-  font-weight: 600;
+.remove-error {
+  color: #8a1c1c;
 }
 </style>

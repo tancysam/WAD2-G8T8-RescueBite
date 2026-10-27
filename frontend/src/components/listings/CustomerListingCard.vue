@@ -1,18 +1,35 @@
 <script setup>
 import { computed, ref } from 'vue'
-import placeholderImage from '../../assets/placeholder.jpg'
+import { collectionWindow, formatPrice, savingsPercent } from '../../formatters.js'
 
 const props = defineProps({
   listing: {
     type: Object,
     required: true
+  },
+  // Shown above the title when the parent knows the business
+  businessName: {
+    type: String,
+    default: ''
+  },
+  // Position in the list, used to rotate the tile colours
+  index: {
+    type: Number,
+    default: 0
+  },
+  selected: {
+    type: Boolean,
+    default: false
   }
 })
 
-const imageFailed = ref(false)
+const emit = defineEmits(['select'])
 
-const primaryImage = computed(() => {
-  if (imageFailed.value) return placeholderImage
+const imageFailed = ref(false)
+const tileTones = ['', 'dark', 'khaki']
+
+const photoUrl = computed(() => {
+  if (imageFailed.value) return ''
   if (
     props.listing.images &&
     props.listing.images.length > 0 &&
@@ -20,206 +37,121 @@ const primaryImage = computed(() => {
   ) {
     return props.listing.images[0].url
   }
-  return placeholderImage
-})
-
-const imageAlt = computed(() => {
-  if (props.listing.images && props.listing.images.length > 0) {
-    return props.listing.title
-  }
   return ''
 })
 
-function formatPrice(value) {
-  const price = Number(value)
-  if (isNaN(price)) return '$0.00'
-  return '$' + price.toFixed(2)
-}
-
-function formatDate(value) {
-  const date = new Date(value)
-  if (isNaN(date)) return 'Collection time unavailable'
-
-  return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-US')
-}
-
-const collectionWindow = computed(() => {
-  return formatDate(props.listing.collection_start_at) +
-    ' - ' +
-    formatDate(props.listing.collection_end_at)
+const tileClass = computed(() => {
+  if (photoUrl.value) return 'photo'
+  return tileTones[props.index % tileTones.length]
 })
+
+const tileStyle = computed(() => {
+  if (!photoUrl.value) return {}
+  return { backgroundImage: 'url("' + photoUrl.value + '")' }
+})
+
+// The first word of the title stands in for a photo
+const tileWord = computed(() => {
+  const words = (props.listing.title || '').trim().split(' ')
+  return words[0]
+})
+
+const savings = computed(() => {
+  const percent = savingsPercent(props.listing.original_price_sgd, props.listing.rescue_price_sgd)
+  return percent === null ? '' : percent + '%'
+})
+
+const windowLabel = computed(() => {
+  return collectionWindow(props.listing.collection_start_at, props.listing.collection_end_at)
+})
+
+// Hidden photo loader so a broken image URL falls back to the word tile
+function onImageError() {
+  imageFailed.value = true
+}
 </script>
 
 <template>
-  <article class="listing-card">
-    <div class="image-wrapper">
-      <img
-        :src="primaryImage"
-        :alt="imageAlt"
-        class="listing-image"
-        @error="imageFailed = true"
-      />
-      <span class="type-badge">
+  <article class="card rb-card" :class="{ selected: selected }" @mouseenter="emit('select', listing._id)">
+    <div class="rb-tile card-tile" :class="tileClass" :style="tileStyle">
+      <img v-if="photoUrl" :src="photoUrl" alt="" class="photo-probe" @error="onImageError" />
+      <span class="rb-tag rb-tag-dark">
         {{ listing.listing_type === 'BUNDLE' ? 'Bundle' : 'Item' }}
       </span>
+      <span class="rb-tag rb-tag-light">{{ listing.quantity_available }} left</span>
+      <span v-if="!photoUrl" class="rb-tile-word" aria-hidden="true">{{ tileWord }}</span>
     </div>
 
-    <div class="listing-content">
-      <div class="title-row">
-        <h3>{{ listing.title }}</h3>
-        <span class="stock">{{ listing.quantity_available }} left</span>
-      </div>
+    <div class="card-body d-flex flex-column gap-2 p-4">
+      <p v-if="businessName" class="rb-label meta">{{ businessName }}</p>
+      <h3 class="card-title">{{ listing.title }}</h3>
+      <p class="card-text">{{ listing.description || 'No description provided.' }}</p>
+      <p class="rb-pickup mt-2">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+        <span><span class="visually-hidden">Pickup: </span>{{ windowLabel }}</span>
+      </p>
+    </div>
 
-      <p class="description">
-        {{ listing.description || 'No description provided.' }}
+    <div class="card-footer d-flex align-items-end justify-content-between gap-3 px-4 py-3">
+      <p class="prices">
+        <strong>{{ formatPrice(listing.rescue_price_sgd) }}</strong>
+        <del class="rb-mono">{{ formatPrice(listing.original_price_sgd) }}</del>
+        <span v-if="savings" class="rb-mono saving">−{{ savings }}</span>
       </p>
 
-      <p class="collection-time">
-        <span aria-hidden="true">◷</span>
-        {{ collectionWindow }}
-      </p>
-
-      <div class="card-footer">
-        <p class="prices">
-          <strong>{{ formatPrice(listing.rescue_price_sgd) }}</strong>
-          <del>{{ formatPrice(listing.original_price_sgd) }}</del>
-        </p>
-
-        <RouterLink
-          :to="{ name: 'listing-detail', params: { listingId: listing._id } }"
-          class="view-button"
-        >
-          View details
-        </RouterLink>
-      </div>
+      <RouterLink
+        :to="{ name: 'listing-detail', params: { listingId: listing._id } }"
+        class="rb-pill rb-pill-dark rb-pill-sm"
+        :aria-label="'View details for ' + listing.title"
+      >
+        View
+      </RouterLink>
     </div>
   </article>
 </template>
 
 <style scoped>
-/* Listing Card */
-.listing-card {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #dfe6df;
-  border-radius: 14px;
-  background-color: white;
+.card-tile {
+  height: 220px;
 }
 
-/* Listing Image */
-.image-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  height: 200px;
-  border-radius: 14px 14px 0 0;
-  background-color: #eef2ec;
+.card-tile .rb-tile-word {
+  font-size: 72px;
 }
 
-.listing-image {
-  max-width: 100%;
-  max-height: 100%;
-  background-color: #f4f4f1;
+/* Only used to detect a broken photo URL */
+.photo-probe {
+  display: none;
 }
 
-.type-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  color: #1d573b;
-  background-color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* Listing Information */
-.listing-content {
-  display: flex;
-  flex-direction: column;
-  padding: 18px;
-}
-
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-h3 {
-  margin: 0;
-  color: #1c4f36;
-  font-size: 20px;
-  line-height: 1.25;
-}
-
-.stock {
-  padding: 4px 7px;
-  border-radius: 6px;
-  color: #4d6657;
-  background-color: #edf3ea;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.description {
-  margin: 10px 0 16px;
-  color: #637269;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.collection-time {
-  display: flex;
-  gap: 7px;
-  margin-top: auto;
-  margin-bottom: 16px;
-  color: #4c6756;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-/* Pricing and Details Link */
-.card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 15px;
-  border-top: 1px solid #e9ede8;
+.meta {
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .prices {
   display: flex;
-  align-items: center;
-  gap: 7px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
   margin: 0;
 }
 
 .prices strong {
-  color: #256b45;
-  font-size: 20px;
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 34px;
 }
 
 .prices del {
-  color: #8b978f;
-  font-size: 12px;
+  color: #5f5330;
+  font-size: 14px;
 }
 
-.view-button {
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: white;
-  background-color: #256b45;
+.saving {
+  color: #8a6200;
   font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.view-button:hover {
-  background-color: #1b5034;
 }
 </style>

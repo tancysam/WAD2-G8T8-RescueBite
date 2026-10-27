@@ -41,6 +41,20 @@ const reservationSchema = new mongoose.Schema(
       required: [true, "listing_snapshot is required"],
     },
     status: { type: String, default: "RESERVED", enum: RESERVATION_STATUSES },
+    payment_status: { type: String, default: "UNPAID" },
+    amount_cents: { type: Number, default: null },
+    currency: { type: String, default: "sgd" },
+    checkout_request_key: { type: String, unique: true, sparse: true },
+    stripe_checkout_session_id: { type: String, default: null },
+    stripe_payment_intent_id: { type: String, default: null },
+    payment_due_at: { type: Date, default: null },
+    checkout_success_url: { type: String, default: null },
+    checkout_cancel_url: { type: String, default: null },
+    paid_at: { type: Date, default: null },
+    refund_status: { type: String, default: "NONE" },
+    stripe_refund_id: { type: String, default: null },
+    refund_requested_at: { type: Date, default: null },
+    stock_release_status: { type: String, default: "HELD" },
     collection_code: {
       type: String,
       required: [true, "collection_code is required"],
@@ -116,6 +130,7 @@ function markCollected(reservationId, code, businessId, verifierUserId, collecte
       collection_code: code,
       "listing_snapshot.business_id": businessId,
       status: "RESERVED",
+      payment_status: { $in: ["PAID", "NOT_REQUIRED"] },
       expires_at: { $gte: collectedAt },
       "listing_snapshot.collection_start_at": { $lte: collectedAt },
       "listing_snapshot.collection_end_at": { $gte: collectedAt },
@@ -179,7 +194,30 @@ function clearStockRestorePending(reservationId) {
   );
 }
 
+function updatePayment(filter, update) {
+  return Reservation.updateOne(filter, update);
+}
+
+function findByPaymentIntent(id) {
+  return Reservation.findOne({ stripe_payment_intent_id: id });
+}
+
+function findByCheckoutRequest(key) {
+  return Reservation.findOne({ checkout_request_key: key });
+}
+
+function findPaymentsToReconcile() {
+  return Reservation.find({
+    payment_status: { $in: ["PENDING", "PAID", "FAILED", "NOT_REQUIRED", "REFUNDED"] },
+    status: { $in: ["RESERVED", "CANCELLED", "EXPIRED"] },
+  });
+}
+
 module.exports = {
+  updatePayment,
+  findByPaymentIntent,
+  findByCheckoutRequest,
+  findPaymentsToReconcile,
   RESERVATION_STATUSES,
   findReservationById,
   findReservationsByConsumer,

@@ -21,6 +21,10 @@ function collectionError(reservation, requireStarted) {
     return "Reservation is not available for collection";
   }
 
+  if (reservation.payment_status !== "PAID" && reservation.payment_status !== "NOT_REQUIRED") {
+    return "Payment must be confirmed before collection";
+  }
+
   const snapshot = reservation.listing_snapshot;
   if (
     !snapshot ||

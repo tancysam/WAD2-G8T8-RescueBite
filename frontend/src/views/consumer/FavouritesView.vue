@@ -1,8 +1,10 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import DisplayHeading from '../../components/DisplayHeading.vue'
+import BusinessTile from '../../components/business/BusinessTile.vue'
+import CustomerListingCard from '../../components/listings/CustomerListingCard.vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
-import placeholderImage from '../../assets/placeholder.jpg'
 import { API_URL } from '@/config'
 
 const { getToken } = useAuth()
@@ -79,205 +81,87 @@ async function removeListing(listingId) {
   }
 }
 
-function getListingImage(listing) {
-  if (listing.images && listing.images.length > 0 && listing.images[0].url) {
-    return listing.images[0].url
-  }
-  return placeholderImage
-}
-
-function formatPrice(value) {
-  return '$' + Number(value).toFixed(2)
-}
-
 onMounted(getFavourites)
 </script>
 
 <template>
   <main class="favourites-page">
-    <h1>My favourites</h1>
-    <p class="page-intro">Your saved businesses and food listings.</p>
+    <section class="container-xxl px-4 pt-5">
+      <p class="rb-script rb-kicker fs-3">saved for later</p>
+      <DisplayHeading :size="144">My favourites</DisplayHeading>
+      <p class="rb-label mt-2">Your saved businesses and food listings.</p>
+    </section>
 
-    <p v-if="loading">Loading favourites...</p>
-    <p v-else-if="errorMessage" class="error">{{ errorMessage }}</p>
+    <section class="container-xxl px-4 pt-5 pb-5">
+      <p v-if="loading" class="rb-label">Loading favourites…</p>
+      <p v-else-if="errorMessage" class="rb-note error" role="alert">{{ errorMessage }}</p>
 
-    <div v-else>
-      <section class="favourite-section">
-        <h2>Businesses</h2>
+      <template v-else>
+        <section class="favourite-section" aria-labelledby="saved-listings">
+          <div class="section-head">
+            <h2 id="saved-listings" class="rb-display display-6 mb-0">Listings</h2>
+            <span class="rb-label">{{ listings.length }} saved</span>
+          </div>
 
-        <p v-if="businesses.length === 0" class="empty-message">
-          You have not saved any businesses yet.
-        </p>
+          <div v-if="listings.length === 0" class="rb-empty mt-4">
+            <p class="mb-3">You have not saved any listings yet.</p>
+            <RouterLink to="/explore" class="rb-pill rb-pill-dark">Find food nearby</RouterLink>
+          </div>
 
-        <div v-else class="card-grid">
-          <article v-for="business in businesses" :key="business._id" class="card">
-            <h3>{{ business.name }}</h3>
-            <p>{{ business.description || 'No description available.' }}</p>
-            <p>{{ business.address }}</p>
-
-            <div class="actions">
-              <RouterLink
-                :to="{ name: 'business-profile', params: { businessId: business._id } }"
-                class="primary-button"
-              >
-                View business
-              </RouterLink>
-              <button class="secondary-button" @click="removeBusiness(business._id)">
-                Remove
+          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+            <div v-for="(listing, index) in listings" :key="listing._id" class="col d-flex flex-column gap-2">
+              <CustomerListingCard class="flex-grow-1" :listing="listing" :index="index" />
+              <button type="button" class="rb-pill rb-pill-text rb-pill-sm align-self-start" @click="removeListing(listing._id)">
+                Remove from favourites
               </button>
             </div>
-          </article>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section class="favourite-section">
-        <h2>Listings</h2>
+        <section class="favourite-section" aria-labelledby="saved-businesses">
+          <div class="section-head">
+            <h2 id="saved-businesses" class="rb-display display-6 mb-0">Businesses</h2>
+            <span class="rb-label">{{ businesses.length }} saved</span>
+          </div>
 
-        <p v-if="listings.length === 0" class="empty-message">
-          You have not saved any listings yet.
-        </p>
+          <div v-if="businesses.length === 0" class="rb-empty mt-4">
+            <p class="mb-3">You have not saved any businesses yet.</p>
+            <RouterLink to="/businesses" class="rb-pill rb-pill-dark">Browse businesses</RouterLink>
+          </div>
 
-        <div v-else class="card-grid">
-          <article v-for="listing in listings" :key="listing._id" class="card listing-card">
-            <img :src="getListingImage(listing)" :alt="listing.title" />
-            <div class="card-content">
-              <h3>{{ listing.title }}</h3>
-              <p>{{ listing.description || 'No description available.' }}</p>
-              <p class="price">{{ formatPrice(listing.rescue_price_sgd) }}</p>
-
-              <div class="actions">
+          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+            <div v-for="(business, index) in businesses" :key="business._id" class="col d-flex">
+              <BusinessTile :business="business" :index="index">
                 <RouterLink
-                  :to="{ name: 'listing-detail', params: { listingId: listing._id } }"
-                  class="primary-button"
+                  :to="{ name: 'business-profile', params: { businessId: business._id } }"
+                  class="rb-pill rb-pill-dark rb-pill-sm"
                 >
-                  View listing
+                  View business
                 </RouterLink>
-                <button class="secondary-button" @click="removeListing(listing._id)">
+                <button type="button" class="rb-pill rb-pill-text rb-pill-sm" @click="removeBusiness(business._id)">
                   Remove
                 </button>
-              </div>
+              </BusinessTile>
             </div>
-          </article>
-        </div>
-      </section>
-    </div>
+          </div>
+        </section>
+      </template>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.favourites-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 32px;
+.favourite-section + .favourite-section {
+  margin-top: 64px;
 }
 
-h1,
-h2,
-h3 {
-  color: #256b45;
-}
-
-.page-intro {
-  margin-bottom: 30px;
-  color: #666;
-}
-
-.favourite-section {
-  margin-bottom: 40px;
-}
-
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.card {
-  overflow: hidden;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-}
-
-.listing-card {
-  padding: 0;
-}
-
-.listing-card img {
-  width: 100%;
-  height: 180px;
-  object-fit: cover;
-}
-
-.card-content {
-  padding: 20px;
-}
-
-.card h3 {
-  margin-top: 0;
-}
-
-.card p {
-  color: #666;
-  line-height: 1.5;
-}
-
-.price {
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.actions {
+.section-head {
   display: flex;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.primary-button,
-.secondary-button {
-  padding: 9px 13px;
-  border: 1px solid #256b45;
-  border-radius: 8px;
-  font-size: 14px;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.primary-button {
-  color: white;
-  background-color: #256b45;
-}
-
-.secondary-button {
-  color: #256b45;
-  background-color: white;
-}
-
-.empty-message {
-  padding: 22px;
-  border-radius: 10px;
-  background-color: #f1f6ef;
-  color: #666;
-}
-
-.error {
-  color: #b42318;
-}
-
-@media (max-width: 850px) {
-  .card-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 550px) {
-  .favourites-page {
-    padding: 18px;
-  }
-
-  .card-grid {
-    grid-template-columns: 1fr;
-  }
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #000;
 }
 </style>
