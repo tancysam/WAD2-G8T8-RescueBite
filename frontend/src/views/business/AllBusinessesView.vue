@@ -1,6 +1,8 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import DisplayHeading from '../../components/DisplayHeading.vue'
+import BusinessTile from '../../components/business/BusinessTile.vue'
 import axios from 'axios'
 import { useUser, useAuth } from '@clerk/vue'
 import { API_URL } from '@/config'
@@ -99,238 +101,85 @@ watch(
 
 <template>
   <main class="businesses-page">
-
-    <!-- Discover Businesses -->
-    <h1>Discover Businesses</h1>
-    <p>Explore food businesses rescuing surplus food near you.</p>
-
-    <!--searchbar-->
-    <input
-      v-model="searchQuery"
-      type="text"
-      placeholder="Search businesses..."
-      class="search-bar"
-    />
-
-    <!-- Loading -->
-    <p v-if="loading">Loading businesses...</p>
-
-    <!-- Error -->
-    <p v-else-if="errorMessage" class="error">
-      {{ errorMessage }}
-    </p>
-
-    <!-- No Businesses -->
-    <p v-else-if="filteredBusinesses.length === 0">
-      No businesses found.
-    </p>
-
-    <!-- Business Cards -->
-    <div v-else class="business-grid">
-
-      <div
-        v-for="business in filteredBusinesses"
-        :key="business._id"
-        class="business-card"
-      >
-        <div class="card-header">
-          <h2>{{ business.name }}</h2>
+    <section class="container-xxl px-4 pt-5">
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+        <div>
+          <p class="rb-script rb-kicker fs-3">who’s rescuing</p>
+          <DisplayHeading :size="144">Businesses</DisplayHeading>
+          <p class="rb-label mt-2">Food businesses rescuing surplus food near you.</p>
         </div>
-
-        <div class="card-body">
-          <p class="description">
-            {{ business.description || 'No description available.' }}
-          </p>
-
-          <p class="address">
-            📍 {{ business.address }}
-          </p>
-
-          <p class="postal-code">
-            Singapore {{ business.postal_code }}
-          </p>
-
-          <RouterLink
-            :to="{
-              name: 'business-profile',
-              params: { businessId: business._id }
-            }"
-            class="view-button"
-          >
-            View Business
-          </RouterLink>
-        </div>
+        <p v-if="!loading && !errorMessage" class="rb-label mb-0">
+          {{ filteredBusinesses.length }} {{ filteredBusinesses.length === 1 ? 'business' : 'businesses' }}
+        </p>
       </div>
 
-    </div>
+      <div class="filter-bar">
+        <label class="search-field">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f5330" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <span class="visually-hidden">Search businesses</span>
+          <input v-model="searchQuery" type="search" placeholder="Bakeries, cafés, hawker stalls…" />
+        </label>
+      </div>
+    </section>
+
+    <section class="container-xxl px-4 pt-4 pb-5">
+      <!-- Loading -->
+      <p v-if="loading" class="rb-label">Loading businesses…</p>
+
+      <!-- Error -->
+      <p v-else-if="errorMessage" class="rb-note error" role="alert">
+        {{ errorMessage }}
+      </p>
+
+      <!-- No Businesses -->
+      <div v-else-if="filteredBusinesses.length === 0" class="rb-empty">
+        <p class="rb-display display-6 mb-2">Nothing here yet</p>
+        <p class="mb-0">No businesses found. Try another search.</p>
+      </div>
+
+      <!-- Business Cards -->
+      <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        <div v-for="(business, index) in filteredBusinesses" :key="business._id" class="col d-flex">
+          <BusinessTile :business="business" :index="index">
+            <RouterLink
+              :to="{ name: 'business-profile', params: { businessId: business._id } }"
+              class="rb-pill rb-pill-dark rb-pill-sm"
+            >
+              View business
+            </RouterLink>
+          </BusinessTile>
+        </div>
+      </div>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.businesses-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 30px;
+.filter-bar {
+  margin-top: 32px;
+  padding: 16px 0;
+  border-top: 2px solid #000;
+  border-bottom: 1px solid #ddd9c5;
 }
 
-.businesses-page h1 {
-  margin-bottom: 10px;
-  color: #256b45;
-}
-
-.businesses-page > p {
-  margin-bottom: 30px;
-  color: #666;
-}
-
-/* My Business Section */
-.my-business-section {
-  margin-bottom: 40px;
-}
-
-.my-business-section h1 {
-  margin-bottom: 20px;
-}
-
-.my-business-card {
-  width: 100%;
-}
-
-/* Register Business Card */
-.register-business-card {
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-  padding: 24px;
-}
-
-.register-business-card h2 {
-  margin-bottom: 12px;
-  color: #256b45;
-}
-
-.register-business-card p {
-  margin-bottom: 20px;
-  color: #555;
-}
-
-/* Business Grid */
-.business-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-/* Business Card */
-.business-card {
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.business-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  background-color: #e8f5e9;
-  padding: 24px;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #256b45;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.description {
-  margin-bottom: 16px;
-  color: #555;
-}
-
-.address {
-  margin-bottom: 5px;
-}
-
-.postal-code {
-  color: #777;
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-.view-button {
-  display: inline-block;
-  background-color: #256b45;
-  color: white;
-  text-decoration: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-}
-
-.view-button:hover {
-  background-color: #1b5034;
-}
-
-/* Responsive Layout */
-@media (max-width: 900px) {
-  .business-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .business-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.error {
-  color: red;
-}
-
-
-/* Business Action Buttons */
-.business-actions {
+.search-field {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+  height: 52px;
+  padding: 0 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 140px;
+  background-color: #f6f4ed;
 }
 
-/* Edit Business Button */
-.edit-button {
-  display: inline-block;
-  background-color: white;
-  color: #256b45;
-  border: 1px solid #256b45;
-  text-decoration: none;
-  padding: 9px 15px;
-  border-radius: 8px;
-}
-
-.edit-button:hover {
-  background-color: #e8f5e9;
-}
-
-
-.search-bar {
-  width: 100%;
-  padding: 12px 16px;
-  margin-bottom: 24px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  color: #191200;
+  background: transparent;
   font-size: 16px;
-  box-sizing: border-box;
-}
-
-.search-bar:focus {
-  outline: none;
-  border-color: #256b45;
 }
 </style>

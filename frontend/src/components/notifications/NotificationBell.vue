@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import {Bell} from '@lucide/vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 
@@ -75,15 +74,17 @@ onMounted(async () => {
 
 <template>
   <div class="notification-container">
-    <button 
+    <button
+      type="button"
       class="notification-button"
+      :aria-label="hasUnread ? 'Notifications, unread' : 'Notifications'"
       @click="toggleNotifications"
     >
-        <Bell :size="24" color="white" fill="white"/>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
         <span v-if="hasUnread" class="notification-dot"></span>
     </button>
     <div v-if="showNotifications" class="notification-popup">
-      <h3>Notifications</h3>
+      <h3 class="rb-label">Notifications</h3>
       <p v-if="notifications.length===0">
         No notifications
       </p>
@@ -92,12 +93,16 @@ onMounted(async () => {
       </div>
       <button
         v-if="hasMore"
+        type="button"
+        class="rb-pill rb-pill-line rb-pill-sm"
         @click="page++; getNotifications().then(markNotificationsAsRead)"
       >
         Show More
       </button>
       <button
         v-if="notifications.length > 0"
+        type="button"
+        class="rb-pill rb-pill-text rb-pill-sm"
         @click="clearAllNotifications"
       >
         Clear All
@@ -116,42 +121,56 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
-    background: none;
-    border: none;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #ddd9c5;
+    border-radius: 50%;
+    color: #000;
+    background: transparent;
     cursor: pointer;
 }
 
 .notification-dot {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 9px;
-    height: 9px;
-    background-color: red;
+    top: 8px;
+    right: 9px;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #fbf9f1;
     border-radius: 50%;
+    background-color: #f4b30c;
 }
 
 .notification-popup {
     position: absolute;
     top: 100%;
+    margin-top: 8px;
     right: 0;
-    width: 300px;
-    padding: 15px;
-    background: white;
-    color: black;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 1000;
+    width: 320px;
+    padding: 20px 24px;
+    border: 2px solid #000;
+    color: #191200;
+    background: #fbf9f1;
+}
+
+.notification-popup h3 {
+    margin-bottom: 8px;
 }
 
 .notification-item {
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
+    padding: 12px 0;
+    border-bottom: 1px solid #ddd9c5;
+}
+
+.notification-item p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 22px;
 }
 
 .notification-popup button {
-  cursor: pointer;
+    margin-top: 12px;
+    margin-right: 8px;
 }
 </style>

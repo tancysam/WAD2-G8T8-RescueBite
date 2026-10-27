@@ -1,9 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;700&family=DM+Mono:wght@400;500&family=Kaushan+Script&display=swap');
+
+/*
+  RescueBite theme (BEGG design system)
+  cream #fbf9f1 · raised #f6f4ed · parchment #e8e6d7 · sand #ddd9c5 · khaki #bbb283
+  ink #191200 · ink-muted #5f5330 · yolk #f4b30c · yolk-text #8a6200 · shell dark #1a1200
+*/
 
 :root {
-  font-family: 'DM Sans', sans-serif;
-  color: #18392c;
-  background: #faf8f1;
+  font-family: 'Archivo', system-ui, sans-serif;
+  color: #191200;
+  background: #fbf9f1;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,6 +23,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  color: #191200;
+  background: #fbf9f1;
+  font-family: 'Archivo', system-ui, sans-serif;
 }
 
 button,
@@ -35,10 +44,422 @@ a {
 h1,
 h2,
 h3 {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Archivo', system-ui, sans-serif;
 }
 
 #collection-scanner video {
   max-width: 100%;
   height: auto;
+}
+
+/* ---- Type ---- */
+
+.rb-display {
+  margin: 0;
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-weight: 400;
+  line-height: .92;
+  text-transform: uppercase;
+}
+
+.rb-script {
+  margin: 0;
+  color: #8a6200;
+  font-family: 'Kaushan Script', cursive;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.rb-label {
+  margin: 0;
+  color: #5f5330;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.rb-mono {
+  font-family: 'DM Mono', ui-monospace, monospace;
+}
+
+/* ---- Pill buttons ---- */
+
+.rb-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 30px;
+  border: 2px solid #000;
+  border-radius: 140px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 15px;
+  line-height: 15px;
+  letter-spacing: .04em;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .25s, color .25s, border-color .25s;
+}
+
+.rb-pill-sm {
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 13px;
+}
+
+.rb-pill-dark {
+  color: #f4b30c;
+  background-color: #000;
+}
+
+.rb-pill-dark:hover,
+.rb-pill-dark:focus {
+  color: #000;
+  background-color: #f4b30c;
+  border-color: #f4b30c;
+}
+
+.rb-pill-line {
+  color: #191200;
+  background-color: transparent;
+  border-color: #f4b30c;
+}
+
+.rb-pill-line:hover,
+.rb-pill-line:focus {
+  color: #000;
+  background-color: #f4b30c;
+}
+
+.rb-pill-yolk {
+  color: #000;
+  background-color: #f4b30c;
+  border-color: #f4b30c;
+}
+
+.rb-pill-yolk:hover,
+.rb-pill-yolk:focus {
+  color: #000;
+  background-color: #fbf9f1;
+  border-color: #fbf9f1;
+}
+
+.rb-pill-text {
+  color: #191200;
+  background-color: transparent;
+  border-color: transparent;
+  text-decoration: underline;
+}
+
+.rb-pill-text:hover,
+.rb-pill-text:focus {
+  border-color: #ddd9c5;
+}
+
+/* Filter chips: outlined in yolk, filled black when chosen */
+.rb-chip {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 2px solid #f4b30c;
+  border-radius: 140px;
+  color: #191200;
+  background-color: transparent;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: background-color .25s, color .25s;
+}
+
+.rb-chip:hover {
+  background-color: #f6f4ed;
+}
+
+.rb-chip.active {
+  color: #f4b30c;
+  background-color: #000;
+  border-color: #000;
+}
+
+/* Status tags */
+.rb-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 2px solid #ddd9c5;
+  border-radius: 140px;
+  color: #5f5330;
+  background-color: transparent;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.rb-status.reserved,
+.rb-status.active {
+  color: #000;
+  background-color: #f4b30c;
+  border-color: #f4b30c;
+}
+
+.rb-status.collected {
+  color: #fbf9f1;
+  background-color: #000;
+  border-color: #000;
+}
+
+.rb-status.expired,
+.rb-status.sold_out {
+  color: #000;
+  background-color: #bbb283;
+  border-color: #bbb283;
+}
+
+/* ---- Form fields ---- */
+
+.rb-field {
+  width: 100%;
+  height: 52px;
+  padding: 0 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 140px;
+  color: #191200;
+  background-color: #fbf9f1;
+  font-family: 'Archivo', sans-serif;
+  font-size: 16px;
+}
+
+.rb-select {
+  height: 44px;
+  padding: 0 20px;
+  border: 2px solid #f4b30c;
+  border-radius: 140px;
+  color: #191200;
+  background-color: transparent;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.rb-pill:focus,
+.rb-chip:focus,
+.rb-select:focus,
+.rb-field:focus {
+  outline: 3px solid #f4b30c;
+  outline-offset: 3px;
+}
+
+/* ---- Modals ---- */
+
+.rb-backdrop {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1050;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 64px 16px 24px;
+  overflow-y: auto;
+  background-color: rgba(25, 18, 0, .62);
+}
+
+.rb-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  padding: 32px 24px 28px;
+  border-radius: 28px;
+  color: #191200;
+  background-color: #fbf9f1;
+}
+
+.rb-close {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  color: #000;
+  background-color: transparent;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Typographic tile shown in place of a missing food photo */
+.rb-tile {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  padding: 20px 24px;
+  background-color: #f4b30c;
+}
+
+/* A listing photo is set as the tile background through a style binding */
+.rb-tile.photo {
+  background-color: #e8e6d7;
+  background-position: center;
+  background-size: cover;
+}
+
+.rb-tile-word {
+  position: relative;
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 72px;
+  line-height: .82;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.rb-tile.dark {
+  background-color: #1a1200;
+}
+
+.rb-tile.dark .rb-tile-word {
+  color: #f4b30c;
+}
+
+.rb-tile.khaki {
+  background-color: #bbb283;
+}
+
+.rb-tile.sand {
+  background-color: #ddd9c5;
+}
+
+.rb-tag {
+  position: absolute;
+  top: 16px;
+  z-index: 1;
+  padding: 8px 14px;
+  border-radius: 140px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.rb-tag-dark {
+  left: 16px;
+  color: #f4b30c;
+  background-color: #000;
+}
+
+.rb-tag-light {
+  right: 16px;
+  color: #191200;
+  background-color: #fbf9f1;
+}
+
+/* ---- Notices and empty states ---- */
+
+.rb-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 0;
+  padding: 16px 24px;
+  border: 2px solid #f4b30c;
+  border-radius: 28px;
+}
+
+.rb-note.error {
+  border-color: #ff7a7a;
+  background-color: #ff7a7a;
+}
+
+.rb-empty {
+  padding: 48px 24px;
+  border-radius: 28px;
+  color: #5f5330;
+  background-color: #f6f4ed;
+  text-align: center;
+}
+
+/* Handwritten line that sits on its own above a heading, never inside it */
+.rb-kicker {
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+/* Underlined row of filter chips above a list */
+.rb-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #000;
+}
+
+/* ---- Bootstrap cards in the RescueBite theme ---- */
+
+.card.rb-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ddd9c5;
+  border-radius: 0;
+  color: #191200;
+  background-color: #fbf9f1;
+  transition: border-color .25s;
+}
+
+.card.rb-card:hover,
+.card.rb-card.selected {
+  border-color: #f4b30c;
+}
+
+.rb-card .card-title {
+  margin: 0;
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 32px;
+  text-transform: uppercase;
+}
+
+.rb-card .card-text {
+  margin: 0;
+  color: #5f5330;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.rb-card .card-footer {
+  border-top: 1px solid #ddd9c5;
+  background-color: transparent;
+}
+
+/* Pickup time line used on cards */
+.rb-pickup {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: #191200;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.rb-pickup svg {
+  flex: 0 0 16px;
+  margin-top: 3px;
+  color: #8a6200;
 }

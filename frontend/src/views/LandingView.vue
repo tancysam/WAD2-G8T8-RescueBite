@@ -1,278 +1,601 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { SignIn, SignUp, useAuth } from '@clerk/vue'
-import { useRoute, useRouter } from 'vue-router'
-import rescueJourney from '../assets/rescue-journey.svg'
-import {
-  clearPendingRegistrationRole,
-  getPendingRegistrationRole,
-  setPendingRegistrationRole
-} from '../registrationRole.js'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+import { API_URL } from '@/config'
+import CustomerListingCard from '../components/listings/CustomerListingCard.vue'
+import DisplayHeading from '../components/DisplayHeading.vue'
+import { setPendingRegistrationRole } from '../registrationRole.js'
 
-const route = useRoute()
 const router = useRouter()
-const { isLoaded, isSignedIn } = useAuth()
 
-const isLegacyRegisterUrl = computed(() => route.path === '/' && route.query.mode === 'register')
-const mode = computed(() => route.name === 'register' || isLegacyRegisterUrl.value ? 'register' : 'login')
-const pendingRole = getPendingRegistrationRole()
-const registerRole = ref(pendingRole === null || pendingRole === undefined ? 'CONSUMER' : pendingRole)
+const listings = ref([])
+const openFaq = ref(0)
 
-// This records the registration choice with Clerk. The backend must still
-// validate and create the MongoDB role during the later profile setup step.
-const registrationMetadata = computed(() => ({ rescuebite_role_intent: registerRole.value }))
+const faqs = [
+  { q: 'What is a rescue bundle?', a: 'A bag of surplus items a business puts together near closing time. The listing shows what is typically inside, the rescue price and how many are left.' },
+  { q: 'How do I collect my food?', a: 'Go to the pickup address during the collection window and open My Orders. Show your collection QR at the counter and staff scan it to confirm.' },
+  { q: 'What if I can’t make it?', a: 'Cancel from My Orders before the window closes so the food can go to someone else. Reservations that are not collected expire when the window ends.' },
+  { q: 'Who can list food?', a: 'Any food business: bakeries, cafés, restaurants, hawker stalls and grocers. Register a business profile, then create listings from your dashboard.' }
+]
 
-const clerkAppearance = {
-  variables: {
-    colorPrimary: '#1c6a49',
-    colorText: '#173d2c',
-    borderRadius: '12px',
-    fontFamily: 'DM Sans, sans-serif'
-  },
-  elements: {
-    rootBox: { width: '100%' },
-    cardBox: { width: '100%', boxShadow: 'none' },
-    card: { width: '100%', boxShadow: 'none' },
-    header: { display: 'none' }
-  }
+const steps = [
+  { number: '01', title: 'Discover', copy: 'Open the map to see bakeries, cafés and stalls near you with surplus food listed for today.' },
+  { number: '02', title: 'Rescue', copy: 'Reserve a single item or a rescue bundle at its rescue price. Your portion is held until the collection window closes.' },
+  { number: '03', title: 'Enjoy', copy: 'Show your collection QR at the counter, take your food home, and leave the shop a review.' }
+]
+
+const bandWords = ['Bakeries', 'save good food', 'Cafés', 'before it’s gone', 'Hawker stalls', 'every bite counts', 'Grocers', 'less waste']
+
+function toggleFaq(index) {
+  openFaq.value = openFaq.value === index ? -1 : index
 }
 
-function selectMode(nextMode) {
-  router.push({ name: nextMode })
-}
-
-function selectRole(role) {
-  registerRole.value = role
+// Open registration with the account type already chosen
+function startRegister(role) {
   setPendingRegistrationRole(role)
+  router.push({ name: 'register' })
 }
 
-watch(mode, (currentMode) => {
-  if (currentMode === 'register') {
-    // Keep the choice across Clerk's email steps and Google's return to this page.
-    setPendingRegistrationRole(registerRole.value)
-  } else {
-    clearPendingRegistrationRole()
+// A few of today's listings for the landing page
+async function getTodaysListings() {
+  try {
+    const response = await axios.get(`${API_URL}/listings`, { params: { limit: 3 } })
+    listings.value = (response.data.listings || []).slice(0, 3)
+  } catch (error) {
+    console.error('Error fetching listings:', error)
+    listings.value = []
   }
-}, { immediate: true })
+}
 
-watch(isLegacyRegisterUrl, (legacyUrl) => {
-  if (legacyUrl) router.replace({ name: 'register', hash: route.hash })
-}, { immediate: true })
-
-watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
-  if (loaded && signedIn) router.replace({ name: 'auth-complete' })
-}, { immediate: true })
+onMounted(getTodaysListings)
 </script>
 
 <template>
   <main class="landing">
-    <section class="story-pane" aria-labelledby="story-title">
-      <div class="brand" aria-label="RescueBite">
-        <span class="brand-mark" aria-hidden="true">✳</span>
-        <span>RescueBite<span class="brand-dot">.</span></span>
+    <header class="landing-header">
+      <RouterLink to="/" class="logo">RescueBite<span class="logo-dot">.</span></RouterLink>
+      <nav class="nav-links d-none d-lg-flex" aria-label="Primary">
+        <a href="#how">How it works</a>
+        <a href="#rescues">Today’s rescues</a>
+        <a href="#business">For businesses</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <RouterLink :to="{ name: 'login' }" class="rb-pill rb-pill-line rb-pill-sm">Log in</RouterLink>
+        <RouterLink :to="{ name: 'register' }" class="rb-pill rb-pill-dark rb-pill-sm">Get started</RouterLink>
       </div>
+    </header>
 
-      <div class="story-content">
-        <span class="eyebrow"><span class="eyebrow-dot"></span> GOOD FOOD, SECOND CHANCES</span>
-        <h1 id="story-title">Make every<br /><em>bite count.</em></h1>
-        <p class="story-description">
-          Discover good food from nearby businesses before it goes to waste.
-          Save more, enjoy more, and give every meal a better ending.
-        </p>
-
-        <div class="journey-visual">
-          <img
-            :src="rescueJourney"
-            alt="A local food shop shares a bag of good food for a neighbor to pick up"
-          />
-        </div>
-
-        <div class="journey-steps" aria-label="How RescueBite works">
-          <div><span>01</span><strong>Discover</strong><small>Find food nearby</small></div>
-          <div><span>02</span><strong>Rescue</strong><small>Claim what you love</small></div>
-          <div><span>03</span><strong>Enjoy</strong><small>Pick up locally</small></div>
-        </div>
-      </div>
-
-      <p class="story-footer">Less waste. More to share.</p>
-    </section>
-
-    <section class="auth-pane" aria-labelledby="auth-heading">
-      <div class="auth-inner">
-        <div class="auth-intro">
-          <span class="auth-eyebrow">WELCOME TO RESCUEBITE</span>
-          <h2 id="auth-heading">{{ mode === 'login' ? 'Good to have you back.' : 'Join the food rescue.' }}</h2>
-          <p>{{ mode === 'login' ? 'Sign in to continue making a difference.' : 'Create an account and start saving good food.' }}</p>
-        </div>
-
-        <div class="auth-panel">
-          <div class="auth-tabs" role="tablist" aria-label="Account access">
-            <button
-              id="login-tab"
-              type="button"
-              role="tab"
-              aria-controls="auth-form"
-              :aria-selected="mode === 'login'"
-              :class="{ active: mode === 'login' }"
-              @click="selectMode('login')"
-            >Log in</button>
-            <button
-              id="register-tab"
-              type="button"
-              role="tab"
-              aria-controls="auth-form"
-              :aria-selected="mode === 'register'"
-              :class="{ active: mode === 'register' }"
-              @click="selectMode('register')"
-            >Register</button>
+    <!-- Hero and sign in -->
+    <section class="container-xxl px-4 py-5 hero">
+      <div class="row g-5 align-items-start">
+        <div class="col-lg-7">
+          <p class="rb-script rb-kicker fs-3">before it’s gone</p>
+          <DisplayHeading :size="128">Make every<br />bite count.</DisplayHeading>
+          <p class="hero-copy">
+            Discover good food from nearby bakeries, cafés and hawker stalls before it goes to waste.
+            Reserve it at a rescue price, pick it up on your way home, and give every meal a better ending.
+          </p>
+          <div class="d-flex flex-wrap gap-3 mt-5">
+            <RouterLink to="/explore" class="rb-pill rb-pill-dark">
+              Find food nearby
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            </RouterLink>
+            <button type="button" class="rb-pill rb-pill-line" @click="startRegister('BUSINESS')">List your surplus</button>
           </div>
+        </div>
 
-          <div v-if="mode === 'register'" class="role-section">
-            <p class="field-label">I’m here as a</p>
-            <div class="role-options" role="group" aria-label="Choose account type">
-              <button
-                type="button"
-                class="role-option"
-                :class="{ selected: registerRole === 'CONSUMER' }"
-                :aria-pressed="registerRole === 'CONSUMER'"
-                @click="selectRole('CONSUMER')"
-              >
-                <span class="role-icon" aria-hidden="true">
-                  <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="9" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 23c.4-5 3.5-7.5 8.5-7.5s8.1 2.5 8.5 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <div class="col-lg-5">
+          <section class="start-card ms-lg-auto p-4 p-md-5" aria-labelledby="start-heading">
+            <h2 id="start-heading" class="rb-display display-6 start-title">How do you want to help?</h2>
+
+            <div class="d-flex flex-column gap-3 mt-4">
+              <button type="button" class="start-option" @click="startRegister('CONSUMER')">
+                <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="14" cy="9" r="4"></circle><path d="M5.5 23c.4-5 3.5-7.5 8.5-7.5s8.1 2.5 8.5 7.5"></path></svg>
+                <span class="flex-grow-1">
+                  <span class="rb-display option-name">Rescue food</span>
+                  <span class="option-copy">Reserve surplus food near you at a rescue price.</span>
                 </span>
-                <span><strong>Consumer</strong><small>Rescue good food</small></span>
+                <span class="rb-mono option-arrow" aria-hidden="true">→</span>
               </button>
-              <button
-                type="button"
-                class="role-option"
-                :class="{ selected: registerRole === 'BUSINESS' }"
-                :aria-pressed="registerRole === 'BUSINESS'"
-                @click="selectRole('BUSINESS')"
-              >
-                <span class="role-icon" aria-hidden="true">
-                  <svg viewBox="0 0 28 28" fill="none"><path d="M4 11h20l-2-5H6l-2 5ZM6 11v12h16V11M10 23v-8h8v8" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 11v2a3 3 0 0 0 6 0v-2m0 0v2a3 3 0 0 0 6 0v-2m0 0v2a3 3 0 0 0 6 0v-2" stroke="currentColor" stroke-width="1.8"/></svg>
+              <button type="button" class="start-option" @click="startRegister('BUSINESS')">
+                <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11h20l-2-5H6l-2 5ZM6 11v12h16V11M11 23v-7h6v7"></path></svg>
+                <span class="flex-grow-1">
+                  <span class="rb-display option-name">List surplus</span>
+                  <span class="option-copy">Sell what’s left at closing instead of throwing it out.</span>
                 </span>
-                <span><strong>Business</strong><small>Share your surplus</small></span>
+                <span class="rb-mono option-arrow" aria-hidden="true">→</span>
               </button>
             </div>
-            <p class="role-note">
-              Your choice is saved with registration. Account access is confirmed during profile setup.
+
+            <p class="member-line">
+              Already a member?
+              <RouterLink :to="{ name: 'login' }">Log in</RouterLink>
             </p>
-          </div>
-
-          <div
-            id="auth-form"
-            class="clerk-form"
-            role="tabpanel"
-            :aria-labelledby="mode === 'login' ? 'login-tab' : 'register-tab'"
-          >
-            <p v-if="isLegacyRegisterUrl || !isLoaded" class="loading-message">Loading secure sign in…</p>
-            <SignIn
-              v-else-if="mode === 'login'"
-              routing="path"
-              path="/login"
-              force-redirect-url="/auth/complete"
-              sign-up-url="/register"
-              sign-up-force-redirect-url="/auth/complete"
-              :appearance="clerkAppearance"
-            />
-            <SignUp
-              v-else
-              :key="registerRole"
-              routing="path"
-              path="/register"
-              force-redirect-url="/auth/complete"
-              sign-in-url="/login"
-              sign-in-force-redirect-url="/auth/complete"
-              :unsafe-metadata="registrationMetadata"
-              :appearance="clerkAppearance"
-            />
-          </div>
+          </section>
         </div>
-
-        <p class="auth-footer">Every rescue starts with one good choice.</p>
       </div>
     </section>
+
+    <!-- Drip into the yolk section -->
+    <div class="wave wave-into-yolk" aria-hidden="true">
+      <svg width="100%" height="90" viewBox="0 0 1440 90" preserveAspectRatio="none"><path fill="#fbf9f1" d="M0 0H1440V36C1400 36 1392 50 1356 50C1330 50 1324 40 1290 40C1290 62 1286 80 1276 80C1266 80 1262 62 1262 40C1220 40 1200 30 1150 30C1100 30 1090 46 1010 46C1010 70 1004 86 994 86C984 86 978 70 978 46C930 46 900 32 840 32C790 32 780 44 740 44C700 44 690 34 600 34C600 54 596 66 588 66C580 66 576 54 576 34C520 34 500 48 440 48C400 48 390 36 300 36C300 64 294 84 284 84C274 84 268 64 268 36C220 36 200 46 150 46C100 46 90 34 40 34C20 34 10 36 0 36Z"></path></svg>
+    </div>
+
+    <section id="how" class="how">
+      <div class="container-xxl px-4 pt-4 pb-5 how-inner">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+          <div>
+            <p class="rb-script rb-kicker fs-3 how-script">it’s simple</p>
+            <h2 class="rb-display display-2 how-title">How it<br />works</h2>
+          </div>
+        </div>
+        <div class="row g-5 mt-4">
+          <div v-for="step in steps" :key="step.number" class="col-md-4">
+            <div class="step">
+              <p class="rb-display display-1 step-big" aria-hidden="true">{{ step.number }}</p>
+              <h3 class="rb-display display-6 step-title">{{ step.title }}</h3>
+              <p class="step-copy">{{ step.copy }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="band text-nowrap" aria-hidden="true">
+        <template v-for="(word, index) in bandWords" :key="word">
+          <span :class="index % 2 === 0 ? 'band-word' : 'band-script'">{{ word }}</span>
+          <span class="band-dot"></span>
+        </template>
+      </div>
+    </section>
+
+    <div class="wave" aria-hidden="true">
+      <svg width="100%" height="90" viewBox="0 0 1440 90" preserveAspectRatio="none"><path fill="#f4b30c" d="M0 0H1440V36C1400 36 1392 50 1356 50C1330 50 1324 40 1290 40C1290 62 1286 80 1276 80C1266 80 1262 62 1262 40C1220 40 1200 30 1150 30C1100 30 1090 46 1010 46C1010 70 1004 86 994 86C984 86 978 70 978 46C930 46 900 32 840 32C790 32 780 44 740 44C700 44 690 34 600 34C600 54 596 66 588 66C580 66 576 54 576 34C520 34 500 48 440 48C400 48 390 36 300 36C300 64 294 84 284 84C274 84 268 64 268 36C220 36 200 46 150 46C100 46 90 34 40 34C20 34 10 36 0 36Z"></path></svg>
+    </div>
+
+    <!-- Today's rescues -->
+    <section id="rescues" class="container-xxl px-4 py-5 section">
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+        <div>
+          <p class="rb-script rb-kicker fs-3">don’t miss</p>
+          <h2 class="rb-display display-3">Today’s rescues</h2>
+        </div>
+        <RouterLink to="/explore" class="rb-pill rb-pill-dark">Check the map</RouterLink>
+      </div>
+      <div v-if="listings.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-4">
+        <div v-for="(listing, index) in listings" :key="listing._id" class="col d-flex">
+          <CustomerListingCard class="w-100" :listing="listing" :index="index" />
+        </div>
+      </div>
+      <p v-else class="empty-state mt-4">New rescues are listed every evening. Sign in to see what’s near you.</p>
+    </section>
+
+    <!-- For businesses -->
+    <section id="business" class="business">
+      <div class="container-xxl px-4 py-5 section">
+        <div class="row g-5 align-items-center">
+          <div class="col-lg-6">
+            <p class="rb-script rb-kicker fs-3 yolk-script">for businesses</p>
+            <h2 class="rb-display display-2 light">Turn surplus<br />into revenue</h2>
+            <p class="business-copy">
+              List an item or a bundle in under a minute, set a collection window, and confirm every pickup
+              by scanning the customer’s QR. Your dashboard keeps count of meals rescued, food saved and revenue recovered.
+            </p>
+            <button type="button" class="rb-pill rb-pill-yolk mt-4" @click="startRegister('BUSINESS')">Register your business</button>
+          </div>
+          <div class="col-lg-6">
+            <div class="row g-3">
+              <div class="col-12 col-sm-6"><div class="stat yolk-stat"><p class="rb-label">Meals rescued</p><p class="rb-display display-2 stat-value">128</p></div></div>
+              <div class="col-12 col-sm-6"><div class="stat"><p class="rb-label">Food saved</p><p class="rb-display display-2 stat-value">64<span class="unit"> kg</span></p></div></div>
+              <div class="col-12 col-sm-6"><div class="stat"><p class="rb-label">Revenue recovered</p><p class="rb-display display-4 stat-value">S$742</p></div></div>
+              <div class="col-12 col-sm-6"><div class="stat"><p class="rb-label">Customer savings</p><p class="rb-display display-4 stat-value">S$1,186</p></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="container-xxl px-4 py-5 section">
+      <div class="row g-5">
+        <div class="col-lg-4">
+          <p class="rb-script rb-kicker fs-3">asked often</p>
+          <h2 class="rb-display display-3">Good<br />questions</h2>
+        </div>
+        <div class="col-lg-8 d-flex flex-column gap-3">
+          <div v-for="(faq, index) in faqs" :key="faq.q" class="faq-row" :class="{ open: openFaq === index }">
+            <button type="button" class="faq-question fs-2" :aria-expanded="openFaq === index" @click="toggleFaq(index)">
+              {{ faq.q }}
+              <span class="rb-mono faq-sign" aria-hidden="true">{{ openFaq === index ? '−' : '+' }}</span>
+            </button>
+            <p v-if="openFaq === index" class="faq-answer">{{ faq.a }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container-xxl px-4 footer-inner">
+        <div class="rb-mono footer-links d-flex flex-wrap justify-content-between gap-4">
+          <nav aria-label="Footer" class="d-flex flex-column gap-1">
+            <a href="#rescues">Today’s rescues</a>
+            <a href="#business">For businesses</a>
+          </nav>
+          <nav aria-label="Help" class="d-flex flex-column gap-1">
+            <a href="#how">How it works</a>
+            <a href="#faq">FAQ</a>
+            <RouterLink :to="{ name: 'login' }">Log in</RouterLink>
+          </nav>
+        </div>
+        <p class="rb-display display-1 footer-logo d-xl-none" aria-hidden="true">RescueBite<span class="logo-dot">.</span></p>
+        <p class="rb-display footer-logo footer-logo-xl d-none d-xl-block" aria-hidden="true">RescueBite<span class="logo-dot">.</span></p>
+      </div>
+    </footer>
   </main>
 </template>
 
 <style scoped>
-.landing { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(450px, .92fr); min-height: 100svh; }
-.story-pane { display: flex; flex-direction: column; min-width: 0; padding: 34px clamp(28px, 5vw, 88px) 28px; color: #f8f8ec; background: #154a36; overflow: hidden; }
-.brand { display: inline-flex; align-items: center; gap: 10px; width: fit-content; font-family: 'Outfit', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -.04em; }
-.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #d0e77e; color: #184633; font-size: 29px; line-height: 1; }
-.brand-dot { color: #d0e77e; }
-.story-content { width: 100%; max-width: 650px; margin: 52px 0 34px; }
-.eyebrow, .auth-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .17em; }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; color: #d5e8ac; }
-.eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: #e7bc75; }
-h1 { margin: 18px 0 15px; font-size: clamp(56px, 5.2vw, 84px); line-height: .98; font-weight: 700; letter-spacing: -.055em; }
-h1 em { color: #d0e77e; font-style: normal; }
-.story-description { max-width: 510px; color: #d5e4d7; font-size: 16px; line-height: 1.65; }
-.journey-visual { position: relative; display: grid; place-items: center; height: clamp(230px, 26vw, 320px); margin-top: 24px; border-radius: 28px; background: #f5f0d9; overflow: hidden; }
-.journey-visual img { display: block; width: 100%; max-width: 640px; height: 100%; object-fit: contain; }
-.journey-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-top: 25px; }
-.journey-steps div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
-.journey-steps span { grid-row: span 2; color: #d0e77e; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700; }
-.journey-steps strong { font-size: 13px; font-weight: 700; }
-.journey-steps small { color: #b8d2be; font-size: 11px; }
-.story-footer { margin: auto 0 0; color: #a9c9b1; font-size: 12px; letter-spacing: .04em; }
-.auth-pane { display: grid; place-items: center; min-width: 0; padding: 52px clamp(24px, 5vw, 74px); background: #faf8f1; }
-.auth-inner { width: min(100%, 480px); }
-.auth-intro { margin-bottom: 24px; }
-.auth-eyebrow { color: #6f987a; }
-h2 { margin: 8px 0 5px; color: #163f2d; font-size: clamp(30px, 2.8vw, 42px); line-height: 1.13; font-weight: 700; letter-spacing: -.04em; }
-.auth-intro p { margin: 0; color: #6c7b70; font-size: 14px; line-height: 1.6; }
-.auth-panel { padding: 25px 28px 22px; border: 1px solid #e4e9df; border-radius: 26px; background: #fff; box-shadow: 0 20px 60px rgba(32, 67, 43, .07); }
-.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: #f1f4ed; }
-.auth-tabs button { min-height: 42px; border: 0; border-radius: 11px; color: #76877b; background: transparent; font-size: 14px; font-weight: 700; }
-.auth-tabs button.active { color: #173e2c; background: #fff; box-shadow: 0 2px 7px rgba(29, 62, 38, .09); }
-.auth-tabs button:focus-visible, .role-option:focus-visible { outline: 3px solid #96c968; outline-offset: 2px; }
-.role-section { padding: 24px 0 18px; border-bottom: 1px solid #e9eee8; }
-.field-label { margin: 0 0 10px; color: #314f3d; font-size: 13px; font-weight: 700; }
-.role-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.role-option { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 72px; padding: 10px; border: 1.5px solid #dde6dd; border-radius: 13px; color: #4d6857; background: #fff; text-align: left; }
-.role-option.selected { border-color: #277650; background: #f1f8ef; color: #1b593b; }
-.role-option > span:last-child { min-width: 0; }
-.role-option strong, .role-option small { display: block; }
-.role-option strong { color: #244b36; font-size: 13px; }
-.role-option small { margin-top: 3px; color: #7b8c80; font-size: 11px; white-space: nowrap; }
-.role-icon { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #eef4e9; }
-.role-icon svg { width: 22px; height: 22px; }
-.role-note { margin: 10px 0 0; color: #849087; font-size: 11px; line-height: 1.45; }
-.clerk-form { min-height: 340px; padding-top: 18px; }
-.loading-message { padding: 28px 0; color: #6c7b70; font-size: 13px; }
-.auth-footer { margin: 20px 0 0; color: #93a198; font-size: 12px; text-align: center; }
-@media (max-width: 1050px) {
-  .landing { grid-template-columns: minmax(0, 1fr) minmax(420px, .9fr); }
-  .story-pane { padding-inline: 32px; }
-  .journey-steps { gap: 5px; }
-  .journey-steps div { column-gap: 5px; }
+.landing {
+  overflow-x: hidden;
+  color: #191200;
+  background-color: #fbf9f1;
 }
-@media (max-width: 800px) {
-  .landing { display: block; }
-  .story-pane { padding: 25px 30px 30px; }
-  .story-content { max-width: 650px; margin: 44px 0 24px; }
-  h1 { font-size: clamp(50px, 9vw, 72px); }
-  .journey-visual { height: 300px; }
-  .auth-pane { padding: 52px 24px 60px; }
+
+.landing-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 32px;
+  padding: 24px 32px;
+  border-bottom: 1px solid #ddd9c5;
 }
-@media (max-width: 520px) {
-  .story-pane { padding: 22px 20px 26px; }
-  .story-content { margin-top: 34px; }
-  h1 { font-size: 49px; }
-  .story-description { font-size: 14px; }
-  .journey-visual { height: 225px; margin-top: 24px; border-radius: 20px; }
-  .journey-steps { gap: 7px; padding-top: 18px; }
-  .journey-steps div { display: block; }
-  .journey-steps span { display: block; margin-bottom: 3px; }
-  .journey-steps strong { display: block; font-size: 12px; }
-  .journey-steps small { display: block; font-size: 10px; }
-  .auth-pane { padding: 43px 15px 52px; }
-  .auth-panel { padding: 20px 14px; border-radius: 20px; }
-  .role-option { gap: 6px; padding: 8px 6px; }
-  .role-icon { flex-basis: 29px; width: 29px; height: 29px; }
-  .role-option strong { font-size: 12px; }
-  .role-option small { font-size: 10px; }
+
+.logo {
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 34px;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.logo-dot {
+  color: #f4b30c;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.nav-links a {
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+  color: #191200;
+  text-decoration: none;
+  transition: border-color .25s;
+}
+
+.nav-links a:hover {
+  border-bottom-color: #f4b30c;
+}
+
+/* Hero */
+
+
+.hero-copy {
+  max-width: 560px;
+  margin: 32px 0 0;
+  font-size: 18px;
+  line-height: 30px;
+}
+
+
+
+/* "How do you want to help?" card */
+.start-card {
+  max-width: 480px;
+  border: 1px solid #ddd9c5;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+
+.start-title {
+  margin: 0;
+  line-height: 1.1;
+}
+
+.start-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 2px solid #ddd9c5;
+  border-radius: 28px;
+  color: #000;
+  background-color: #fbf9f1;
+  text-align: left;
+  transition: border-color .25s, background-color .25s;
+}
+
+.start-option:hover,
+.start-option:focus {
+  border-color: #f4b30c;
+  background-color: #fbf9f1;
+}
+
+.start-option svg {
+  flex: 0 0 28px;
+}
+
+.option-name {
+  display: block;
+  font-size: 24px;
+  line-height: 26px;
+}
+
+.option-copy {
+  display: block;
+  margin-top: 4px;
+  color: #5f5330;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.option-arrow {
+  font-size: 20px;
+}
+
+.member-line {
+  margin: 24px 0 0;
+  color: #5f5330;
+  font-size: 15px;
+  text-align: center;
+}
+
+.member-line a {
+  color: #191200;
+  font-weight: 700;
+}
+
+/* Dripping edges between sections */
+.wave {
+  margin-top: -1px;
+  line-height: 0;
+  background-color: #fbf9f1;
+}
+
+.wave-into-yolk {
+  background-color: #f4b30c;
+}
+
+.wave svg {
+  display: block;
+}
+
+/* How it works */
+.how {
+  overflow: hidden;
+  color: #000;
+  background-color: #f4b30c;
+}
+
+.how-title {
+  line-height: .92;
+}
+
+.how-script {
+  color: #000;
+}
+
+
+.step {
+  padding-top: 24px;
+  border-top: 2px solid #000;
+}
+
+.step-big {
+  line-height: 1;
+}
+
+.step-title {
+  margin: 16px 0 12px;
+  line-height: 1.1;
+}
+
+.step-copy {
+  max-width: 380px;
+  margin: 0;
+  font-size: 18px;
+  line-height: 27px;
+}
+
+.band {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 48px;
+  padding: 20px 40px;
+  overflow: hidden;
+  color: #f4b30c;
+  background-color: #000;
+}
+
+.band-word {
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 40px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.band-script {
+  color: #fbf9f1;
+  font-family: 'Kaushan Script', cursive;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.band-dot {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #f4b30c;
+}
+
+/* Shared section spacing */
+.yolk-script {
+  color: #f4b30c;
+}
+
+.empty-state {
+  padding: 48px 32px;
+  border-radius: 28px;
+  color: #5f5330;
+  background-color: #f6f4ed;
+  text-align: center;
+}
+
+/* For businesses */
+.business {
+  color: #fbf9f1;
+  background-color: #1a1200;
+}
+
+.light {
+  color: #fbf9f1;
+}
+
+.business-copy {
+  max-width: 520px;
+  margin: 32px 0 0;
+  color: #d6cfb4;
+  font-size: 18px;
+  line-height: 27px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 160px;
+  height: 100%;
+  padding: 24px;
+  border: 1px solid #4a4120;
+}
+
+.stat .rb-label {
+  color: #d6cfb4;
+  font-size: 12px;
+}
+
+.yolk-stat {
+  border-color: #f4b30c;
+  color: #000;
+  background-color: #f4b30c;
+}
+
+.yolk-stat .rb-label,
+.yolk-stat .stat-value {
+  color: #000;
+}
+
+.stat-value {
+  margin: 0;
+  color: #fbf9f1;
+  line-height: 1;
+}
+
+.unit {
+  font-size: .45em;
+}
+
+
+/* FAQ */
+.faq-row {
+  border-radius: 28px;
+  background-color: #f6f4ed;
+  transition: background-color .25s;
+}
+
+.faq-row.open {
+  background-color: #f4b30c;
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 72px;
+  padding: 16px 24px;
+  border: 0;
+  color: #000;
+  background: transparent;
+  font-family: 'Anton', Impact, sans-serif;
+  line-height: 1.1;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.faq-sign {
+  font-size: 28px;
+}
+
+.faq-answer {
+  max-width: 640px;
+  margin: 0;
+  padding: 0 24px 24px;
+  color: #000;
+  font-size: 18px;
+  line-height: 27px;
+}
+
+/* Footer */
+.footer {
+  color: #fbf9f1;
+  background-color: #1a1200;
+}
+
+.footer-inner {
+  padding-top: 56px;
+  padding-bottom: 40px;
+}
+
+.footer-links {
+  font-size: 14px;
+  line-height: 24px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+
+.footer a {
+  color: #f4b30c;
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: #fbf9f1;
+}
+
+
+.footer-logo {
+  margin: 56px 0 0;
+  color: #fbf9f1;
+  line-height: .85;
+}
+
+.footer-logo-xl {
+  font-size: 236px;
 }
 </style>

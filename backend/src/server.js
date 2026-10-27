@@ -4,6 +4,8 @@ import { clerkMiddleware } from "@clerk/express";
 import connectDB from "./config/db.js";
 import routes from "./routes/routes.js";
 import Cascade from "./models/cascade.js";
+import { stripeWebhook } from "./controllers/paymentController.js";
+import { startPaymentReconciliation } from "./services/paymentService.js";
 import cors from "cors"; // function so that the ports are the same across frontend and backend
 
 dotenv.config({ path: "../.env" });
@@ -15,6 +17,7 @@ server.use(cors({
   origin: "http://localhost:5173"
 }));
 
+server.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhook);
 server.use(express.urlencoded({ extended: true }));
 server.use(express.json());
 
@@ -27,7 +30,7 @@ function startServer() {
 
   server.listen(port, hostname, () => {
     console.log(`Server running at http://${hostname}:${port}/`);
-    
+
     // Cleanup for deletion
     let interval = Number(process.env.CLEANUP_INTERVAL_MS);
     if (!Number.isInteger(interval) || interval <= 0) {
@@ -35,6 +38,8 @@ function startServer() {
     }
     Cascade.runCleanupSweep();
     setInterval(Cascade.runCleanupSweep, interval);
+
+    startPaymentReconciliation();
   });
 }
 

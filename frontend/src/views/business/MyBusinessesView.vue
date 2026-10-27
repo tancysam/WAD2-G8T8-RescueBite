@@ -1,5 +1,7 @@
 
 <script setup>
+import DisplayHeading from '../../components/DisplayHeading.vue'
+import BusinessTile from '../../components/business/BusinessTile.vue'
 import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
 import { useUser, useAuth } from '@clerk/vue'
@@ -99,247 +101,53 @@ watch(
 
 <template>
   <main class="businesses-page">
-
-    <!-- My Business: BUSINESS Users Only -->
-<!-- My Businesses: BUSINESS Users Only -->
-    <section v-if="isBusiness" class="my-business-section">
-
-      <h1>My Businesses</h1>
-
-        <div style="margin-bottom: 25px;">
-          <RouterLink
-              to="/register-business"
-              class="view-button"
-            >
-            Register Business
-          </RouterLink>
-        </div>
-
-      <p v-if="myBusinessLoading">
-        Loading your businesses...
-      </p>
-
-      <p v-else-if="myBusinessError" class="error">
-        {{ myBusinessError }}
-      </p>
-
-      <!-- Registered Businesses -->
-      <div v-else-if="myBusinesses.length > 0" class="business-grid">
-
-        <div
-          v-for="business in myBusinesses"
-          :key="business._id"
-          class="business-card"
-        >
-          <div class="card-header">
-            <h2>{{ business.name }}</h2>
-            <p>{{ business.status }}</p>
+    <!-- My Businesses: BUSINESS Users Only -->
+    <template v-if="isBusiness">
+      <section class="container-xxl px-4 pt-5">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+          <div>
+            <p class="rb-script rb-kicker fs-3">your shopfronts</p>
+            <DisplayHeading :size="144">My businesses</DisplayHeading>
           </div>
-
-          <div class="card-body">
-            <p class="description">
-              {{ business.description || 'No description available.' }}
-            </p>
-
-            <p class="address">
-              📍 {{ business.address }}
-            </p>
-
-            <p class="postal-code">
-              Singapore {{ business.postal_code }}
-            </p>
-
-            <div class="business-actions">
-              <RouterLink
-                :to="{
-                  name: 'business-profile',
-                  params: { businessId: business._id }
-                }"
-                class="view-button"
-              >
-                Preview Business
-              </RouterLink>
-
-              <RouterLink
-                :to="{
-                  name: 'edit-business',
-                  params: { businessId: business._id }
-                }"
-                class="edit-button"
-              >
-                Edit Business
-            </RouterLink>
-            </div>
-
-          </div>
+          <RouterLink to="/register-business" class="rb-pill rb-pill-dark">+ Register business</RouterLink>
         </div>
+      </section>
 
-      </div>
+      <section class="container-xxl px-4 pt-5 pb-5">
+        <p v-if="myBusinessLoading" class="rb-label">Loading your businesses…</p>
 
-      <!-- No Registered Businesses -->
-      <div v-else class="register-business-card">
-        <h2>No Businesses Owned Yet</h2>
-
-        <p>
-          You do not have any businesses registered to your account yet.
+        <p v-else-if="myBusinessError" class="rb-note error" role="alert">
+          {{ myBusinessError }}
         </p>
-      </div>
 
-    </section>
+        <!-- Registered Businesses -->
+        <div v-else-if="myBusinesses.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+          <div v-for="(business, index) in myBusinesses" :key="business._id" class="col d-flex">
+            <BusinessTile :business="business" :index="index" show-status>
+              <RouterLink
+                :to="{ name: 'business-profile', params: { businessId: business._id } }"
+                class="rb-pill rb-pill-dark rb-pill-sm"
+              >
+                Preview
+              </RouterLink>
+              <RouterLink
+                :to="{ name: 'edit-business', params: { businessId: business._id } }"
+                class="rb-pill rb-pill-line rb-pill-sm"
+              >
+                Edit
+              </RouterLink>
+            </BusinessTile>
+          </div>
+        </div>
 
+        <!-- No Registered Businesses -->
+        <div v-else class="rb-empty">
+          <p class="rb-display display-6 mb-2">No businesses yet</p>
+          <p class="mb-4">You do not have any businesses registered to your account yet.</p>
+          <RouterLink to="/register-business" class="rb-pill rb-pill-dark">Register a business</RouterLink>
+        </div>
+      </section>
+    </template>
   </main>
 </template>
 
-<style scoped>
-.businesses-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 30px;
-}
-
-.businesses-page h1 {
-  margin-bottom: 10px;
-  color: #256b45;
-}
-
-.businesses-page > p {
-  margin-bottom: 30px;
-  color: #666;
-}
-
-/* My Business Section */
-.my-business-section {
-  margin-bottom: 40px;
-}
-
-.my-business-section h1 {
-  margin-bottom: 20px;
-}
-
-.my-business-card {
-  width: 100%;
-}
-
-/* Register Business Card */
-.register-business-card {
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-  padding: 24px;
-}
-
-.register-business-card h2 {
-  margin-bottom: 12px;
-  color: #256b45;
-}
-
-.register-business-card p {
-  margin-bottom: 20px;
-  color: #555;
-}
-
-/* Business Grid */
-.business-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-/* Business Card */
-.business-card {
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  background-color: white;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.business-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  background-color: #e8f5e9;
-  padding: 24px;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #256b45;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.description {
-  margin-bottom: 16px;
-  color: #555;
-}
-
-.address {
-  margin-bottom: 5px;
-}
-
-.postal-code {
-  color: #777;
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-.view-button {
-  display: inline-block;
-  background-color: #256b45;
-  color: white;
-  text-decoration: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-}
-
-.view-button:hover {
-  background-color: #1b5034;
-}
-
-/* Responsive Layout */
-@media (max-width: 900px) {
-  .business-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .business-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.error {
-  color: red;
-}
-
-
-/* Business Action Buttons */
-.business-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-/* Edit Business Button */
-.edit-button {
-  display: inline-block;
-  background-color: white;
-  color: #256b45;
-  border: 1px solid #256b45;
-  text-decoration: none;
-  padding: 9px 15px;
-  border-radius: 8px;
-}
-
-.edit-button:hover {
-  background-color: #e8f5e9;
-}
-
-</style>

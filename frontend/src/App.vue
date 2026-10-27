@@ -8,7 +8,11 @@ import NotificationBell from './components/notifications/NotificationBell.vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
+// Explore fills the screen: the page becomes one column the height of the window
+const isFullScreen = computed(() => route.name === 'explore')
 const profileRole = ref(null)
+// Small screens show the page links only after the Menu button is pressed
+const menuOpen = ref(false)
 
 watch(() => route.meta.requiresAuth, (requiresAuth) => {
   if (!requiresAuth) profileRole.value = null
@@ -16,94 +20,130 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
 </script>
 
 <template>
-  <header v-if="!isLanding" class="navbar">
-    <RouterLink to="/auth/complete" class="logo">
-      <span class="logo-mark" aria-hidden="true">✳</span>
-      <span>RescueBite</span>
-    </RouterLink>
+  <div :class="isFullScreen ? 'd-flex flex-column vh-100' : ''">
+    <header v-if="!isLanding" class="navbar-rb px-3 px-lg-4">
+      <RouterLink to="/auth/complete" class="logo fs-2">RescueBite<span class="logo-dot">.</span></RouterLink>
 
-    <nav>
-      <RouterLink v-if="profileRole === 'CONSUMER'" to="/explore">
-        Explore
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'CONSUMER'" to="/businesses">
-        Businesses
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'CONSUMER'" to="/favourites">
-        Favourites
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'CONSUMER'" to="/my-orders">
-        My orders
-      </RouterLink>
-      <!-- Business Listing Navigation -->
-      <RouterLink v-if="profileRole === 'BUSINESS'" to="/auth/complete">
-        Dashboard
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-listings">
-        Manage listings
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-orders">
-        My orders
-      </RouterLink>
-      <RouterLink v-if="profileRole === 'BUSINESS'" to="/myBusinesses">
-        Businesses
-      </RouterLink>
-      <Show when="signed-in">
-        <NotificationBell />
-        <UserButton />
-      </Show>
-    </nav>
-  </header>
+      <div class="account order-lg-3">
+        <Show when="signed-in">
+          <NotificationBell />
+          <UserButton />
+        </Show>
+        <button
+          type="button"
+          class="menu-button d-lg-none"
+          :aria-expanded="menuOpen"
+          aria-controls="primary-nav"
+          @click="menuOpen = !menuOpen"
+        >{{ menuOpen ? 'Close' : 'Menu' }}</button>
+      </div>
 
-  <ProfileGate v-if="route.meta.requiresAuth" @role-change="profileRole = $event">
-    <RouterView />
-  </ProfileGate>
-  <RouterView v-else />
+      <nav
+        id="primary-nav"
+        class="nav-links col-12 col-lg-auto order-lg-2"
+        :class="menuOpen ? 'd-flex flex-column flex-lg-row' : 'd-none d-lg-flex'"
+        aria-label="Primary"
+        @click="menuOpen = false"
+      >
+        <RouterLink v-if="profileRole === 'CONSUMER'" to="/explore">
+          Explore
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'CONSUMER'" to="/businesses">
+          Businesses
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'CONSUMER'" to="/favourites">
+          Favourites
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'CONSUMER'" to="/my-orders">
+          My orders
+        </RouterLink>
+        <!-- Business Listing Navigation -->
+        <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-dashboard">
+          Dashboard
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-listings">
+          Manage listings
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-orders">
+          My orders
+        </RouterLink>
+        <RouterLink v-if="profileRole === 'BUSINESS'" to="/myBusinesses">
+          Businesses
+        </RouterLink>
+      </nav>
+    </header>
+
+    <ProfileGate v-if="route.meta.requiresAuth" @role-change="profileRole = $event">
+      <RouterView />
+    </ProfileGate>
+    <RouterView v-else />
+  </div>
 </template>
 
 <style scoped>
-.navbar {
+.navbar-rb {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  padding: 18px clamp(20px, 5vw, 76px);
-  background-color: #164936;
+  gap: 12px 32px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ddd9c5;
+  background-color: #fbf9f1;
 }
 
 .logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 22px;
-  font-weight: 700;
-  color: white;
-  text-decoration: none;
-}
-
-.logo-mark {
-  display: grid;
-  place-items: center;
-  width: 31px;
-  height: 31px;
-  border-radius: 10px;
-  color: #164936;
-  background: #cbe879;
-  font-size: 25px;
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
   line-height: 1;
+  letter-spacing: .01em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 
-nav {
+.logo-dot {
+  color: #f4b30c;
+}
+
+.nav-links {
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.nav-links a {
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+  color: #191200;
+  text-decoration: none;
+  transition: border-color .25s;
+}
+
+.nav-links a:hover,
+.nav-links a.router-link-active {
+  border-bottom-color: #f4b30c;
+}
+
+.account {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 10px;
 }
 
-nav a {
-  color: white;
-  text-decoration: none;
-}
-
-nav a:hover {
-  text-decoration: underline;
+.menu-button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid #f4b30c;
+  border-radius: 140px;
+  color: #191200;
+  background-color: transparent;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 </style>

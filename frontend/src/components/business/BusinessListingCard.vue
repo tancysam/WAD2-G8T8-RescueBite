@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import placeholderImage from '../../assets/placeholder.jpg'
+import { collectionWindow } from '../../formatters.js'
 
 const props = defineProps({
   listing: {
@@ -14,6 +14,11 @@ const props = defineProps({
   businessId: {
     type: String,
     required: true
+  },
+  // Position in the list, used to rotate the tile colours
+  index: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -22,8 +27,14 @@ const emit = defineEmits(['request-remove'])
 // Listing Image
 const imageFailed = ref(false)
 
-const primaryImage = computed(() => {
-  if (imageFailed.value) return placeholderImage
+const tileTones = ['', 'dark', 'khaki']
+
+const windowLabel = computed(() => {
+  return collectionWindow(props.listing.collection_start_at, props.listing.collection_end_at)
+})
+
+const photoUrl = computed(() => {
+  if (imageFailed.value) return ''
   if (
     props.listing.images &&
     props.listing.images.length > 0 &&
@@ -31,39 +42,28 @@ const primaryImage = computed(() => {
   ) {
     return props.listing.images[0].url
   }
-  return placeholderImage
-})
-
-const imageAlt = computed(() => {
-  if (props.listing.images && props.listing.images.length > 0) {
-    return props.listing.title
-  }
   return ''
 })
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-]
+const tileClass = computed(() => {
+  if (photoUrl.value) return 'photo'
+  return tileTones[props.index % tileTones.length]
+})
+
+const tileStyle = computed(() => {
+  if (!photoUrl.value) return {}
+  return { backgroundImage: 'url("' + photoUrl.value + '")' }
+})
+
+// The first word of the title stands in for a photo
+const tileWord = computed(() => {
+  return (props.listing.title || '').trim().split(' ')[0]
+})
 
 // Listing Information Formatting
-function pad(number) {
-  return number.toString().padStart(2, '0')
-}
-
-function formatDate(value) {
-  const date = new Date(value)
-  return date.getDate() + ' ' + MONTHS[date.getMonth()] + ' ' + date.getFullYear()
-}
-
-function formatTime(value) {
-  const date = new Date(value)
-  return pad(date.getHours()) + ':' + pad(date.getMinutes())
-}
-
 function formatPrice(value) {
   const price = Number(value)
-  if (isNaN(price)) return 'S$0.00'
+  if (!(price >= 0)) return 'S$0.00'
   return 'S$' + price.toFixed(2)
 }
 
@@ -76,10 +76,7 @@ function statusLabel(status) {
 }
 
 function statusClass(status) {
-  if (status === 'ACTIVE') return 'text-bg-success'
-  if (status === 'DRAFT') return 'text-bg-warning'
-  if (status === 'SOLD_OUT') return 'text-bg-primary'
-  return 'text-bg-secondary'
+  return status.toLowerCase()
 }
 
 function canEdit() {
@@ -97,90 +94,67 @@ function requestRemove() {
 </script>
 
 <template>
-  <article class="card h-100 listing-card">
-    <!-- Listing Image -->
-    <div class="listing-image-wrapper">
-      <img
-        :src="primaryImage"
-        :alt="imageAlt"
-        class="listing-image"
-        @error="imageFailed = true"
-      />
+  <article class="card rb-card w-100">
+    <div class="rb-tile card-tile" :class="tileClass" :style="tileStyle">
+      <img v-if="photoUrl" :src="photoUrl" alt="" class="photo-probe" @error="imageFailed = true" />
+      <span class="rb-tag rb-tag-dark">{{ listing.listing_type === 'BUNDLE' ? 'Bundle' : 'Item' }}</span>
+      <span class="rb-tag rb-tag-light">{{ listing.quantity_available }} left</span>
+      <span v-if="!photoUrl" class="rb-tile-word" aria-hidden="true">{{ tileWord }}</span>
     </div>
 
-    <!-- Listing Information -->
-    <div class="card-body d-flex flex-column">
-      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div class="card-body d-flex flex-column gap-2 p-4">
+      <div class="d-flex justify-content-between align-items-start gap-3">
         <div>
-          <p class="text-muted small mb-1">
-            {{ categoryName }} - {{ listing.listing_type === 'BUNDLE' ? 'Bundle' : 'Item' }}
-          </p>
-          <h2 class="h5 mb-0">{{ listing.title }}</h2>
+          <p class="rb-label meta">{{ categoryName }}</p>
+          <h2 class="card-title mt-1">{{ listing.title }}</h2>
         </div>
-        <span class="badge" :class="statusClass(listing.status)">
+        <span class="rb-status" :class="statusClass(listing.status)">
           {{ statusLabel(listing.status) }}
         </span>
       </div>
 
-      <p class="text-muted mb-3">
-        {{ listing.description || 'No description provided.' }}
-      </p>
+      <p class="card-text">{{ listing.description || 'No description provided.' }}</p>
 
       <ul
         v-if="listing.listing_type === 'BUNDLE' && listing.bundle_contents.length > 0"
-        class="list-group list-group-flush mb-3"
+        class="list-group list-group-flush bundle-list"
       >
         <li
           v-for="item in listing.bundle_contents"
           :key="item.name + '-' + item.quantity"
-          class="list-group-item px-0 py-1 d-flex justify-content-between"
+          class="list-group-item d-flex justify-content-between px-0"
         >
           <span>{{ item.name }}</span>
-          <span>x {{ item.quantity }}</span>
+          <span class="rb-mono">× {{ item.quantity }}</span>
         </li>
       </ul>
 
-      <div class="row g-2 small mb-3">
-        <div class="col-6">
-          <span class="text-muted d-block">Rescue price</span>
-          <strong>{{ formatPrice(listing.rescue_price_sgd) }}</strong>
-        </div>
-        <div class="col-6">
-          <span class="text-muted d-block">Original price</span>
-          <span>{{ formatPrice(listing.original_price_sgd) }}</span>
-        </div>
-        <div class="col-6">
-          <span class="text-muted d-block">Quantity</span>
-          <span>{{ listing.quantity_available }}</span>
-        </div>
-        <div class="col-6">
-          <span class="text-muted d-block">Collection date</span>
-          <span>{{ formatDate(listing.collection_start_at) }}</span>
-        </div>
-      </div>
-
-      <p class="small mb-3">
-        <strong>Collection:</strong>
-        {{ formatTime(listing.collection_start_at) }} -
-        {{ formatTime(listing.collection_end_at) }}
+      <p class="rb-pickup mt-2">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+        <span><span class="visually-hidden">Pickup: </span>{{ windowLabel }}</span>
       </p>
+    </div>
 
-      <!-- Listing Actions -->
-      <div class="d-flex gap-2 mt-auto">
+    <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-3 px-4 py-3">
+      <p class="prices">
+        <strong>{{ formatPrice(listing.rescue_price_sgd) }}</strong>
+        <del class="rb-mono">{{ formatPrice(listing.original_price_sgd) }}</del>
+      </p>
+      <div class="d-flex flex-wrap gap-2">
         <RouterLink
           v-if="canEdit()"
           :to="{
             name: 'business-listing-edit',
             params: { businessId: businessId, listingId: listing._id }
           }"
-          class="btn btn-outline-success"
+          class="rb-pill rb-pill-dark rb-pill-sm"
         >
           Edit
         </RouterLink>
         <button
           v-if="canRemove()"
           type="button"
-          class="btn btn-outline-danger"
+          class="rb-pill rb-pill-text rb-pill-sm"
           @click="requestRemove"
         >
           Remove
@@ -191,30 +165,44 @@ function requestRemove() {
 </template>
 
 <style scoped>
-/* Business Listing Card */
-.listing-card {
-  border: 1px solid #d9e6dc;
-  border-left: 5px solid #256b45;
-  border-radius: 12px;
-  background-color: white;
-}
-
-.listing-card h2 {
-  color: #164936;
-}
-
-/* Listing Image */
-.listing-image-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.card-tile {
   height: 200px;
-  border-radius: 12px 12px 0 0;
-  background-color: #eef2ec;
 }
 
-.listing-image {
-  max-width: 100%;
-  max-height: 100%;
+.photo-probe {
+  display: none;
+}
+
+.meta {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.bundle-list .list-group-item {
+  border-color: #ddd9c5;
+  color: #191200;
+  background-color: transparent;
+  font-size: 15px;
+}
+
+.prices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+
+.prices strong {
+  color: #000;
+  font-family: 'Anton', Impact, sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.prices del {
+  color: #5f5330;
+  font-size: 14px;
 }
 </style>

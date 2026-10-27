@@ -16,7 +16,7 @@ if (!publishableKey) {
 createApp(App)
   .use(clerkPlugin, {
     publishableKey,
-    afterSignOutUrl: '/login',
+    afterSignOutUrl: '/',
     signInUrl: '/login',
     signUpUrl: '/register'
   })

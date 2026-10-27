@@ -183,24 +183,44 @@ watch([phase, profileRole, () => route.name, () => route.meta.requiredRole], ([c
 <template>
   <slot v-if="canShowPage" />
 
-  <main v-else class="profile-gate">
-    <div class="profile-card" aria-live="polite">
-      <p v-if="phase === 'loading' || phase === 'saving' || phase === 'ready'">
-        {{ phase === 'saving' ? 'Creating your RescueBite profile…' : phase === 'ready' ? 'Taking you to your home page…' : 'Checking your RescueBite profile…' }}
-      </p>
+  <main v-else class="profile-gate container-xxl px-4 py-5">
+    <div class="profile-card p-4 p-md-5" aria-live="polite">
+      <template v-if="phase === 'loading' || phase === 'saving' || phase === 'ready'">
+        <p class="rb-script rb-kicker fs-3">one moment</p>
+        <p class="rb-display display-6 gate-title">
+          {{ phase === 'saving' ? 'Creating your profile' : phase === 'ready' ? 'Taking you home' : 'Checking your profile' }}
+        </p>
+        <p class="rb-label mt-3">
+          {{ phase === 'saving' ? 'Creating your RescueBite profile…' : phase === 'ready' ? 'Taking you to your home page…' : 'Checking your RescueBite profile…' }}
+        </p>
+      </template>
       <div v-else>
-        <h1>Profile setup could not finish</h1>
-        <p role="alert">{{ errorMessage }}</p>
-        <button type="button" @click="retry">Try again</button>
+        <h1 class="rb-display display-6 gate-title">Profile setup could not finish</h1>
+        <p class="rb-note error mt-3" role="alert">{{ errorMessage }}</p>
+        <button type="button" class="rb-pill rb-pill-dark mt-4" @click="retry">Try again</button>
       </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-.profile-gate { display: grid; min-height: calc(100svh - 72px); place-items: center; padding: 32px 20px; background: #faf8f1; }
-.profile-card { width: min(100%, 440px); padding: 28px; border: 1px solid #e4e9df; border-radius: 20px; background: white; color: #173d2c; }
-.profile-card h1 { margin: 0 0 8px; font-size: 26px; }
-.profile-card p { color: #586d5e; line-height: 1.5; }
-.profile-card button { width: fit-content; margin-top: 12px; padding: 11px 20px; border: 0; border-radius: 9px; background: #1c6a49; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.profile-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid #ddd9c5;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+.gate-title {
+  margin: 4px 0 0;
+  line-height: 1.05;
+}
 </style>

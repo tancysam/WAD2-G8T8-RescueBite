@@ -1,4 +1,6 @@
 <script setup>
+import DisplayHeading from '../../components/DisplayHeading.vue'
+import { paymentLabel } from '../../payments.js'
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
@@ -73,10 +75,7 @@ function statusLabel(status) {
 }
 
 function statusClass(status) {
-  if (status === 'RESERVED') return 'text-primary'
-  if (status === 'COLLECTED') return 'text-success'
-  if (status === 'CANCELLED') return 'text-danger'
-  return 'text-secondary'
+  return 'rb-status ' + status.toLowerCase()
 }
 
 // Newest reservation first (insert each item at the right position)
@@ -280,242 +279,233 @@ onUnmounted(closeScanner)
 </script>
 
 <template>
-  <main class="orders container py-4 py-md-5">
-    <section v-if="scanOpen" class="scanner-screen mx-auto">
-      <header class="d-flex justify-content-between align-items-start gap-3 mb-4">
-        <div>
-          <h1 class="orders-title">Scan collection QR</h1>
-          <p class="text-muted mb-0">Scan the consumer's QR code to confirm the pickup.</p>
-        </div>
-        <button type="button" class="btn-close" aria-label="Exit scanner" :disabled="verifying" @click="closeScanner"></button>
-      </header>
-      <div v-if="scanError" class="alert alert-danger" role="alert">{{ scanError }}</div>
-      <p v-if="verifying" role="status">Verifying collection...</p>
-      <div v-show="!verifying && !collectedOrder && !verificationError" id="collection-scanner"></div>
-
-      <div v-if="collectedOrder || verificationError" class="scan-backdrop">
-        <section class="card scan-dialog" role="dialog" aria-modal="true" aria-labelledby="verification-title">
-          <div class="card-body">
-            <template v-if="collectedOrder">
-              <h2 id="verification-title" class="h4 mb-3">Review Collection Details</h2>
-              <template v-if="collectedOrder.listingName">
-                <section class="card border-0 bg-light mb-3" aria-label="Collection summary">
-                  <div class="card-body">
-                    <div class="row g-3">
-                      <div class="col-4">
-                        <p class="small text-secondary mb-1">Consumer</p>
-                        <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
-                      </div>
-                      <div class="col-4">
-                        <p class="small text-secondary mb-1">Quantity</p>
-                        <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
-                      </div>
-                      <div class="col-4">
-                        <p class="small text-secondary mb-1">Total price</p>
-                        <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
-                      </div>
-                      <div class="col-12">
-                        <p class="small text-secondary mb-1">Listing</p>
-                        <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
-                      </div>
-                      <div class="col-12">
-                        <p class="small text-secondary mb-1">Collected at</p>
-                        <p class="fw-semibold mb-0">{{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </template>
-              <p v-else>{{ collectedOrder.message }}</p>
-              <button type="button" class="btn btn-success w-100" autofocus @click="confirmCollection">Confirm</button>
-            </template>
-            <template v-else>
-              <h2 id="verification-title" class="h4 mb-3" role="alert">{{ verificationError }}</h2>
-              <button type="button" class="btn btn-success w-100" autofocus @click="openScanner">Try again</button>
-            </template>
+  <main class="orders">
+    <section v-if="scanOpen" class="container-xxl px-4 py-5">
+      <div class="scanner-screen mx-auto">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+          <div>
+            <p class="rb-script rb-kicker fs-3">ready when they are</p>
+            <h1 class="rb-display display-4">Scan collection QR</h1>
+            <p class="rb-label mt-2 mb-0">Scan the customer’s QR code to confirm the pickup.</p>
           </div>
+          <button type="button" class="rb-close" aria-label="Exit scanner" :disabled="verifying" @click="closeScanner">×</button>
+        </div>
+        <p v-if="scanError" class="rb-note error mb-3" role="alert">{{ scanError }}</p>
+        <p v-if="verifying" class="rb-label" role="status">Verifying collection…</p>
+        <div v-show="!verifying && !collectedOrder && !verificationError" id="collection-scanner" class="scanner-frame"></div>
+      </div>
+
+      <div v-if="collectedOrder || verificationError" class="rb-backdrop">
+        <section class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="verification-title">
+          <template v-if="collectedOrder">
+            <p class="rb-script rb-kicker fs-3">collected!</p>
+            <h2 id="verification-title" class="rb-display display-6 mb-3">Review collection details</h2>
+            <section v-if="collectedOrder.listingName" class="detail-panel mb-4" aria-label="Collection summary">
+              <div class="row g-3">
+                <div class="col-4">
+                  <p class="rb-label mb-1">Customer</p>
+                  <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
+                </div>
+                <div class="col-4">
+                  <p class="rb-label mb-1">Quantity</p>
+                  <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
+                </div>
+                <div class="col-4">
+                  <p class="rb-label mb-1">Total</p>
+                  <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
+                </div>
+                <div class="col-12">
+                  <p class="rb-label mb-1">Listing</p>
+                  <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
+                </div>
+                <div class="col-12">
+                  <p class="rb-label mb-1">Collected at</p>
+                  <p class="fw-semibold mb-0">{{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
+                </div>
+              </div>
+            </section>
+            <p v-else>{{ collectedOrder.message }}</p>
+            <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="confirmCollection">Confirm</button>
+          </template>
+          <template v-else>
+            <h2 id="verification-title" class="rb-display display-6 mb-4" role="alert">{{ verificationError }}</h2>
+            <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="openScanner">Try again</button>
+          </template>
         </section>
       </div>
     </section>
 
     <template v-else>
-      <header class="mb-4 d-flex justify-content-between align-items-start gap-3 flex-wrap">
-        <div>
-          <h1 class="orders-title">Orders</h1>
-          <p v-if="business" class="text-muted mb-0">
-            Reservation history for {{ business.name }}
-          </p>
-          <select
-            v-if="businesses.length > 1"
-            v-model="selectedBusinessId"
-            class="form-select form-select-sm mt-2"
-            aria-label="Choose business"
-            @change="changeBusiness"
-          >
-            <option v-for="item in businesses" :key="item._id" :value="item._id">
-              {{ item.name }}
-            </option>
-          </select>
-        </div>
-        <button v-if="business" type="button" class="btn btn-success" @click="openScanner">
-          Scan collection QR
-        </button>
-      </header>
-
-    <!-- Loading -->
-    <p v-if="loading" class="text-muted">Loading your orders...</p>
-
-    <!-- Error -->
-    <div v-else-if="errorMessage" class="alert alert-danger" role="alert">
-      {{ errorMessage }}
-    </div>
-
-    <!-- No active business -->
-    <div v-else-if="business === null" class="alert alert-warning" role="alert">
-      You do not have an active business yet.
-      <RouterLink to="/register-business" class="alert-link">
-        Register a business
-      </RouterLink>
-    </div>
-
-    <section v-else>
-      <!-- Status tabs -->
-      <ul class="nav nav-tabs flex-nowrap overflow-auto mb-3">
-        <li v-for="tab in tabs" :key="tab.key" class="nav-item">
-          <button
-            type="button"
-            class="nav-link text-nowrap"
-            :class="{ active: activeTab === tab.key }"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }} ({{ counts[tab.key] }})
-          </button>
-        </li>
-      </ul>
-
-      <p v-if="visibleReservations.length === 0" class="text-muted">
-        No reservations in this tab.
-      </p>
-
-      <!-- Table on tablets and desktops -->
-      <div v-else class="d-none d-md-block">
-        <div class="table-responsive orders-table">
-          <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Total</th>
-                <th>Pickup window</th>
-                <th>Status</th>
-                <th>Reserved</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="reservation in visibleReservations" :key="reservation._id">
-                <td>{{ reservation.listing_snapshot.title }}</td>
-                <td>{{ reservation.quantity }}</td>
-                <td>{{ formatMoney(lineTotal(reservation)) }}</td>
-                <td>{{ formatPickup(reservation.listing_snapshot) }}</td>
-                <td :class="statusClass(reservation.status)" class="fw-semibold">
-                  {{ statusLabel(reservation.status) }}
-                </td>
-                <td>{{ formatDate(reservation.reserved_at) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Cards on phones -->
-      <div v-if="visibleReservations.length > 0" class="d-md-none">
-        <div
-          v-for="reservation in visibleReservations"
-          :key="reservation._id"
-          class="card order-card mb-3"
-        >
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start">
-              <h2 class="h6 mb-1">{{ reservation.listing_snapshot.title }}</h2>
-              <span :class="statusClass(reservation.status)" class="fw-semibold small">
-                {{ statusLabel(reservation.status) }}
-              </span>
-            </div>
-            <p class="mb-1">
-              {{ reservation.quantity }} x
-              {{ formatMoney(reservation.listing_snapshot.rescue_unit_price_sgd) }}
-              = <strong>{{ formatMoney(lineTotal(reservation)) }}</strong>
-            </p>
-            <p class="text-muted small mb-0">
-              Pickup: {{ formatPickup(reservation.listing_snapshot) }}
-            </p>
-            <p class="text-muted small mb-0">
-              Reserved: {{ formatDate(reservation.reserved_at) }}
-            </p>
+      <section class="container-xxl px-4 pt-5">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
+          <div>
+            <p class="rb-script rb-kicker fs-3">who’s coming by</p>
+            <DisplayHeading :size="160">Orders</DisplayHeading>
+            <p v-if="business" class="rb-label mt-2">Reservation history for {{ business.name }}</p>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <label v-if="businesses.length > 1" class="rb-label d-flex align-items-center gap-2">
+              Business
+              <select
+                v-model="selectedBusinessId"
+                class="rb-select"
+                @change="changeBusiness"
+              >
+                <option v-for="item in businesses" :key="item._id" :value="item._id">
+                  {{ item.name }}
+                </option>
+              </select>
+            </label>
+            <button v-if="business" type="button" class="rb-pill rb-pill-dark" @click="openScanner">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg>
+              Scan collection QR
+            </button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section class="container-xxl px-4 pt-5 pb-5">
+        <!-- Loading -->
+        <p v-if="loading" class="rb-label">Loading your orders…</p>
+
+        <!-- Error -->
+        <p v-else-if="errorMessage" class="rb-note error" role="alert">
+          {{ errorMessage }}
+        </p>
+
+        <!-- No active business -->
+        <div v-else-if="business === null" class="rb-note">
+          <span>You do not have an active business yet.</span>
+          <RouterLink to="/register-business" class="rb-pill rb-pill-dark rb-pill-sm">Register a business</RouterLink>
+        </div>
+
+        <template v-else>
+          <!-- Status filters -->
+          <div class="rb-chip-row" role="group" aria-label="Filter by status">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              type="button"
+              class="rb-chip"
+              :class="{ active: activeTab === tab.key }"
+              :aria-pressed="activeTab === tab.key"
+              @click="activeTab = tab.key"
+            >
+              {{ tab.label }} <span class="ms-1">{{ counts[tab.key] }}</span>
+            </button>
+          </div>
+
+          <div v-if="visibleReservations.length === 0" class="rb-empty mt-4">
+            <p class="rb-display display-6 mb-2">Nothing here yet</p>
+            <p class="mb-0">No reservations in this tab.</p>
+          </div>
+
+          <!-- Table on tablets and desktops -->
+          <div v-else class="d-none d-md-block mt-4">
+            <div class="table-responsive">
+              <table class="orders-table">
+                <thead>
+                  <tr class="rb-label">
+                    <th scope="col">Item</th>
+                    <th scope="col">Qty</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Pickup window</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Reserved</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="reservation in visibleReservations" :key="reservation._id">
+                    <td><span class="rb-display row-title">{{ reservation.listing_snapshot.title }}</span></td>
+                    <td class="rb-mono">{{ reservation.quantity }}</td>
+                    <td class="rb-mono">{{ formatMoney(lineTotal(reservation)) }}</td>
+                    <td class="rb-label text-dark">{{ formatPickup(reservation.listing_snapshot) }}</td>
+                    <td>
+                      <div class="d-flex flex-wrap gap-2">
+                        <span :class="statusClass(reservation.status)">{{ statusLabel(reservation.status) }}</span>
+                        <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
+                      </div>
+                    </td>
+                    <td class="rb-label">{{ formatDate(reservation.reserved_at) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Cards on phones -->
+          <div v-if="visibleReservations.length > 0" class="d-md-none mt-2">
+            <article
+              v-for="reservation in visibleReservations"
+              :key="reservation._id"
+              class="order-row"
+            >
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <h2 class="rb-display row-title">{{ reservation.listing_snapshot.title }}</h2>
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                  <span :class="statusClass(reservation.status)">{{ statusLabel(reservation.status) }}</span>
+                  <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
+                </div>
+              </div>
+              <p class="rb-mono mt-2 mb-1">
+                {{ reservation.quantity }} × {{ formatMoney(reservation.listing_snapshot.rescue_unit_price_sgd) }}
+                = <strong>{{ formatMoney(lineTotal(reservation)) }}</strong>
+              </p>
+              <p class="rb-label mb-0">Pickup: {{ formatPickup(reservation.listing_snapshot) }}</p>
+              <p class="rb-label mb-0">Reserved: {{ formatDate(reservation.reserved_at) }}</p>
+            </article>
+          </div>
+        </template>
+      </section>
     </template>
   </main>
 </template>
 
 <style scoped>
-.orders {
-  color: #173d2c;
-}
-
-.orders-title {
-  margin: 0 0 4px;
-  font-size: clamp(28px, 4vw, 44px);
-  color: #164936;
-}
-
 .scanner-screen {
   width: 100%;
-  max-width: 520px;
+  max-width: 560px;
 }
 
-#collection-scanner {
+.scanner-frame {
   width: 100%;
   overflow: hidden;
+  padding: 16px;
+  background-color: #f4b30c;
 }
 
-.scan-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.55);
-}
-
-.scan-dialog {
-  width: 100%;
-  max-width: 430px;
-}
-
-.nav-tabs .nav-link {
-  color: #256b45;
-}
-
-.nav-tabs .nav-link.active {
-  color: #164936;
-  font-weight: 600;
+.detail-panel {
+  padding: 20px 24px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
 }
 
 .orders-table {
-  border: 1px solid #d9e6dc;
-  border-radius: 12px;
-  background-color: white;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.order-card {
-  border: 1px solid #d9e6dc;
-  border-left: 5px solid #256b45;
-  border-radius: 12px;
-  background-color: white;
+.orders-table th {
+  padding: 0 16px 12px 0;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.orders-table td {
+  padding: 18px 16px 18px 0;
+  border-top: 1px solid #ddd9c5;
+}
+
+.row-title {
+  display: block;
+  margin: 0;
+  font-size: 24px;
+  line-height: 28px;
+}
+
+.order-row {
+  padding: 20px 0;
+  border-bottom: 1px solid #ddd9c5;
 }
 </style>

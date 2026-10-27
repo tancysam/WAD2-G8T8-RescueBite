@@ -3,7 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
-import placeholderImage from '../../assets/placeholder.jpg'
+import DisplayHeading from '../../components/DisplayHeading.vue'
+import PickupMap from '../../components/listings/PickupMap.vue'
+import { dayLabel, formatPrice, shortTime } from '../../formatters.js'
+import { newCheckoutRequestId, paymentAmount } from '../../payments.js'
 import { API_URL } from '@/config'
 
 const route = useRoute()
@@ -23,9 +26,18 @@ const reserveQuantity = ref(1)
 const reserving = ref(false)
 const reservationError = ref('')
 const reservationSuccess = ref(false)
+const reservedQuantity = ref(0)
+// Stripe Checkout: the backend returns a link to Stripe's payment page for paid listings
+const checkoutUrl = ref('')
+const amountDue = ref('')
+// Reused when retrying after a network error so the backend does not book twice
+const checkoutRequestId = ref('')
+const canRetryReservation = ref(false)
 
-const primaryImage = computed(() => {
-  if (imageFailed.value) return placeholderImage
+const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+const photoUrl = computed(() => {
+  if (imageFailed.value) return ''
   if (
     listing.value &&
     listing.value.images &&
@@ -34,14 +46,18 @@ const primaryImage = computed(() => {
   ) {
     return listing.value.images[0].url
   }
-  return placeholderImage
+  return ''
 })
 
-const imageAlt = computed(() => {
-  if (listing.value && listing.value.images && listing.value.images.length > 0) {
-    return listing.value.title
-  }
-  return ''
+const tileStyle = computed(() => {
+  if (!photoUrl.value) return {}
+  return { backgroundImage: 'url("' + photoUrl.value + '")' }
+})
+
+// The first word of the title stands in for a photo
+const tileWord = computed(() => {
+  if (!listing.value) return ''
+  return listing.value.title.trim().split(' ')[0]
 })
 
 const savingsPercentage = computed(() => {
@@ -54,17 +70,29 @@ const savingsPercentage = computed(() => {
   return Math.round(((originalPrice - rescuePrice) / originalPrice) * 100)
 })
 
-function formatPrice(value) {
-  const price = Number(value)
-  if (isNaN(price)) return '$0.00'
-  return '$' + price.toFixed(2)
-}
+const totalPrice = computed(() => {
+  if (!listing.value) return formatPrice(0)
+  return formatPrice(Number(listing.value.rescue_price_sgd) * reserveQuantity.value)
+})
+
+const pickupCoordinates = computed(() => {
+  if (!business.value || !business.value.location || !business.value.location.coordinates) return null
+  const coordinates = business.value.location.coordinates
+  if (coordinates.length !== 2) return null
+  return coordinates
+})
 
 function formatDate(value) {
   const date = new Date(value)
-  if (isNaN(date)) return 'Time unavailable'
+  if (!(Number(date) > 0)) return 'Time unavailable'
 
-  return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-US')
+  return date.toLocaleDateString('en-GB') + ' ' + shortTime(value)
+}
+
+function changeQuantity(step) {
+  const next = reserveQuantity.value + step
+  if (next < 1 || next > listing.value.quantity_available) return
+  reserveQuantity.value = next
 }
 
 async function getListingDetails() {
@@ -123,11 +151,22 @@ async function checkConsumerRole() {
   }
 }
 
-function openReserveModal() {
-  reserveQuantity.value = 1
+// Reserve the chosen quantity, then show the result in a dialog
+async function openReserveModal() {
   reservationError.value = ''
   reservationSuccess.value = false
+  checkoutUrl.value = ''
+  amountDue.value = ''
+  checkoutRequestId.value = newCheckoutRequestId()
+  canRetryReservation.value = false
   showReserveModal.value = true
+  await reserveListing()
+}
+
+// Try again with the same retry key, so a reservation that did go through is not made twice
+async function retryReservation() {
+  reservationError.value = ''
+  await reserveListing()
 }
 
 function closeReserveModal() {
@@ -146,18 +185,26 @@ async function reserveListing() {
   reservationError.value = ''
 
   try {
-    await axios.post(
+    const response = await axios.post(
       `${API_URL}/listings/${listing.value._id}/reservations`,
-      { quantity: quantity },
+      { quantity: quantity, checkoutRequestId: checkoutRequestId.value },
       { headers: await getHeaders() }
     )
 
+    // Paid listings come back with a Stripe checkout link to finish payment
+    checkoutUrl.value = response.data.checkoutUrl || ''
+    amountDue.value = paymentAmount(response.data.reservation)
+
     listing.value.quantity_available = listing.value.quantity_available - quantity
+    reservedQuantity.value = quantity
+    reserveQuantity.value = 1
     reservationSuccess.value = true
   } catch (error) {
     reservationError.value =
       (error.response && error.response.data && error.response.data.error) ||
       'Unable to reserve this listing. Please try again.'
+    // Only a lost connection or a busy server is worth retrying with the same key
+    canRetryReservation.value = !error.response || error.response.status === 503
   } finally {
     reserving.value = false
   }
@@ -212,295 +259,294 @@ onMounted(getListingDetails)
 </script>
 
 <template>
-  <main class="listing-detail-page">
-    <p v-if="loading" class="state-card" aria-live="polite">
+  <main class="listing-detail-page container-xxl px-4 pt-4 pb-5">
+    <p v-if="loading" class="rb-label state-card" aria-live="polite">
       Loading listing details…
     </p>
 
-    <section v-else-if="errorMessage" class="state-card error-state" role="alert">
-      <h1>Listing unavailable</h1>
+    <section v-else-if="errorMessage" class="state-card" role="alert">
+      <h1 class="rb-display display-5 state-title">Listing unavailable</h1>
       <p>{{ errorMessage }}</p>
-      <RouterLink to="/businesses">Browse businesses</RouterLink>
+      <RouterLink to="/businesses" class="rb-pill rb-pill-dark">Browse businesses</RouterLink>
     </section>
 
-    <div v-else-if="listing" class="page-content">
-      <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <div v-else-if="listing">
+      <nav class="rb-label breadcrumbs" aria-label="Breadcrumb">
         <RouterLink to="/businesses">Businesses</RouterLink>
         <span aria-hidden="true">/</span>
-        <RouterLink
-          v-if="business"
-          :to="{ name: 'business-profile', params: { businessId: business._id } }"
-        >
-          {{ business.name }}
-        </RouterLink>
-        <span aria-hidden="true">/</span>
-        <span>{{ listing.title }}</span>
+        <template v-if="business">
+          <RouterLink :to="{ name: 'business-profile', params: { businessId: business._id } }">
+            {{ business.name }}
+          </RouterLink>
+          <span aria-hidden="true">/</span>
+        </template>
+        <span aria-current="page" class="current">{{ listing.title }}</span>
       </nav>
 
-      <div class="detail-grid">
-        <section class="listing-panel">
-          <div class="image-wrapper">
-            <img
-              :src="primaryImage"
-              :alt="imageAlt"
-              class="listing-image"
-              @error="imageFailed = true"
-            />
-            <span class="type-badge">
+      <div class="row g-5 mt-0">
+        <section class="col-lg-7">
+          <div class="rb-tile hero-tile" :class="{ photo: photoUrl }" :style="tileStyle">
+            <img v-if="photoUrl" :src="photoUrl" alt="" class="photo-probe" @error="imageFailed = true" />
+            <span class="rb-tag rb-tag-dark hero-tag">
               {{ listing.listing_type === 'BUNDLE' ? 'Bundle' : 'Item' }}
             </span>
+            <span v-if="!photoUrl" class="rb-tile-word display-1 hero-word d-xl-none" aria-hidden="true">{{ tileWord }}</span>
+            <span v-if="!photoUrl" class="rb-tile-word hero-word hero-word-xl d-none d-xl-block" aria-hidden="true">{{ tileWord }}</span>
           </div>
 
-          <div class="listing-copy">
-            <p class="business-name">
-              {{ business ? business.name : 'RescueBite business' }}
-            </p>
-            <h1>{{ listing.title }}</h1>
-            <p class="description">
-              {{ listing.description || 'No description provided.' }}
-            </p>
-
-            <section v-if="listing.listing_type === 'BUNDLE'" class="bundle-section">
-              <h2>Bundle contents</h2>
-              <ul>
-                <li
-                  v-for="item in listing.bundle_contents"
-                  :key="`${item.name}-${item.quantity}`"
-                >
-                  <span>{{ item.name }}</span>
-                  <strong>× {{ item.quantity }}</strong>
-                </li>
-              </ul>
-            </section>
-          </div>
-        </section>
-
-        <aside class="summary-card">
-          <div class="price-row">
-            <div>
-              <span>Rescue price</span>
-              <strong>{{ formatPrice(listing.rescue_price_sgd) }}</strong>
-            </div>
-            <div class="original-price">
-              <del>{{ formatPrice(listing.original_price_sgd) }}</del>
-              <small v-if="savingsPercentage !== null">Save {{ savingsPercentage }}%</small>
-            </div>
-          </div>
-
-          <p class="availability">
-            <span aria-hidden="true"></span>
-            {{ listing.quantity_available }} available
+          <p class="rb-label business-line">
+            {{ business ? business.name : 'RescueBite business' }}
+          </p>
+          <div class="listing-title"><DisplayHeading :size="104">{{ listing.title }}</DisplayHeading></div>
+          <p class="description">
+            {{ listing.description || 'No description provided.' }}
           </p>
 
-          <button
-            v-if="isConsumer && listing.quantity_available > 0"
-            type="button"
-            class="favourite-button"
-            @click="openReserveModal"
-          >
-            Reserve listing
-          </button>
-          <section class="summary-section">
-            <h2>Collection window</h2>
-            <p><strong>From:</strong> {{ formatDate(listing.collection_start_at) }}</p>
-            <p><strong>Until:</strong> {{ formatDate(listing.collection_end_at) }}</p>
+          <section v-if="listing.listing_type === 'BUNDLE' && listing.bundle_contents.length > 0" class="bundle-section">
+            <h2 class="rb-display display-6 section-title">What’s inside</h2>
+            <ul>
+              <li
+                v-for="item in listing.bundle_contents"
+                :key="`${item.name}-${item.quantity}`"
+              >
+                <span class="rb-display item-name">{{ item.name }}</span>
+                <span class="rb-mono">× {{ item.quantity }}</span>
+              </li>
+            </ul>
+            <p class="rb-label small-note">Contents can vary with what’s left at closing.</p>
+          </section>
+        </section>
+
+        <aside class="col-lg-5 d-flex flex-column gap-4">
+          <div class="price-card p-4 p-md-5">
+            <p class="rb-label price-label">Rescue price</p>
+            <p class="rb-display display-1 price">{{ formatPrice(listing.rescue_price_sgd) }}</p>
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-2">
+              <del class="rb-mono">{{ formatPrice(listing.original_price_sgd) }}</del>
+              <span v-if="savingsPercentage !== null" class="save-tag">Save {{ savingsPercentage }}%</span>
+            </div>
+            <p class="rb-label availability">
+              <span class="dot" aria-hidden="true"></span>{{ listing.quantity_available }} available
+            </p>
+
+            <template v-if="isConsumer && listing.quantity_available > 0">
+              <div class="quantity-row">
+                <span id="qty-label" class="rb-label price-label">Quantity</span>
+                <div class="d-flex align-items-center gap-3" role="group" aria-labelledby="qty-label">
+                  <button type="button" class="step step-line" aria-label="Decrease quantity" @click="changeQuantity(-1)">−</button>
+                  <output class="rb-display qty" aria-live="polite">{{ reserveQuantity }}</output>
+                  <button type="button" class="step step-dark" aria-label="Increase quantity" @click="changeQuantity(1)">+</button>
+                </div>
+              </div>
+              <div class="total-row rb-label price-label">
+                <span>Total</span>
+                <span class="rb-display total">{{ totalPrice }}</span>
+              </div>
+            </template>
+
+            <div class="d-flex flex-column gap-3 mt-4">
+              <button
+                v-if="isConsumer && listing.quantity_available > 0"
+                type="button"
+                class="rb-pill rb-pill-dark w-100"
+                :disabled="reserving"
+                @click="openReserveModal"
+              >
+                {{ reserving ? 'Reserving…' : 'Reserve listing' }}
+              </button>
+              <button
+                v-if="canFavourite"
+                type="button"
+                class="rb-pill save-button w-100"
+                :aria-pressed="isFavourite"
+                @click="toggleFavourite"
+              >
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
+                {{ isFavourite ? 'Saved' : 'Save listing' }}
+              </button>
+            </div>
+            <p v-if="favouriteMessage" class="favourite-message" aria-live="polite">
+              {{ favouriteMessage }}
+            </p>
+          </div>
+
+          <section class="px-1">
+            <h2 class="rb-label">Collection window</h2>
+            <div class="row g-3 mt-0">
+              <div class="col-6">
+                <div class="time-card">
+                  <p class="rb-label">From</p>
+                  <p class="rb-display time">{{ shortTime(listing.collection_start_at) }}</p>
+                  <p class="rb-label day">{{ dayLabel(listing.collection_start_at) }}</p>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="time-card">
+                  <p class="rb-label">Until</p>
+                  <p class="rb-display time">{{ shortTime(listing.collection_end_at) }}</p>
+                  <p class="rb-label day">{{ dayLabel(listing.collection_end_at) }}</p>
+                </div>
+              </div>
+            </div>
           </section>
 
-          <section v-if="business" class="summary-section">
-            <h2>Pickup location</h2>
-            <p><strong>{{ business.name }}</strong></p>
-            <p>{{ business.address }}</p>
-            <p>Singapore {{ business.postal_code }}</p>
+          <section v-if="business" class="px-1">
+            <h2 class="rb-label">Pickup location</h2>
+            <PickupMap
+              v-if="pickupCoordinates && mapsApiKey"
+              :coordinates="pickupCoordinates"
+              :name="business.name"
+            />
+            <p class="rb-display pickup-name">{{ business.name }}</p>
+            <p class="address">{{ business.address }}<br />Singapore {{ business.postal_code }}</p>
             <p v-if="business.pickup_instructions" class="pickup-instructions">
               {{ business.pickup_instructions }}
             </p>
+            <RouterLink
+              :to="{ name: 'business-profile', params: { businessId: business._id } }"
+              class="rb-label back-link"
+            >
+              ← Back to {{ business.name }}
+            </RouterLink>
           </section>
-
-          <button v-if="canFavourite" class="favourite-button" @click="toggleFavourite">
-            {{ isFavourite ? 'Remove from favourites' : 'Save listing' }}
-          </button>
-          <p v-if="favouriteMessage" class="favourite-message">
-            {{ favouriteMessage }}
-          </p>
-
-          <RouterLink
-            v-if="business"
-            :to="{ name: 'business-profile', params: { businessId: business._id } }"
-            class="back-button"
-          >
-            ← Back to {{ business.name }}
-          </RouterLink>
         </aside>
       </div>
     </div>
 
-    <div v-if="showReserveModal" class="reserve-backdrop" @click.self="closeReserveModal">
-      <form
-        class="reserve-dialog"
+    <div v-if="showReserveModal" class="rb-backdrop" @click.self="closeReserveModal">
+      <div
+        class="rb-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reserve-title"
-        @submit.prevent="reserveListing"
         @keydown.esc="closeReserveModal"
       >
-        <h2 id="reserve-title">{{ reservationSuccess ? 'Reservation confirmed' : `Reserve ${listing.title}` }}</h2>
-        <div v-if="reservationSuccess" role="status">
-          <p>Reserved successfully. You can view your reservation in My Orders.</p>
-          <div class="reserve-actions">
-            <button type="button" class="btn btn-outline-secondary" @click="closeReserveModal">Close</button>
-            <RouterLink :to="{ name: 'my-orders' }" class="btn btn-success">View My Orders</RouterLink>
+        <template v-if="reservationSuccess && checkoutUrl">
+          <p class="rb-script rb-kicker fs-3">almost there</p>
+          <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
+          <p class="done-copy" role="status">
+            {{ reservedQuantity }} × {{ listing.title }} is held for you for 30 minutes.
+            Pay {{ amountDue || 'the rescue price' }} on Stripe's secure checkout page to confirm it.
+          </p>
+          <div class="d-flex flex-wrap gap-3 mt-4">
+            <a :href="checkoutUrl" class="rb-pill rb-pill-dark">Pay {{ amountDue }} with Stripe</a>
+            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-line">Pay later</RouterLink>
           </div>
-        </div>
-        <template v-else>
-          <p class="reserve-collection-details">Collect by {{ formatDate(listing.collection_end_at) }}.</p>
-          <label for="reserve-quantity">Quantity</label>
-          <select
-            id="reserve-quantity"
-            v-model.number="reserveQuantity"
-            class="form-select"
-            required
-            autofocus
-          >
-            <option v-for="quantity in listing.quantity_available" :key="quantity" :value="quantity">
-              {{ quantity }}
-            </option>
-          </select>
-          <p v-if="reservationError" class="reserve-error" role="alert">{{ reservationError }}</p>
-          <div class="reserve-actions">
-            <button type="button" :disabled="reserving" @click="closeReserveModal" class="btn btn-outline-danger">Cancel</button>
-            <button type="submit" :disabled="reserving" class="favourite-button">
-              {{ reserving ? 'Reserving...' : 'Confirm reservation' }}
-            </button>
+          <p class="pay-note">You can also finish payment from My Orders before the 30 minutes are up.</p>
+        </template>
+        <template v-else-if="reservationSuccess">
+          <p class="rb-script rb-kicker fs-3">nice one!</p>
+          <h2 id="reserve-title" class="rb-display display-2 done-title">Reserved.</h2>
+          <p class="done-copy" role="status">
+            {{ reservedQuantity }} × {{ listing.title }}{{ business ? ' from ' + business.name : '' }}.
+            Collect by {{ formatDate(listing.collection_end_at) }} and show your QR at the counter.
+          </p>
+          <div class="d-flex flex-wrap gap-3 mt-4">
+            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark">View my orders</RouterLink>
+            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
           </div>
         </template>
-      </form>
+        <template v-else-if="reserving">
+          <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
+        </template>
+        <template v-else>
+          <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
+          <p class="reserve-error" role="alert">{{ reservationError }}</p>
+          <div class="d-flex flex-wrap gap-3 mt-3">
+            <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>
+            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
+          </div>
+        </template>
+      </div>
     </div>
   </main>
 </template>
 
 <style scoped>
-/* Page Layout */
-.listing-detail-page {
-  min-height: 100vh;
-  padding: 32px 40px;
-  padding-bottom: 60px;
-  background-color: #faf8f1;
-  color: #183f2d;
+.state-card {
+  padding: 64px 32px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+  text-align: center;
 }
 
-.page-content {
-  max-width: 1150px;
-  margin: 0 auto;
+.state-title {
+  margin-bottom: 12px;
 }
 
-/* Breadcrumb Navigation */
 .breadcrumbs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 22px;
-  color: #758179;
-  font-size: 13px;
+  gap: 10px;
 }
 
 .breadcrumbs a {
-  color: #256b45;
   text-decoration: none;
 }
 
 .breadcrumbs a:hover {
-  text-decoration: underline;
+  color: #8a6200;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 26px;
-  align-items: start;
+.breadcrumbs .current {
+  color: #191200;
 }
 
-/* Main Listing Panel */
-.listing-panel,
-.summary-card,
-.state-card {
-  border: 1px solid #dfe6df;
-  border-radius: 18px;
-  background-color: white;
+.hero-tile {
+  height: 360px;
+  padding: 24px;
 }
 
-/* Listing Image */
-.image-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  height: 400px;
-  border-radius: 18px 18px 0 0;
-  background-color: #edf1eb;
+.photo-probe {
+  display: none;
 }
 
-.listing-image {
-  max-width: 100%;
-  max-height: 100%;
-  background-color: #f4f4f1;
+.hero-tag {
+  top: 24px;
+  left: 24px;
+  padding: 10px 16px;
+  font-size: 13px;
+  line-height: 13px;
 }
 
-.type-badge {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  color: #1d573b;
-  background-color: rgba(255, 255, 255, 0.93);
-  font-size: 11px;
-  font-weight: 800;
+.hero-word {
+  line-height: .8;
 }
 
-/* Listing Information */
-.listing-copy {
-  padding: 30px;
+.hero-word-xl {
+  font-size: 200px;
 }
 
-.business-name {
-  margin: 0 0 7px;
-  color: #6d8975;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.business-line {
+  margin-top: 32px;
+  font-size: 14px;
 }
 
-h1 {
-  margin: 0;
-  color: #1b4d34;
-  font-size: 42px;
-  line-height: 1.1;
+.listing-title {
+  margin-top: 12px;
 }
 
 .description {
-  margin: 15px 0 0;
-  color: #5d6f63;
-  font-size: 16px;
-  line-height: 1.65;
+  max-width: 640px;
+  margin: 24px 0 0;
+  font-size: 18px;
+  line-height: 30px;
 }
 
-/* Bundle Contents */
 .bundle-section {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid #e7ebe6;
+  max-width: 720px;
+  margin-top: 48px;
 }
 
-.bundle-section h2,
-.summary-section h2 {
-  margin: 0 0 14px;
-  color: #27563c;
-  font-size: 19px;
+.section-title {
+  margin-bottom: 20px;
+  line-height: 1.1;
 }
 
 .bundle-section ul {
-  display: grid;
-  gap: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -508,245 +554,206 @@ h1 {
 
 .bundle-section li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 11px 13px;
-  border-radius: 9px;
-  color: #52655a;
-  background-color: #f4f7f1;
+  gap: 16px;
+  min-height: 64px;
+  padding: 12px 24px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
 }
 
-/* Price and Pickup Summary */
-.summary-card {
-  padding: 24px;
+.item-name {
+  font-size: 22px;
+  line-height: 1.1;
 }
 
-.price-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.price-row > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.price-row span {
-  color: #77847b;
+.small-note {
+  margin-top: 16px;
   font-size: 12px;
 }
 
-.price-row strong {
-  color: #256b45;
-  font-size: 32px;
+/* Yolk price card */
+.price-card {
+  color: #000;
+  background-color: #f4b30c;
 }
 
-.original-price {
-  align-items: flex-end;
+.price-card .rb-label,
+.price-label {
+  color: #000;
 }
 
-.original-price del {
-  color: #88948c;
-  font-size: 14px;
+.price {
+  margin-top: 8px;
+  line-height: .95;
 }
 
-.original-price small {
-  padding: 4px 7px;
-  border-radius: 6px;
-  color: #8a5520;
-  background-color: #fff0d7;
-  font-weight: 700;
+.price-card del {
+  font-size: 16px;
+}
+
+.save-tag {
+  padding: 8px 14px;
+  border-radius: 140px;
+  color: #f4b30c;
+  background-color: #000;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 13px;
+  text-transform: uppercase;
 }
 
 .availability {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 18px 0 4px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: #315f43;
-  background-color: #edf6e8;
-  font-size: 13px;
-  font-weight: 700;
+  gap: 10px;
+  margin-top: 24px;
 }
 
-.availability > span {
-  width: 8px;
-  height: 8px;
+.dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background-color: #4d9a5c;
+  background-color: #000;
 }
 
-/* Collection and Pickup Details */
-.summary-section {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid #e7ebe6;
+.quantity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #000;
 }
 
-.summary-section p {
-  margin: 6px 0;
-  color: #5d6d63;
-  font-size: 13px;
-  line-height: 1.5;
+.step {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 22px;
+  line-height: 1;
 }
 
-.summary-section .pickup-instructions {
-  margin-top: 12px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: #f5f7f2;
+.step-line {
+  border: 2px solid #000;
+  color: #000;
+  background-color: transparent;
 }
 
-.favourite-button {
-  width: 100%;
-  margin-top: 22px;
-  padding: 11px 14px;
-  border: 1px solid #256b45;
-  border-radius: 8px;
-  color: white;
-  background-color: #256b45;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+.step-dark {
+  border: 0;
+  color: #f4b30c;
+  background-color: #000;
 }
 
-.favourite-button:hover {
-  background-color: #1b5034;
+.qty {
+  min-width: 32px;
+  font-size: 40px;
+  line-height: 1;
+  text-align: center;
+}
+
+.total-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.total {
+  font-size: 32px;
+  letter-spacing: 0;
+}
+
+.save-button {
+  color: #000;
+  background-color: transparent;
+}
+
+.save-button:hover {
+  color: #f4b30c;
+  background-color: #000;
 }
 
 .favourite-message {
-  margin: 8px 0 0;
-  color: #4c6756;
-  text-align: center;
+  margin: 12px 0 0;
+  font-size: 14px;
 }
 
-.reserve-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
+.time-card {
+  padding: 16px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+.time {
+  margin-top: 6px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.day {
+  margin-top: 6px;
+  color: #191200;
+  font-size: 12px;
+}
+
+.pickup-name {
+  margin-top: 16px;
+  font-size: 28px;
+  line-height: 32px;
+}
+
+.address {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.pickup-instructions {
+  margin: 16px 0 0;
+  padding: 16px 20px;
+  border: 2px solid #f4b30c;
+  border-radius: 28px;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.back-link {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.reserve-dialog {
-  width: 100%;
-  max-width: 430px;
-  padding: 24px;
-  border-radius: 12px;
-  background: white;
-}
-
-.reserve-collection-details {
-  padding: 12px 14px;
-  border: 1px solid #c9e3f3;
-  border-radius: 10px;
-  color: #18506b;
-  background-color: #eaf6fd;
-}
-
-.reserve-dialog label,
-.reserve-dialog select {
-  display: block;
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.reserve-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.reserve-actions > * {
-  width: auto;
   min-height: 44px;
-  margin: 0;
-  padding: 11px 14px;
-  font-size: 13px;
-  font-weight: 700;
+  margin-top: 24px;
+  color: #191200;
 }
 
-.reserve-actions > :first-child {
-  flex: 1;
+/* Reserved dialog */
+.done-title {
+  margin-top: 4px;
+  line-height: .95;
 }
 
-.reserve-actions > :last-child {
-  flex: 2;
+.done-copy {
+  margin: 20px 0 0;
+  font-size: 18px;
+  line-height: 27px;
+}
+
+.pay-note {
+  margin: 16px 0 0;
+  color: #5f5330;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .reserve-error {
-  color: #b42318;
-}
-
-.back-button {
-  display: block;
-  margin-top: 22px;
-  padding: 11px 14px;
-  border: 1px solid #256b45;
-  border-radius: 8px;
-  color: #256b45;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  text-decoration: none;
-}
-
-.back-button:hover {
-  background-color: #eef5eb;
-}
-
-/* Loading and Error States */
-.state-card {
-  width: 100%;
-  max-width: 600px;
-  margin: 55px auto;
-  padding: 30px;
-  color: #5d6f63;
-}
-
-.error-state h1 {
-  font-size: 30px;
-}
-
-.error-state a {
-  display: inline-block;
-  margin-top: 10px;
-  color: #256b45;
-  font-weight: 700;
-}
-
-/* Responsive Layout */
-@media (max-width: 820px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 520px) {
-  .listing-detail-page {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-
-  h1 {
-    font-size: 32px;
-  }
-
-  .image-wrapper {
-    height: 260px;
-  }
-
-  .listing-copy,
-  .summary-card {
-    padding: 20px;
-  }
+  margin: 20px 0 0;
+  padding: 16px 20px;
+  border-radius: 28px;
+  color: #000;
+  background-color: #ff7a7a;
 }
 </style>

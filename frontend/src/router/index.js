@@ -4,6 +4,7 @@ import { useAuth } from '@clerk/vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import LandingView from '../views/LandingView.vue'
+import AuthView from '../views/AuthView.vue'
 import AuthCompleteView from '../views/AuthCompleteView.vue'
 import AllBusinessesView from '../views/business/AllBusinessesView.vue'
 import BusinessProfileView from '../views/business/BusinessProfileView.vue'
@@ -25,15 +26,16 @@ const routes = [
     name: 'landing',
     component: LandingView,
     meta: { isLanding: true },
+    // Old links used /?mode=register for the sign-up form
     beforeEnter: (to) => to.query.mode === 'register'
       ? { name: 'register', hash: to.hash }
-      : { name: 'login' }
+      : true
   },
   {
     // Clerk uses nested paths for password and verification steps.
     path: '/login/:pathMatch(.*)*',
     name: 'login',
-    component: LandingView,
+    component: AuthView,
     meta: { isLanding: true }
   },
   {
@@ -41,7 +43,7 @@ const routes = [
     // same landing page for /register/verify-email-address and page reloads.
     path: '/register/:pathMatch(.*)*',
     name: 'register',
-    component: LandingView,
+    component: AuthView,
     meta: { isLanding: true }
   },
   {

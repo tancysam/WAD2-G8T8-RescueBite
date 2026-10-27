@@ -3,6 +3,7 @@ import Business from "../models/Business.js";
 import Listing from "../models/Listing.js";
 import Review from "../models/Review.js";
 import { getListingThumbnailUrl } from "./listingImageController.js";
+import { amountInCents, checkoutConfiguration, ensureCheckout, paymentSummary, reconcileReservation } from "../services/paymentService.js";
 
 export async function createReservation(req, res) {
   // create reservation
@@ -34,7 +35,20 @@ export async function createReservation(req, res) {
     return res.status(400).json({ error: "quantity must be a positive safe integer" });
   }
 
+  const requestId = body.checkoutRequestId;
+  if (typeof requestId !== "string" || requestId.length < 16 || requestId.length > 80) {
+    return res.status(400).json({ error: "checkoutRequestId must be a unique 16–80 character retry key" });
+  }
+  const requestKey = req.user._id.toString() + ":" + requestId;
+
   try {
+    const previous = await Reservation.findByCheckoutRequest(requestKey);
+    if (previous) {
+      if (previous.listing_id.toString() !== id || previous.quantity !== quantity) {
+        return res.status(409).json({ error: "Retry key was already used for another reservation" });
+      }
+      return sendCheckoutResponse(previous, res, 200);
+    }
     const listing = await Listing.findListingById(id);
     if (!listing) {
       return res.status(404).json({ error: "Listing not found" });
@@ -80,7 +94,30 @@ export async function createReservation(req, res) {
       return res.status(409).json({ error: "Listing prices are invalid" });
     }
 
+    const amount = amountInCents(listing.rescue_price_sgd, quantity);
+    if (amount === null) {
+      return res.status(409).json({ error: "Price must have at most two decimals and total must be SGD 0 or SGD 0.50–999,999.99" });
+    }
+    const now = Number(new Date());
+    if (amount > 0 && end - now < 31 * 60000) {
+      return res.status(409).json({ error: "Paid checkout requires at least 31 minutes before pickup closes" });
+    }
+    let configuration;
+    if (amount > 0) {
+      try {
+        configuration = checkoutConfiguration();
+      } catch (error) {
+        return res.status(503).json({ error: "Payments are not configured" });
+      }
+    }
     const data = {
+      checkout_request_key: requestKey,
+      payment_status: amount === 0 ? "NOT_REQUIRED" : "PENDING",
+      amount_cents: amount,
+      currency: "sgd",
+      payment_due_at: amount > 0 ? new Date((parseInt(now / 1000) + 31 * 60) * 1000) : null,
+      checkout_success_url: configuration ? configuration.success : null,
+      checkout_cancel_url: configuration ? configuration.cancel : null,
       consumer_user_id: req.user._id,
       listing_id: listing._id,
       quantity,
@@ -125,24 +162,42 @@ export async function createReservation(req, res) {
       return res.status(503).json({ error: "Reservation could not be confirmed. Check your reservations before retrying" });
     }
 
-    return res.status(201).json({
-      reservation: {
-        _id: reservation._id,
-        consumer_user_id: reservation.consumer_user_id,
-        listing_id: reservation.listing_id,
-        quantity: reservation.quantity,
-        listing_snapshot: reservation.listing_snapshot,
-        status: reservation.status,
-        expires_at: reservation.expires_at,
-        collected_at: reservation.collected_at,
-        cancelled_at: reservation.cancelled_at,
-        reserved_at: reservation.reserved_at,
-        updated_at: reservation.updated_at,
-      },
-    });
+    return sendCheckoutResponse(reservation, res, 201);
   } catch (error) {
     console.error("Failed to create reservation");
     return res.status(500).json({ error: "Unable to create reservation" });
+  }
+}
+
+async function sendCheckoutResponse(reservation, res, status) {
+  let checkoutUrl = null;
+  try {
+    if (reservation.payment_status === "PENDING") checkoutUrl = await ensureCheckout(reservation);
+    const current = await Reservation.findReservationById(reservation._id);
+    return res.status(status).json({
+      reservationId: current._id,
+      checkoutUrl,
+      reservation: {
+        _id: current._id,
+        consumer_user_id: current.consumer_user_id,
+        reserved_at: current.reserved_at,
+        updated_at: current.updated_at,
+        collected_at: current.collected_at,
+        cancelled_at: current.cancelled_at,
+        listing_id: current.listing_id,
+        quantity: current.quantity,
+        listing_snapshot: current.listing_snapshot,
+        status: current.status,
+        expires_at: current.expires_at,
+        payment: paymentSummary(current),
+      },
+    });
+  } catch (error) {
+    console.error("Checkout needs reconciliation for reservation", reservation._id.toString());
+    return res.status(503).json({
+      error: "Checkout could not be confirmed. Retry checkout for this reservation, not a new reservation",
+      reservationId: reservation._id,
+    });
   }
 }
 
@@ -182,6 +237,7 @@ export async function getMyReservations(req, res) {
         quantity: reservation.quantity,
         listing_snapshot: reservation.listing_snapshot,
         status: reservation.status,
+        payment: paymentSummary(reservation),
         expires_at: reservation.expires_at,
         collected_at: reservation.collected_at,
         cancelled_at: reservation.cancelled_at,
@@ -264,6 +320,7 @@ export async function getReservationById(req, res) {
         quantity: reservation.quantity,
         listing_snapshot: reservation.listing_snapshot,
         status: reservation.status,
+        payment: paymentSummary(reservation),
         expires_at: reservation.expires_at,
         collected_at: reservation.collected_at,
         cancelled_at: reservation.cancelled_at,
@@ -349,6 +406,7 @@ export async function getBusinessReservations(req, res) {
           quantity: reservation.quantity,
           listing_snapshot: reservation.listing_snapshot,
           status: reservation.status,
+          payment: paymentSummary(reservation),
           expires_at: reservation.expires_at,
           collected_at: reservation.collected_at,
           cancelled_at: reservation.cancelled_at,
@@ -403,6 +461,30 @@ export async function cancelReservation(req, res) {
     }
     if (reservation.consumer_user_id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: "You do not own this reservation" });
+    }
+    if (reservation.amount_cents !== null && reservation.amount_cents !== undefined) {
+      if (reservation.status !== "CANCELLED") {
+        const result = await Reservation.cancelReservation(reservation._id, req.user._id);
+        if (result.modifiedCount !== 1) {
+          const current = await Reservation.findReservationById(reservation._id);
+          if (!current || current.status !== "CANCELLED") {
+            return res.status(409).json({ error: "Reservation changed or cancellation deadline passed" });
+          }
+        }
+      }
+      try {
+        await reconcileReservation(await Reservation.findReservationById(reservation._id));
+      } catch (error) {
+        console.error("Cancellation payment reconciliation pending", id);
+      }
+      const current = await Reservation.findReservationById(reservation._id);
+      return res.status(200).json({
+        reservationId: current._id,
+        status: current.status,
+        payment: paymentSummary(current),
+        stockRestorationPending: current.stock_release_status !== "RELEASED",
+        message: "Reservation cancelled. Payment and stock reconciliation may still be pending",
+      });
     }
     const response = { reservationId: reservation._id, status: "CANCELLED" };
     if (reservation.status === "CANCELLED") {
