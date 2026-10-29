@@ -27,6 +27,7 @@ const listing = ref({
   collectionStartAt: '',
   collectionEndAt: '',
   bundleContents: [],
+  bundleEligible: false,
   status: 'DRAFT'
 })
 
@@ -119,6 +120,7 @@ async function loadPage() {
       collectionStartAt: toDateTimeLocal(selectedListing.collection_start_at),
       collectionEndAt: toDateTimeLocal(selectedListing.collection_end_at),
       bundleContents: contents,
+      bundleEligible: selectedListing.bundle_eligible || false,
       status: selectedListing.status
     }
   } catch (error) {
@@ -245,6 +247,7 @@ async function updateListing() {
     collectionStartAt: new Date(listing.value.collectionStartAt).toISOString(),
     collectionEndAt: new Date(listing.value.collectionEndAt).toISOString(),
     bundleContents: prepareBundleContents(),
+    bundleEligible: listing.value.bundleEligible,
     status: listing.value.status
   }
 
@@ -429,6 +432,23 @@ onMounted(loadPage)
             <option value="DRAFT">Draft</option>
             <option value="SOLD_OUT">Sold out</option>
           </select>
+        </div>
+
+        <div class="col-12">
+          <div class="form-check">
+            <input
+              id="bundleEligible"
+              v-model="listing.bundleEligible"
+              class="form-check-input"
+              type="checkbox"
+            />
+            <label class="form-check-label" for="bundleEligible">
+              Allow this listing in 10% partner bundles
+            </label>
+          </div>
+          <small class="text-muted">
+            Customers may pair it with a nearby business during the same pickup time.
+          </small>
         </div>
       </div>
 
