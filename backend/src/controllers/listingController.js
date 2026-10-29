@@ -60,6 +60,7 @@ export async function createListing(req, res) {
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
+      bundleEligible: "bundle_eligible",
       status: "status",
     };
 
@@ -750,6 +751,7 @@ export async function updateListing(req, res) {
       title: listing.title,
       description: listing.description,
       bundle_contents: listing.bundle_contents,
+      bundle_eligible: listing.bundle_eligible,
       original_price_sgd: listing.original_price_sgd,
       rescue_price_sgd: listing.rescue_price_sgd,
       quantity_available: listing.quantity_available,
@@ -771,6 +773,7 @@ export async function updateListing(req, res) {
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
+      bundleEligible: "bundle_eligible",
       status: "status",
     };
 
