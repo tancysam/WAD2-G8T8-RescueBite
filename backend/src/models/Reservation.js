@@ -14,6 +14,7 @@ const listingSnapshotSchema = new mongoose.Schema(
     business_name: { type: String, required: true },
     original_unit_price_sgd: { type: Number, required: true },
     rescue_unit_price_sgd: { type: Number, required: true },
+    normal_rescue_unit_price_sgd: { type: Number, default: null },
     collection_start_at: { type: Date, required: true },
     collection_end_at: { type: Date, required: true },
     pickup_address: { type: String, required: true },
@@ -36,6 +37,13 @@ const reservationSchema = new mongoose.Schema(
       required: [true, "listing_id is required"],
     },
     quantity: { type: Number, required: [true, "quantity is required"] },
+    bundle_group_id: { type: String, default: null },
+    bundle_partner_listing_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Listing",
+      default: null,
+    },
+    bundle_discount_percent: { type: Number, default: 0 },
     listing_snapshot: {
       type: listingSnapshotSchema,
       required: [true, "listing_snapshot is required"],
