@@ -33,6 +33,9 @@ const amountDue = ref('')
 // Reused when retrying after a network error so the backend does not book twice
 const checkoutRequestId = ref('')
 const canRetryReservation = ref(false)
+const bundleOptions = ref([])
+const selectedBundleId = ref('')
+const bundleSuccess = ref(false)
 
 const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
@@ -116,6 +119,7 @@ async function getListingDetails() {
     business.value = businessResponse.data.business
     await checkFavourite()
     await checkConsumerRole()
+    await loadBundleOptions()
   } catch (error) {
     console.error('Error fetching listing details:', error)
 
@@ -148,6 +152,84 @@ async function checkConsumerRole() {
   } catch (error) {
     console.error('Error checking user role:', error)
     isConsumer.value = false
+  }
+}
+
+
+async function loadBundleOptions() {
+  bundleOptions.value = []
+
+  if (!isConsumer.value || !listing.value.bundle_eligible) return
+
+  try {
+    const response = await axios.get(
+      `${API_URL}/listings/${listing.value._id}/bundle-options`,
+      { headers: await getHeaders() }
+    )
+    bundleOptions.value = response.data.listings || []
+  } catch (error) {
+    bundleOptions.value = []
+  }
+}
+
+async function reserveBundle() {
+  if (!selectedBundleId.value || reserving.value) return
+
+  reserving.value = true
+  reservationError.value = ''
+  reservationSuccess.value = false
+  bundleSuccess.value = false
+  showReserveModal.value = true
+
+  const bundleGroupId = newCheckoutRequestId()
+  const headers = await getHeaders()
+  let firstReservationId = ''
+
+  try {
+    const first = await axios.post(
+      `${API_URL}/listings/${listing.value._id}/reservations`,
+      {
+        quantity: 1,
+        checkoutRequestId: newCheckoutRequestId(),
+        bundleGroupId: bundleGroupId,
+        bundleWithListingId: selectedBundleId.value
+      },
+      { headers: headers }
+    )
+    firstReservationId = first.data.reservationId
+
+    await axios.post(
+      `${API_URL}/listings/${selectedBundleId.value}/reservations`,
+      {
+        quantity: 1,
+        checkoutRequestId: newCheckoutRequestId(),
+        bundleGroupId: bundleGroupId,
+        bundleWithListingId: listing.value._id
+      },
+      { headers: headers }
+    )
+
+    listing.value.quantity_available = listing.value.quantity_available - 1
+    bundleSuccess.value = true
+    reservationSuccess.value = true
+  } catch (error) {
+    if (firstReservationId) {
+      try {
+        await axios.post(
+          `${API_URL}/reservations/${firstReservationId}/cancel`,
+          {},
+          { headers: headers }
+        )
+      } catch (cancelError) {
+        console.error('Unable to cancel incomplete bundle:', cancelError)
+      }
+    }
+
+    reservationError.value =
+      (error.response && error.response.data && error.response.data.error) ||
+      'Unable to reserve this bundle. Please try again.'
+  } finally {
+    reserving.value = false
   }
 }
 
@@ -354,6 +436,28 @@ onMounted(getListingDetails)
               >
                 {{ reserving ? 'Reserving…' : 'Reserve listing' }}
               </button>
+              <div v-if="bundleOptions.length > 0" class="border rounded-4 p-3">
+                <p class="fw-semibold mb-1">Add a nearby item and save 10%</p>
+                <p class="small text-muted">One item from each business. You will receive two pickup QR codes.</p>
+                <select v-model="selectedBundleId" class="form-select mb-3">
+                  <option value="">Choose another listing</option>
+                  <option
+                    v-for="option in bundleOptions"
+                    :key="option._id"
+                    :value="option._id"
+                  >
+                    {{ option.title }} — {{ formatPrice(option.rescue_price_sgd) }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="rb-pill rb-pill-line w-100"
+                  :disabled="!selectedBundleId || reserving"
+                  @click="reserveBundle"
+                >
+                  {{ reserving ? 'Reserving…' : 'Reserve both with 10% off' }}
+                </button>
+              </div>
               <button
                 v-if="canFavourite"
                 type="button"
@@ -421,7 +525,18 @@ onMounted(getListingDetails)
         aria-labelledby="reserve-title"
         @keydown.esc="closeReserveModal"
       >
-        <template v-if="reservationSuccess && checkoutUrl">
+        <template v-if="reservationSuccess && bundleSuccess">
+          <p class="rb-script rb-kicker fs-3">bundle saved</p>
+          <h2 id="reserve-title" class="rb-display display-4 done-title">Both items are held</h2>
+          <p class="done-copy" role="status">
+            The 10% discount has been applied to both listings. Pay for both orders in My Orders.
+            Each business will have its own pickup QR code.
+          </p>
+          <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark mt-3">
+            Go to My Orders
+          </RouterLink>
+        </template>
+        <template v-else-if="reservationSuccess && checkoutUrl">
           <p class="rb-script rb-kicker fs-3">almost there</p>
           <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
           <p class="done-copy" role="status">
