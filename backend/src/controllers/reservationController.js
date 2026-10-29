@@ -68,6 +68,9 @@ export async function createReservation(req, res) {
       bundleGroupId.length > 80 ||
       typeof partnerListingId !== "string" ||
       partnerListingId.length !== 24 ||
+      !partnerListingId.split("").every((character) =>
+        "0123456789abcdef".includes(character.toLowerCase())
+      ) ||
       quantity !== 1
     )
   ) {
@@ -154,7 +157,6 @@ export async function createReservation(req, res) {
         distanceInKm(firstCoordinates, secondCoordinates) <= 0.5;
 
       if (
-        partnerListing.status !== "ACTIVE" ||
         !differentBusiness ||
         !sameTime ||
         !nearby
