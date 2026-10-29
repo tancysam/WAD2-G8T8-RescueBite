@@ -9,6 +9,61 @@ import { generateFoodDescription } from "../services/aiService.js";
 import { loadListingImages } from "./listingImageController.js";
 // import aiService from "../services/aiService.js";
 
+export async function getBundleOptions(req, res) {
+  const listingId = req.params.listingId;
+
+  try {
+    const listing = await Listing.findListingById(listingId);
+
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+
+    if (!listing.bundle_eligible || listing.status !== "ACTIVE") {
+      return res.json({ listings: [] });
+    }
+
+    const business = await Business.findBusinessById(listing.business_id);
+    const coordinates = business && business.location && business.location.coordinates;
+
+    if (!coordinates || coordinates.length !== 2) {
+      return res.json({ listings: [] });
+    }
+
+    const nearbyBusinesses = await Business.findNearbyActiveBusinesses(
+      coordinates[1],
+      coordinates[0],
+      0.5,
+    );
+    const nearbyBusinessIds = nearbyBusinesses
+      .filter((item) => item._id.toString() !== business._id.toString())
+      .map((item) => item._id);
+
+    if (nearbyBusinessIds.length === 0) {
+      return res.json({ listings: [] });
+    }
+
+    const results = await Listing.findActiveListings({
+      business_id: nearbyBusinessIds,
+    });
+    const listings = results.filter((item) => {
+      const sameTime =
+        item.collection_start_at < listing.collection_end_at &&
+        item.collection_end_at > listing.collection_start_at;
+
+      return (
+        item.bundle_eligible &&
+        item.quantity_available > 0 &&
+        sameTime
+      );
+    });
+
+    await loadListingImages(listings, res);
+  } catch (error) {
+    return res.status(500).json({ error: "Unable to load bundle options" });
+  }
+}
+
 export async function createListing(req, res) {
   // creation of listing
   const id = req.params.businessId || req.params.id;
