@@ -470,6 +470,7 @@ onUnmounted(closeCollectionCode)
               </div>
               <div class="d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
+                <span v-if="reservation.bundle_group_id" class="rb-status paid">10% bundle</span>
                 <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
               </div>
             </div>
