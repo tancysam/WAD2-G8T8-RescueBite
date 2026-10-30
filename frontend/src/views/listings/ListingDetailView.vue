@@ -185,6 +185,7 @@ async function checkConsumerRole() {
 
 async function loadBundleOptions() {
   bundleOptions.value = []
+  selectedBundleId.value = ''
 
   if (!isConsumer.value || !listing.value.bundle_eligible) return
 
@@ -196,6 +197,14 @@ async function loadBundleOptions() {
     bundleOptions.value = response.data.listings || []
   } catch (error) {
     bundleOptions.value = []
+  }
+}
+
+function selectBundleOption(optionId) {
+  if (selectedBundleId.value === optionId) {
+    selectedBundleId.value = ''
+  } else {
+    selectedBundleId.value = optionId
   }
 }
 
@@ -469,6 +478,9 @@ onMounted(getListingDetails)
                 <p class="bundle-note">
                   Choose one nearby item. You will collect each order from its own business.
                 </p>
+                <p class="bundle-count">
+                  {{ bundleOptions.length }} {{ bundleOptions.length === 1 ? 'option' : 'options' }} available
+                </p>
 
                 <div class="bundle-options">
                   <button
@@ -476,7 +488,8 @@ onMounted(getListingDetails)
                     :key="option._id"
                     type="button"
                     :class="['bundle-option', { selected: selectedBundleId === option._id }]"
-                    @click="selectedBundleId = option._id"
+                    :aria-pressed="selectedBundleId === option._id"
+                    @click="selectBundleOption(option._id)"
                   >
                     <img
                       v-if="bundleImage(option)"
@@ -490,7 +503,9 @@ onMounted(getListingDetails)
 
                     <div class="bundle-option-info">
                       <span class="bundle-check" aria-hidden="true">
-                        {{ selectedBundleId === option._id ? '✓' : '+' }}
+                        <span class="bundle-check-symbol">
+                          {{ selectedBundleId === option._id ? '✓' : '+' }}
+                        </span>
                       </span>
                       <strong>{{ option.title }}</strong>
                       <span class="bundle-time">
@@ -505,7 +520,16 @@ onMounted(getListingDetails)
                 </div>
 
                 <div v-if="selectedBundle" class="bundle-summary">
-                  <span>2 items after 10% off</span>
+                  <div>
+                    <span>2 items after 10% off</span>
+                    <button
+                      type="button"
+                      class="bundle-remove"
+                      @click="selectedBundleId = ''"
+                    >
+                      Remove added item
+                    </button>
+                  </div>
                   <strong>{{ bundleTotal }}</strong>
                 </div>
 
@@ -922,16 +946,26 @@ onMounted(getListingDetails)
 }
 
 .bundle-note,
+.bundle-count,
 .bundle-qr-note {
   margin: 8px 0 0;
   font-size: 13px;
   line-height: 19px;
 }
 
+.bundle-count {
+  margin-top: 12px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+}
+
 .bundle-options {
   display: grid;
-  gap: 10px;
-  margin: 16px 0;
+  gap: 12px;
+  max-height: 370px;
+  margin: 10px -6px 16px 0;
+  padding: 6px 10px 8px 2px;
+  overflow-y: auto;
 }
 
 .bundle-option {
@@ -983,13 +1017,22 @@ onMounted(getListingDetails)
   position: absolute;
   top: 12px;
   right: 12px;
-  display: grid;
-  width: 26px;
-  height: 26px;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 2px solid #000;
   border-radius: 50%;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.bundle-check-symbol {
+  display: block;
+  font-size: 19px;
   font-weight: 700;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .bundle-time {
@@ -1003,10 +1046,28 @@ onMounted(getListingDetails)
 
 .bundle-summary {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
   margin: 0 0 14px;
   padding-top: 14px;
   border-top: 2px solid #000;
+}
+
+.bundle-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bundle-remove {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: #6a4a00;
+  font-size: 12px;
+  text-decoration: underline;
+  background: transparent;
 }
 
 .bundle-qr-note {
