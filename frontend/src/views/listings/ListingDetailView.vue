@@ -507,9 +507,13 @@ onMounted(getListingDetails)
                           {{ selectedBundleId === option._id ? '✓' : '+' }}
                         </span>
                       </span>
+                      <span class="bundle-business">{{ option.business_name }}</span>
                       <strong>{{ option.title }}</strong>
                       <span class="bundle-time">
                         {{ shortTime(option.collection_start_at) }}–{{ shortTime(option.collection_end_at) }}
+                      </span>
+                      <span v-if="option.business_address" class="bundle-address">
+                        {{ option.business_address }}<template v-if="option.business_postal_code">, Singapore {{ option.business_postal_code }}</template>
                       </span>
                       <span>
                         <s>{{ formatPrice(option.rescue_price_sgd) }}</s>
@@ -1035,9 +1039,24 @@ onMounted(getListingDetails)
   transform: translateY(-1px);
 }
 
+.bundle-business {
+  padding-right: 30px;
+  color: #6a4a00;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .bundle-time {
   font-family: 'DM Mono', ui-monospace, monospace;
   font-size: 12px;
+}
+
+.bundle-address {
+  color: #4f4630;
+  font-size: 11px;
+  line-height: 15px;
 }
 
 .bundle-price {
