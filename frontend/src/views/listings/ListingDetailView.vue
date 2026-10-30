@@ -78,6 +78,33 @@ const totalPrice = computed(() => {
   return formatPrice(Number(listing.value.rescue_price_sgd) * reserveQuantity.value)
 })
 
+
+const selectedBundle = computed(() => {
+  for (const option of bundleOptions.value) {
+    if (option._id === selectedBundleId.value) return option
+  }
+  return null
+})
+
+const bundleTotal = computed(() => {
+  if (!listing.value || !selectedBundle.value) return formatPrice(0)
+
+  const total =
+    Number(listing.value.rescue_price_sgd) +
+    Number(selectedBundle.value.rescue_price_sgd)
+
+  return formatPrice(Math.round(total * 90) / 100)
+})
+
+function discountedBundlePrice(option) {
+  return formatPrice(Math.round(Number(option.rescue_price_sgd) * 90) / 100)
+}
+
+function bundleImage(option) {
+  if (option.images && option.images.length > 0) return option.images[0].url
+  return ''
+}
+
 const pickupCoordinates = computed(() => {
   if (!business.value || !business.value.location || !business.value.location.coordinates) return null
   const coordinates = business.value.location.coordinates
@@ -436,28 +463,62 @@ onMounted(getListingDetails)
               >
                 {{ reserving ? 'Reserving…' : 'Reserve listing' }}
               </button>
-              <div v-if="bundleOptions.length > 0" class="border rounded-4 p-3">
-                <p class="fw-semibold mb-1">Add a nearby item and save 10%</p>
-                <p class="small text-muted">One item from each business. You will receive two pickup QR codes.</p>
-                <select v-model="selectedBundleId" class="form-select mb-3">
-                  <option value="">Choose another listing</option>
-                  <option
+              <section v-if="bundleOptions.length > 0" class="partner-bundle">
+                <p class="rb-label mb-1">Nearby bundle deal</p>
+                <h2 class="bundle-heading">Add another rescue and save 10%</h2>
+                <p class="bundle-note">
+                  Choose one nearby item. You will collect each order from its own business.
+                </p>
+
+                <div class="bundle-options">
+                  <button
                     v-for="option in bundleOptions"
                     :key="option._id"
-                    :value="option._id"
+                    type="button"
+                    :class="['bundle-option', { selected: selectedBundleId === option._id }]"
+                    @click="selectedBundleId = option._id"
                   >
-                    {{ option.title }} — {{ formatPrice(option.rescue_price_sgd) }}
-                  </option>
-                </select>
+                    <img
+                      v-if="bundleImage(option)"
+                      :src="bundleImage(option)"
+                      :alt="option.title"
+                      class="bundle-photo"
+                    />
+                    <div v-else class="bundle-photo bundle-placeholder">
+                      {{ option.title.trim().split(' ')[0] }}
+                    </div>
+
+                    <div class="bundle-option-info">
+                      <span class="bundle-check" aria-hidden="true">
+                        {{ selectedBundleId === option._id ? '✓' : '+' }}
+                      </span>
+                      <strong>{{ option.title }}</strong>
+                      <span class="bundle-time">
+                        {{ shortTime(option.collection_start_at) }}–{{ shortTime(option.collection_end_at) }}
+                      </span>
+                      <span>
+                        <s>{{ formatPrice(option.rescue_price_sgd) }}</s>
+                        <strong class="bundle-price">{{ discountedBundlePrice(option) }}</strong>
+                      </span>
+                    </div>
+                  </button>
+                </div>
+
+                <div v-if="selectedBundle" class="bundle-summary">
+                  <span>2 items after 10% off</span>
+                  <strong>{{ bundleTotal }}</strong>
+                </div>
+
                 <button
                   type="button"
-                  class="rb-pill rb-pill-line w-100"
+                  class="rb-pill rb-pill-dark w-100"
                   :disabled="!selectedBundleId || reserving"
                   @click="reserveBundle"
                 >
-                  {{ reserving ? 'Reserving…' : 'Reserve both with 10% off' }}
+                  {{ reserving ? 'Reserving both…' : 'Reserve both items' }}
                 </button>
-              </div>
+                <p class="bundle-qr-note">You will receive two pickup QR codes.</p>
+              </section>
               <button
                 v-if="canFavourite"
                 type="button"
@@ -843,6 +904,113 @@ onMounted(getListingDetails)
   min-height: 44px;
   margin-top: 24px;
   color: #191200;
+}
+
+.partner-bundle {
+  padding: 20px;
+  border: 2px solid #000;
+  border-radius: 28px;
+  background: #fff8df;
+}
+
+.bundle-heading {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.bundle-note,
+.bundle-qr-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.bundle-options {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.bundle-option {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid #000;
+  border-radius: 18px;
+  color: #000;
+  text-align: left;
+  background: #fff;
+}
+
+.bundle-option.selected {
+  box-shadow: 5px 5px 0 #000;
+  background: #f4b30c;
+  transform: translate(-2px, -2px);
+}
+
+.bundle-photo {
+  width: 92px;
+  height: 100%;
+  min-height: 100px;
+  object-fit: cover;
+  background: #f6f4ed;
+}
+
+.bundle-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-family: 'Anton', sans-serif;
+  font-size: 18px;
+  text-align: center;
+}
+
+.bundle-option-info {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 42px 14px 14px;
+}
+
+.bundle-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  place-items: center;
+  font-weight: 700;
+}
+
+.bundle-time {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.bundle-price {
+  margin-left: 8px;
+}
+
+.bundle-summary {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 14px;
+  padding-top: 14px;
+  border-top: 2px solid #000;
+}
+
+.bundle-qr-note {
+  text-align: center;
 }
 
 /* Reserved dialog */
