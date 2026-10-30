@@ -60,7 +60,24 @@ export async function getBundleOptions(req, res) {
 
     const bundleOptions = await loadListingImages(listings, res);
     if (bundleOptions === null) return;
-    return res.json({ listings: bundleOptions });
+
+    const businessesById = {};
+    for (const item of nearbyBusinesses) {
+      businessesById[item._id.toString()] = item;
+    }
+
+    const optionsWithBusinesses = bundleOptions.map((item) => {
+      const partnerBusiness = businessesById[item.business_id.toString()];
+
+      return {
+        ...item,
+        business_name: partnerBusiness ? partnerBusiness.name : "",
+        business_address: partnerBusiness ? partnerBusiness.address : "",
+        business_postal_code: partnerBusiness ? partnerBusiness.postal_code : "",
+      };
+    });
+
+    return res.json({ listings: optionsWithBusinesses });
   } catch (error) {
     return res.status(500).json({ error: "Unable to load bundle options" });
   }
