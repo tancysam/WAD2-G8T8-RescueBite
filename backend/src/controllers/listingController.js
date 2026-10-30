@@ -58,7 +58,9 @@ export async function getBundleOptions(req, res) {
       );
     });
 
-    await loadListingImages(listings, res);
+    const bundleOptions = await loadListingImages(listings, res);
+    if (bundleOptions === null) return;
+    return res.json({ listings: bundleOptions });
   } catch (error) {
     return res.status(500).json({ error: "Unable to load bundle options" });
   }
