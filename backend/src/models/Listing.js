@@ -40,6 +40,10 @@ const listingSchema = new mongoose.Schema(
       type: [bundleItemSchema],
       default: [],
     },
+    bundle_eligible: {
+      type: Boolean,
+      default: false,
+    },
     original_price_sgd: {
       type: Number,
       required: [true, "original_price_sgd is required"],

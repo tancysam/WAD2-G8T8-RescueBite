@@ -5,6 +5,22 @@ import Review from "../models/Review.js";
 import { getListingThumbnailUrl } from "./listingImageController.js";
 import { amountInCents, checkoutConfiguration, ensureCheckout, paymentSummary, reconcileReservation } from "../services/paymentService.js";
 
+
+function distanceInKm(first, second) {
+  const toRadians = (number) => number * Math.PI / 180;
+  const lat1 = toRadians(first[1]);
+  const lat2 = toRadians(second[1]);
+  const differenceLat = toRadians(second[1] - first[1]);
+  const differenceLng = toRadians(second[0] - first[0]);
+
+  const value =
+    Math.sin(differenceLat / 2) * Math.sin(differenceLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) *
+    Math.sin(differenceLng / 2) * Math.sin(differenceLng / 2);
+
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
 export async function createReservation(req, res) {
   // create reservation
   if (!req.user) {
@@ -40,11 +56,33 @@ export async function createReservation(req, res) {
     return res.status(400).json({ error: "checkoutRequestId must be a unique 16–80 character retry key" });
   }
   const requestKey = req.user._id.toString() + ":" + requestId;
+  const bundleGroupId = body.bundleGroupId;
+  const partnerListingId = body.bundleWithListingId;
+  const isBundle = bundleGroupId !== undefined || partnerListingId !== undefined;
+
+  if (
+    isBundle &&
+    (
+      typeof bundleGroupId !== "string" ||
+      bundleGroupId.length < 16 ||
+      bundleGroupId.length > 80 ||
+      typeof partnerListingId !== "string" ||
+      partnerListingId.length !== 24 ||
+      !partnerListingId.split("").every((character) =>
+        "0123456789abcdef".includes(character.toLowerCase())
+      ) ||
+      quantity !== 1
+    )
+  ) {
+    return res.status(400).json({
+      error: "A bundle needs two valid listings and a quantity of 1",
+    });
+  }
 
   try {
     const previous = await Reservation.findByCheckoutRequest(requestKey);
     if (previous) {
-      if (previous.listing_id.toString() !== id || previous.quantity !== quantity) {
+      if (previous.listing_id.toString() !== id || previous.quantity !== quantity || previous.bundle_group_id !== (isBundle ? bundleGroupId : null)) {
         return res.status(409).json({ error: "Retry key was already used for another reservation" });
       }
       return sendCheckoutResponse(previous, res, 200);
@@ -94,7 +132,44 @@ export async function createReservation(req, res) {
       return res.status(409).json({ error: "Listing prices are invalid" });
     }
 
-    const amount = amountInCents(listing.rescue_price_sgd, quantity);
+    let unitPrice = listing.rescue_price_sgd;
+    let partnerListing = null;
+
+    if (isBundle) {
+      partnerListing = await Listing.findListingById(partnerListingId);
+
+      if (!listing.bundle_eligible || !partnerListing || !partnerListing.bundle_eligible) {
+        return res.status(409).json({ error: "These listings cannot be bundled" });
+      }
+
+      const partnerBusiness = await Business.findBusinessById(partnerListing.business_id);
+      const differentBusiness =
+        partnerBusiness &&
+        business._id.toString() !== partnerBusiness._id.toString();
+      const sameTime =
+        partnerListing.collection_start_at < listing.collection_end_at &&
+        partnerListing.collection_end_at > listing.collection_start_at;
+      const firstCoordinates = business.location && business.location.coordinates;
+      const secondCoordinates =
+        partnerBusiness && partnerBusiness.location && partnerBusiness.location.coordinates;
+      const nearby =
+        firstCoordinates && secondCoordinates &&
+        distanceInKm(firstCoordinates, secondCoordinates) <= 0.5;
+
+      if (
+        !differentBusiness ||
+        !sameTime ||
+        !nearby
+      ) {
+        return res.status(409).json({
+          error: "Bundle listings must be nearby and have overlapping pickup times",
+        });
+      }
+
+      unitPrice = Math.round(listing.rescue_price_sgd * 90) / 100;
+    }
+
+    const amount = amountInCents(unitPrice, quantity);
     if (amount === null) {
       return res.status(409).json({ error: "Price must have at most two decimals and total must be SGD 0 or SGD 0.50–999,999.99" });
     }
@@ -121,6 +196,9 @@ export async function createReservation(req, res) {
       consumer_user_id: req.user._id,
       listing_id: listing._id,
       quantity,
+      bundle_group_id: isBundle ? bundleGroupId : null,
+      bundle_partner_listing_id: isBundle ? partnerListing._id : null,
+      bundle_discount_percent: isBundle ? 10 : 0,
       status: "RESERVED",
       expires_at: listing.collection_end_at,
       listing_snapshot: {
@@ -128,7 +206,8 @@ export async function createReservation(req, res) {
         business_id: business._id,
         business_name: business.name,
         original_unit_price_sgd: listing.original_price_sgd,
-        rescue_unit_price_sgd: listing.rescue_price_sgd,
+        rescue_unit_price_sgd: unitPrice,
+        normal_rescue_unit_price_sgd: listing.rescue_price_sgd,
         collection_start_at: listing.collection_start_at,
         collection_end_at: listing.collection_end_at,
         pickup_address: business.address,
@@ -186,6 +265,9 @@ async function sendCheckoutResponse(reservation, res, status) {
         cancelled_at: current.cancelled_at,
         listing_id: current.listing_id,
         quantity: current.quantity,
+        bundle_group_id: current.bundle_group_id,
+        bundle_partner_listing_id: current.bundle_partner_listing_id,
+        bundle_discount_percent: current.bundle_discount_percent,
         listing_snapshot: current.listing_snapshot,
         status: current.status,
         expires_at: current.expires_at,
@@ -235,6 +317,9 @@ export async function getMyReservations(req, res) {
         consumer_user_id: reservation.consumer_user_id,
         listing_id: reservation.listing_id,
         quantity: reservation.quantity,
+        bundle_group_id: reservation.bundle_group_id,
+        bundle_partner_listing_id: reservation.bundle_partner_listing_id,
+        bundle_discount_percent: reservation.bundle_discount_percent,
         listing_snapshot: reservation.listing_snapshot,
         status: reservation.status,
         payment: paymentSummary(reservation),

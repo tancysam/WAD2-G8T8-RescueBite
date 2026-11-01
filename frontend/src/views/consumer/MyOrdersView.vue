@@ -27,7 +27,6 @@ const reservationToCancel = ref(null)
 const cancelling = ref(false)
 const cancelError = ref('')
 const failedImages = ref({})
-// Stripe checkout links, keyed by reservation ID, once the backend has made them
 const checkoutLinks = ref({})
 const payingId = ref('')
 let collectionCheckTimer = null
@@ -36,7 +35,6 @@ let checkingCollection = false
 const collectionQrUrl = computed(function () {
   if (!collectionCode.value) return ''
   return 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(collectionCode.value)
-  // send collectionCode to goQR for encoding to QR image
 })
 
 const filteredReservations = computed(function () {
@@ -62,7 +60,6 @@ const statusTabs = [
 const stars = [1, 2, 3, 4, 5]
 const tileTones = ['', 'dark', 'khaki', 'sand']
 
-// Number of orders behind each status chip ("All" leaves out cancelled orders)
 const statusCounts = computed(function () {
   const counts = { ALL: 0, RESERVED: 0, COLLECTED: 0, CANCELLED: 0, EXPIRED: 0 }
   for (const reservation of reservations.value) {
@@ -72,8 +69,6 @@ const statusCounts = computed(function () {
   return counts
 })
 
-// The reserved order whose collection window starts soonest
-// True when any order is still waiting for its Stripe payment
 const hasUnpaid = computed(function () {
   return reservations.value.some(function (reservation) {
     return needsPayment(reservation)
@@ -214,10 +209,8 @@ async function showCollectionCode(reservation) {
     })
     if (collectionReservation.value === reservation) {
       collectionCode.value = response.data.collectionCode
-      // set the collectionCode
       stopCollectionChecks()
       collectionCheckTimer = setInterval(() => checkCollectionStatus(reservation), 5000)
-      // check for status every 5s
     }
   } catch (error) {
     if (collectionReservation.value === reservation) {
@@ -306,7 +299,6 @@ async function confirmCancellation() {
     if (response.data.payment) reservationToCancel.value.payment = response.data.payment
     reservationToCancel.value = null
     if (response.data.payment && response.data.message) {
-      // Paid orders: the backend starts a refund, which can take a moment
       successMessage.value = response.data.message
     } else if (response.data.stockRestorationPending) {
       errorMessage.value = 'Reservation cancelled, but the listing quantity needs review by the business.'
@@ -324,7 +316,6 @@ async function confirmCancellation() {
   }
 }
 
-// Ask the backend for a Stripe checkout page for an unpaid reservation
 async function startPayment(reservation) {
   if (payingId.value) return
   payingId.value = reservation._id
@@ -392,7 +383,7 @@ onUnmounted(closeCollectionCode)
     <section v-if="nextPickup" class="container-xxl px-4 mt-5">
       <div class="next-pickup p-4 p-md-5 d-flex flex-wrap align-items-center justify-content-between gap-4">
         <div class="d-flex flex-wrap align-items-center gap-4">
-          <p class="rb-label next-label"><span class="dot" aria-hidden="true"></span>Next pickup</p>
+          <p class="rb-label next-label"><span class="dot rb-live" aria-hidden="true"></span>Next pickup</p>
           <p class="rb-display display-5 next-time">{{ windowOf(nextPickup) }}</p>
           <p class="next-copy">
             {{ nextPickup.listing_snapshot.title }} × {{ nextPickup.quantity }}<br />
@@ -445,10 +436,10 @@ onUnmounted(closeCollectionCode)
         <p class="mb-0">No reservations found for this status.</p>
       </div>
 
-      <div v-else class="orders-list">
+      <TransitionGroup tag="div" name="stag" appear v-else class="orders-list">
         <article
           v-for="(reservation, index) in filteredReservations"
-          :key="reservation._id"
+          :key="reservation._id" :style="{ '--i': index }"
           class="order-row d-flex flex-wrap gap-4"
         >
           <div class="rb-tile order-thumb" :class="tileClass(reservation, index)" :style="tileStyle(reservation)">
@@ -470,6 +461,7 @@ onUnmounted(closeCollectionCode)
               </div>
               <div class="d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
+                <span v-if="reservation.bundle_group_id" class="rb-status paid">10% bundle</span>
                 <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
               </div>
             </div>
@@ -512,167 +504,176 @@ onUnmounted(closeCollectionCode)
             </div>
 
             <template v-if="reservation.status === 'COLLECTED'">
-              <div v-if="reservation.review" class="review-card">
-                <p class="rb-label">Your review</p>
-                <p class="star-row" :aria-label="reservation.review.rating + ' out of 5'">
-                  <svg
-                    v-for="star in stars.slice(0, reservation.review.rating)"
-                    :key="star"
-                    aria-hidden="true"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  ><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z"></path></svg>
-                </p>
-                <p class="mb-0">{{ reservation.review.comment || 'No comment added.' }}</p>
-              </div>
-
-              <form v-else class="review-form" @submit.prevent="submitReview(reservation)">
-                <p class="rb-display review-title">How was it?</p>
-                <div class="d-flex gap-1" role="group" aria-label="Rating">
-                  <button
-                    v-for="star in stars"
-                    :key="star"
-                    type="button"
-                    class="star-button"
-                    :aria-label="star + (star === 1 ? ' star' : ' stars')"
-                    :aria-pressed="reviewForms[reservation._id].rating === star"
-                    @click="reviewForms[reservation._id].rating = star"
-                  >
-                    <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" :fill="star <= reviewForms[reservation._id].rating ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z"></path></svg>
-                  </button>
+              <Transition name="slide-down" mode="out-in">
+                <div v-if="reservation.review" class="review-card">
+                  <p class="rb-label">Your review</p>
+                  <p class="star-row" :aria-label="reservation.review.rating + ' out of 5'">
+                    <svg
+                      v-for="star in stars.slice(0, reservation.review.rating)"
+                      :key="star"
+                      aria-hidden="true"
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    ><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z"></path></svg>
+                  </p>
+                  <p class="mb-0">{{ reservation.review.comment || 'No comment added.' }}</p>
                 </div>
 
-                <div class="d-flex flex-column gap-2">
-                  <label :for="'review-' + reservation._id" class="rb-label">Comment (optional)</label>
-                  <textarea
-                    :id="'review-' + reservation._id"
-                    v-model.trim="reviewForms[reservation._id].comment"
-                    rows="3"
-                    maxlength="500"
-                    placeholder="Share your collection experience"
-                  ></textarea>
-                </div>
+                <form v-else class="review-form" @submit.prevent="submitReview(reservation)">
+                  <p class="rb-display review-title">How was it?</p>
+                  <div class="d-flex gap-1" role="group" aria-label="Rating">
+                    <button
+                      v-for="star in stars"
+                      :key="star"
+                      type="button"
+                      class="star-button"
+                      :aria-label="star + (star === 1 ? ' star' : ' stars')"
+                      :aria-pressed="reviewForms[reservation._id].rating === star"
+                      @click="reviewForms[reservation._id].rating = star"
+                    >
+                      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" :fill="star <= reviewForms[reservation._id].rating ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z"></path></svg>
+                    </button>
+                  </div>
 
-                <div><button type="submit" class="rb-pill rb-pill-dark">Submit review</button></div>
-              </form>
+                  <div class="d-flex flex-column gap-2">
+                    <label :for="'review-' + reservation._id" class="rb-label">Comment (optional)</label>
+                    <textarea
+                      :id="'review-' + reservation._id"
+                      v-model.trim="reviewForms[reservation._id].comment"
+                      rows="3"
+                      maxlength="500"
+                      placeholder="Share your collection experience"
+                    ></textarea>
+                  </div>
+
+                  <div><button type="submit" class="rb-pill rb-pill-dark">Submit review</button></div>
+                </form>
+              </Transition>
             </template>
           </div>
         </article>
-      </div>
+      </TransitionGroup>
     </section>
 
-    <div v-if="collectionReservation" class="rb-backdrop" @click.self="closeCollectionCode">
-      <div class="rb-dialog qr-dialog" role="dialog" aria-modal="true" aria-labelledby="collection-title" @keydown.esc="closeCollectionCode">
-        <div class="d-flex justify-content-between align-items-center gap-3">
-          <p class="rb-label">{{ collectionReservation.listing_snapshot.business_name }}</p>
-          <button type="button" class="rb-close" aria-label="Close collection code" autofocus @click="closeCollectionCode">×</button>
-        </div>
-        <h2 id="collection-title" class="rb-display display-6 qr-title">{{ collectionReservation.listing_snapshot.title }}</h2>
-
-        <p v-if="collectionLoading" class="rb-label mt-4" role="status">Loading your collection QR…</p>
-        <p v-else-if="collectionError" class="rb-note error mt-4" role="alert">{{ collectionError }}</p>
-        <template v-else>
-          <div class="qr-frame">
-            <img
-              :src="collectionQrUrl"
-              :alt="collectionReservation.status === 'COLLECTED' ? 'Collection QR code (no longer valid)' : 'Collection QR code'"
-              width="224"
-              height="224"
-              class="qr-image"
-              @error="collectionError = 'Unable to generate your collection QR.'"
-            />
-            <div v-if="collectionReservation.status === 'COLLECTED'" class="qr-overlay" aria-hidden="true">
-              <span class="qr-tick">✓</span>
-              <strong class="rb-display qr-word">Collected</strong>
-            </div>
+    <Transition name="pop">
+      <div v-if="collectionReservation" class="rb-backdrop" @click.self="closeCollectionCode">
+        <div class="rb-dialog qr-dialog" role="dialog" aria-modal="true" aria-labelledby="collection-title" @keydown.esc="closeCollectionCode">
+          <div class="d-flex justify-content-between align-items-center gap-3">
+            <p class="rb-label">{{ collectionReservation.listing_snapshot.business_name }}</p>
+            <button type="button" class="rb-close" aria-label="Close collection code" autofocus @click="closeCollectionCode">×</button>
           </div>
-          <p v-if="collectionReservation.status === 'COLLECTED'" class="qr-copy" role="status">Listing collected. You may close this.</p>
-          <p v-else class="qr-copy">Show this at the counter. Staff scan it to confirm your pickup.</p>
-          <p v-if="collectionStatusError" class="rb-note mt-3" role="alert">{{ collectionStatusError }}</p>
-          <p class="rb-label qr-meta">{{ collectionReservation.quantity }} · {{ windowOf(collectionReservation) }}</p>
-        </template>
-      </div>
-    </div>
+          <h2 id="collection-title" class="rb-display display-6 qr-title">{{ collectionReservation.listing_snapshot.title }}</h2>
 
-    <div v-if="selectedReservation" class="rb-backdrop" @click.self="selectedReservation = null">
-      <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
-        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
-          <div>
-            <p class="rb-label mb-1">Reservation details</p>
-            <h2 id="details-title" class="rb-display display-6 dialog-title">{{ selectedReservation.listing_snapshot.title }}</h2>
-            <p class="rb-label mt-1">{{ selectedReservation.listing_snapshot.business_name }}</p>
-          </div>
-          <button type="button" class="rb-close" aria-label="Close details" autofocus @click="selectedReservation = null">×</button>
-        </div>
-
-        <section class="detail-panel mb-3" aria-label="Reservation summary">
-          <div class="row g-3">
-            <div class="col-sm-4">
-              <p class="rb-label mb-1">Status</p>
-              <span :class="['rb-status', selectedReservation.status.toLowerCase()]">{{ selectedReservation.status }}</span>
+          <p v-if="collectionLoading" class="rb-label mt-4" role="status">Loading your collection QR…</p>
+          <p v-else-if="collectionError" class="rb-note error mt-4" role="alert">{{ collectionError }}</p>
+          <template v-else>
+            <div class="qr-frame">
+              <img
+                :src="collectionQrUrl"
+                :alt="collectionReservation.status === 'COLLECTED' ? 'Collection QR code (no longer valid)' : 'Collection QR code'"
+                width="224"
+                height="224"
+                class="qr-image rb-wipe"
+                @error="collectionError = 'Unable to generate your collection QR.'"
+              />
+              <span v-if="collectionReservation.status !== 'COLLECTED'" class="rb-scan" aria-hidden="true"></span>
+              <div v-if="collectionReservation.status === 'COLLECTED'" class="qr-overlay" aria-hidden="true">
+                <span class="qr-tick">✓</span>
+                <strong class="rb-display qr-word">Collected</strong>
+              </div>
             </div>
-            <div class="col-sm-4">
-              <p class="rb-label mb-1">Quantity</p>
-              <p class="fw-semibold mb-0">{{ selectedReservation.quantity }}</p>
-            </div>
-            <div class="col-sm-4">
-              <p class="rb-label mb-1">Total price</p>
-              <p class="fw-semibold mb-0">{{ totalPrice(selectedReservation) }}</p>
-            </div>
-            <div class="col-12">
-              <p class="rb-label mb-1">Pick up by</p>
-              <p class="fw-semibold mb-0">{{ formatDate(selectedReservation.listing_snapshot.collection_end_at) }}</p>
-            </div>
-            <div class="col-12">
-              <p class="rb-label mb-1">Pickup address</p>
-              <p class="fw-semibold mb-0">{{ selectedReservation.listing_snapshot.pickup_address }}</p>
-            </div>
-          </div>
-        </section>
-
-        <div class="instructions mb-3">
-          <p class="rb-label mb-1">Pickup instructions</p>
-          <p class="mb-0">{{ selectedReservation.pickup_instructions || 'No pickup instructions provided.' }}</p>
-        </div>
-
-        <p class="rb-label mb-2">Pickup location</p>
-        <PickupMap
-          v-if="pickupCoordinates(selectedReservation) && mapsApiKey"
-          :coordinates="selectedReservation.pickup_coordinates"
-          :name="selectedReservation.listing_snapshot.business_name"
-        />
-        <p v-else>Map unavailable for this pickup location.</p>
-        <a
-          v-if="pickupCoordinates(selectedReservation)"
-          :href="directionsUrl(selectedReservation)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="rb-pill rb-pill-dark w-100"
-        >Get directions</a>
-      </div>
-    </div>
-
-    <div v-if="reservationToCancel" class="rb-backdrop" @click.self="closeCancelConfirmation">
-      <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-title" @keydown.esc="closeCancelConfirmation">
-        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-          <h2 id="cancel-title" class="rb-display display-6 dialog-title">Cancel this reservation?</h2>
-          <button type="button" class="rb-close" aria-label="Close confirmation" :disabled="cancelling" @click="closeCancelConfirmation">×</button>
-        </div>
-        <p>You will release {{ reservationToCancel.quantity }} unit(s) of {{ reservationToCancel.listing_snapshot.title }} for others to reserve.</p>
-        <p v-if="paymentStatusOf(reservationToCancel) === 'PAID'" class="rb-note">
-          You paid {{ paymentAmount(reservationToCancel) }}. It will be refunded to your card.
-        </p>
-        <p v-if="cancelError" class="rb-note error" role="alert">{{ cancelError }}</p>
-        <div class="d-flex flex-column flex-sm-row justify-content-end gap-3">
-          <button type="button" class="rb-pill rb-pill-line" :disabled="cancelling" autofocus @click="closeCancelConfirmation">Keep order</button>
-          <button type="button" class="rb-pill rb-pill-dark" :disabled="cancelling" @click="confirmCancellation">
-            {{ cancelling ? 'Cancelling…' : 'Yes, cancel order' }}
-          </button>
+            <p v-if="collectionReservation.status === 'COLLECTED'" class="qr-copy" role="status">Listing collected. You may close this.</p>
+            <p v-else class="qr-copy">Show this at the counter. Staff scan it to confirm your pickup.</p>
+            <p v-if="collectionStatusError" class="rb-note mt-3" role="alert">{{ collectionStatusError }}</p>
+            <p class="rb-label qr-meta">{{ collectionReservation.quantity }} · {{ windowOf(collectionReservation) }}</p>
+          </template>
         </div>
       </div>
-    </div>
+    </Transition>
+
+    <Transition name="pop">
+      <div v-if="selectedReservation" class="rb-backdrop" @click.self="selectedReservation = null">
+        <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div>
+              <p class="rb-label mb-1">Reservation details</p>
+              <h2 id="details-title" class="rb-display display-6 dialog-title">{{ selectedReservation.listing_snapshot.title }}</h2>
+              <p class="rb-label mt-1">{{ selectedReservation.listing_snapshot.business_name }}</p>
+            </div>
+            <button type="button" class="rb-close" aria-label="Close details" autofocus @click="selectedReservation = null">×</button>
+          </div>
+
+          <section class="detail-panel mb-3" aria-label="Reservation summary">
+            <div class="row g-3">
+              <div class="col-sm-4">
+                <p class="rb-label mb-1">Status</p>
+                <span :class="['rb-status', selectedReservation.status.toLowerCase()]">{{ selectedReservation.status }}</span>
+              </div>
+              <div class="col-sm-4">
+                <p class="rb-label mb-1">Quantity</p>
+                <p class="fw-semibold mb-0">{{ selectedReservation.quantity }}</p>
+              </div>
+              <div class="col-sm-4">
+                <p class="rb-label mb-1">Total price</p>
+                <p class="fw-semibold mb-0">{{ totalPrice(selectedReservation) }}</p>
+              </div>
+              <div class="col-12">
+                <p class="rb-label mb-1">Pick up by</p>
+                <p class="fw-semibold mb-0">{{ formatDate(selectedReservation.listing_snapshot.collection_end_at) }}</p>
+              </div>
+              <div class="col-12">
+                <p class="rb-label mb-1">Pickup address</p>
+                <p class="fw-semibold mb-0">{{ selectedReservation.listing_snapshot.pickup_address }}</p>
+              </div>
+            </div>
+          </section>
+
+          <div class="instructions mb-3">
+            <p class="rb-label mb-1">Pickup instructions</p>
+            <p class="mb-0">{{ selectedReservation.pickup_instructions || 'No pickup instructions provided.' }}</p>
+          </div>
+
+          <p class="rb-label mb-2">Pickup location</p>
+          <PickupMap
+            v-if="pickupCoordinates(selectedReservation) && mapsApiKey"
+            :coordinates="selectedReservation.pickup_coordinates"
+            :name="selectedReservation.listing_snapshot.business_name"
+          />
+          <p v-else>Map unavailable for this pickup location.</p>
+          <a
+            v-if="pickupCoordinates(selectedReservation)"
+            :href="directionsUrl(selectedReservation)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rb-pill rb-pill-dark w-100"
+          >Get directions</a>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="pop">
+      <div v-if="reservationToCancel" class="rb-backdrop" @click.self="closeCancelConfirmation">
+        <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-title" @keydown.esc="closeCancelConfirmation">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <h2 id="cancel-title" class="rb-display display-6 dialog-title">Cancel this reservation?</h2>
+            <button type="button" class="rb-close" aria-label="Close confirmation" :disabled="cancelling" @click="closeCancelConfirmation">×</button>
+          </div>
+          <p>You will release {{ reservationToCancel.quantity }} unit(s) of {{ reservationToCancel.listing_snapshot.title }} for others to reserve.</p>
+          <p v-if="paymentStatusOf(reservationToCancel) === 'PAID'" class="rb-note">
+            You paid {{ paymentAmount(reservationToCancel) }}. It will be refunded to your card.
+          </p>
+          <p v-if="cancelError" class="rb-note error" role="alert">{{ cancelError }}</p>
+          <div class="d-flex flex-column flex-sm-row justify-content-end gap-3">
+            <button type="button" class="rb-pill rb-pill-line" :disabled="cancelling" autofocus @click="closeCancelConfirmation">Keep order</button>
+            <button type="button" class="rb-pill rb-pill-dark" :disabled="cancelling" @click="confirmCancellation">
+              {{ cancelling ? 'Cancelling…' : 'Yes, cancel order' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -682,7 +683,6 @@ onUnmounted(closeCollectionCode)
   font-size: 14px;
 }
 
-/* Yolk banner for the next pickup */
 .next-pickup {
   color: #000;
   background-color: #f4b30c;
@@ -840,7 +840,6 @@ onUnmounted(closeCollectionCode)
   line-height: 24px;
 }
 
-/* Dialogs */
 .qr-dialog {
   max-width: 480px;
   text-align: center;

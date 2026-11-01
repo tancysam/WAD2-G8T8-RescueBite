@@ -27,12 +27,24 @@ const reserving = ref(false)
 const reservationError = ref('')
 const reservationSuccess = ref(false)
 const reservedQuantity = ref(0)
-// Stripe Checkout: the backend returns a link to Stripe's payment page for paid listings
 const checkoutUrl = ref('')
 const amountDue = ref('')
-// Reused when retrying after a network error so the backend does not book twice
 const checkoutRequestId = ref('')
 const canRetryReservation = ref(false)
+const bundleOptions = ref([])
+const selectedBundleId = ref('')
+const bundleSuccess = ref(false)
+
+const confetti = [
+  { dx: 72, dy: -44, colour: '#f4b30c' },
+  { dx: -64, dy: -52, colour: '#000' },
+  { dx: 84, dy: 28, colour: '#000' },
+  { dx: -76, dy: 40, colour: '#f4b30c' },
+  { dx: 8, dy: -86, colour: '#f4b30c' },
+  { dx: -6, dy: 82, colour: '#bbb283' },
+  { dx: 52, dy: 72, colour: '#f4b30c' },
+  { dx: -44, dy: -84, colour: '#bbb283' }
+]
 
 const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
@@ -54,7 +66,6 @@ const tileStyle = computed(() => {
   return { backgroundImage: 'url("' + photoUrl.value + '")' }
 })
 
-// The first word of the title stands in for a photo
 const tileWord = computed(() => {
   if (!listing.value) return ''
   return listing.value.title.trim().split(' ')[0]
@@ -74,6 +85,33 @@ const totalPrice = computed(() => {
   if (!listing.value) return formatPrice(0)
   return formatPrice(Number(listing.value.rescue_price_sgd) * reserveQuantity.value)
 })
+
+
+const selectedBundle = computed(() => {
+  for (const option of bundleOptions.value) {
+    if (option._id === selectedBundleId.value) return option
+  }
+  return null
+})
+
+const bundleTotal = computed(() => {
+  if (!listing.value || !selectedBundle.value) return formatPrice(0)
+
+  const total =
+    Number(listing.value.rescue_price_sgd) +
+    Number(selectedBundle.value.rescue_price_sgd)
+
+  return formatPrice(Math.round(total * 90) / 100)
+})
+
+function discountedBundlePrice(option) {
+  return formatPrice(Math.round(Number(option.rescue_price_sgd) * 90) / 100)
+}
+
+function bundleImage(option) {
+  if (option.images && option.images.length > 0) return option.images[0].url
+  return ''
+}
 
 const pickupCoordinates = computed(() => {
   if (!business.value || !business.value.location || !business.value.location.coordinates) return null
@@ -116,6 +154,7 @@ async function getListingDetails() {
     business.value = businessResponse.data.business
     await checkFavourite()
     await checkConsumerRole()
+    await loadBundleOptions()
   } catch (error) {
     console.error('Error fetching listing details:', error)
 
@@ -151,7 +190,93 @@ async function checkConsumerRole() {
   }
 }
 
-// Reserve the chosen quantity, then show the result in a dialog
+
+async function loadBundleOptions() {
+  bundleOptions.value = []
+  selectedBundleId.value = ''
+
+  if (!isConsumer.value || !listing.value.bundle_eligible) return
+
+  try {
+    const response = await axios.get(
+      `${API_URL}/listings/${listing.value._id}/bundle-options`,
+      { headers: await getHeaders() }
+    )
+    bundleOptions.value = response.data.listings || []
+  } catch (error) {
+    bundleOptions.value = []
+  }
+}
+
+function selectBundleOption(optionId) {
+  if (selectedBundleId.value === optionId) {
+    selectedBundleId.value = ''
+  } else {
+    selectedBundleId.value = optionId
+  }
+}
+
+async function reserveBundle() {
+  if (!selectedBundleId.value || reserving.value) return
+
+  reserving.value = true
+  reservationError.value = ''
+  reservationSuccess.value = false
+  bundleSuccess.value = false
+  showReserveModal.value = true
+
+  const bundleGroupId = newCheckoutRequestId()
+  const headers = await getHeaders()
+  let firstReservationId = ''
+
+  try {
+    const first = await axios.post(
+      `${API_URL}/listings/${listing.value._id}/reservations`,
+      {
+        quantity: 1,
+        checkoutRequestId: newCheckoutRequestId(),
+        bundleGroupId: bundleGroupId,
+        bundleWithListingId: selectedBundleId.value
+      },
+      { headers: headers }
+    )
+    firstReservationId = first.data.reservationId
+
+    await axios.post(
+      `${API_URL}/listings/${selectedBundleId.value}/reservations`,
+      {
+        quantity: 1,
+        checkoutRequestId: newCheckoutRequestId(),
+        bundleGroupId: bundleGroupId,
+        bundleWithListingId: listing.value._id
+      },
+      { headers: headers }
+    )
+
+    listing.value.quantity_available = listing.value.quantity_available - 1
+    bundleSuccess.value = true
+    reservationSuccess.value = true
+  } catch (error) {
+    if (firstReservationId) {
+      try {
+        await axios.post(
+          `${API_URL}/reservations/${firstReservationId}/cancel`,
+          {},
+          { headers: headers }
+        )
+      } catch (cancelError) {
+        console.error('Unable to cancel incomplete bundle:', cancelError)
+      }
+    }
+
+    reservationError.value =
+      (error.response && error.response.data && error.response.data.error) ||
+      'Unable to reserve this bundle. Please try again.'
+  } finally {
+    reserving.value = false
+  }
+}
+
 async function openReserveModal() {
   reservationError.value = ''
   reservationSuccess.value = false
@@ -163,7 +288,6 @@ async function openReserveModal() {
   await reserveListing()
 }
 
-// Try again with the same retry key, so a reservation that did go through is not made twice
 async function retryReservation() {
   reservationError.value = ''
   await reserveListing()
@@ -191,7 +315,6 @@ async function reserveListing() {
       { headers: await getHeaders() }
     )
 
-    // Paid listings come back with a Stripe checkout link to finish payment
     checkoutUrl.value = response.data.checkoutUrl || ''
     amountDue.value = paymentAmount(response.data.reservation)
 
@@ -203,7 +326,6 @@ async function reserveListing() {
     reservationError.value =
       (error.response && error.response.data && error.response.data.error) ||
       'Unable to reserve this listing. Please try again.'
-    // Only a lost connection or a busy server is worth retrying with the same key
     canRetryReservation.value = !error.response || error.response.status === 503
   } finally {
     reserving.value = false
@@ -326,7 +448,7 @@ onMounted(getListingDetails)
               <span v-if="savingsPercentage !== null" class="save-tag">Save {{ savingsPercentage }}%</span>
             </div>
             <p class="rb-label availability">
-              <span class="dot" aria-hidden="true"></span>{{ listing.quantity_available }} available
+              <span class="dot rb-live" aria-hidden="true"></span>{{ listing.quantity_available }} available
             </p>
 
             <template v-if="isConsumer && listing.quantity_available > 0">
@@ -334,13 +456,13 @@ onMounted(getListingDetails)
                 <span id="qty-label" class="rb-label price-label">Quantity</span>
                 <div class="d-flex align-items-center gap-3" role="group" aria-labelledby="qty-label">
                   <button type="button" class="step step-line" aria-label="Decrease quantity" @click="changeQuantity(-1)">−</button>
-                  <output class="rb-display qty" aria-live="polite">{{ reserveQuantity }}</output>
+                  <output class="rb-display qty" aria-live="polite"><span :key="reserveQuantity" class="rb-bump">{{ reserveQuantity }}</span></output>
                   <button type="button" class="step step-dark" aria-label="Increase quantity" @click="changeQuantity(1)">+</button>
                 </div>
               </div>
               <div class="total-row rb-label price-label">
                 <span>Total</span>
-                <span class="rb-display total">{{ totalPrice }}</span>
+                <span :key="totalPrice" class="rb-display total rb-bump">{{ totalPrice }}</span>
               </div>
             </template>
 
@@ -354,6 +476,81 @@ onMounted(getListingDetails)
               >
                 {{ reserving ? 'Reserving…' : 'Reserve listing' }}
               </button>
+              <section v-if="bundleOptions.length > 0" class="partner-bundle">
+                <p class="rb-label mb-1">Nearby bundle deal</p>
+                <h2 class="bundle-heading">Add another rescue and save 10%</h2>
+                <p class="bundle-note">
+                  Choose one nearby item. You will collect each order from its own business.
+                </p>
+                <p class="bundle-count">
+                  {{ bundleOptions.length }} {{ bundleOptions.length === 1 ? 'option' : 'options' }} available
+                </p>
+
+                <div class="bundle-options">
+                  <button
+                    v-for="option in bundleOptions"
+                    :key="option._id"
+                    type="button"
+                    :class="['bundle-option', { selected: selectedBundleId === option._id }]"
+                    :aria-pressed="selectedBundleId === option._id"
+                    @click="selectBundleOption(option._id)"
+                  >
+                    <img
+                      v-if="bundleImage(option)"
+                      :src="bundleImage(option)"
+                      :alt="option.title"
+                      class="bundle-photo"
+                    />
+                    <div v-else class="bundle-photo bundle-placeholder">
+                      {{ option.title.trim().split(' ')[0] }}
+                    </div>
+
+                    <div class="bundle-option-info">
+                      <span class="bundle-check" aria-hidden="true">
+                        <span class="bundle-check-symbol">
+                          {{ selectedBundleId === option._id ? '✓' : '+' }}
+                        </span>
+                      </span>
+                      <span class="bundle-business">{{ option.business_name }}</span>
+                      <strong>{{ option.title }}</strong>
+                      <span class="bundle-time">
+                        {{ shortTime(option.collection_start_at) }}–{{ shortTime(option.collection_end_at) }}
+                      </span>
+                      <span v-if="option.business_address" class="bundle-address">
+                        {{ option.business_address }}<template v-if="option.business_postal_code">, Singapore {{ option.business_postal_code }}</template>
+                      </span>
+                      <span>
+                        <s>{{ formatPrice(option.rescue_price_sgd) }}</s>
+                        <strong class="bundle-price">{{ discountedBundlePrice(option) }}</strong>
+                      </span>
+                    </div>
+                  </button>
+                </div>
+
+                <div v-if="selectedBundle" class="bundle-summary">
+                  <div>
+                    <span>2 items after 10% off</span>
+                    <button
+                      type="button"
+                      class="bundle-remove"
+                      @click="selectedBundleId = ''"
+                    >
+                      Remove added item
+                    </button>
+                  </div>
+                  <strong>{{ bundleTotal }}</strong>
+                </div>
+
+                <button
+                  type="button"
+                  class="rb-pill rb-pill-dark w-100"
+                  :disabled="!selectedBundleId || reserving"
+                  @click="reserveBundle"
+                >
+                  {{ reserving ? 'Reserving both…' : 'Reserve both items' }}
+                </button>
+                <p class="bundle-qr-note">You will receive two pickup QR codes.</p>
+              </section>
               <button
                 v-if="canFavourite"
                 type="button"
@@ -361,7 +558,7 @@ onMounted(getListingDetails)
                 :aria-pressed="isFavourite"
                 @click="toggleFavourite"
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
+                <svg :key="'heart-' + isFavourite" class="rb-pop" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
                 {{ isFavourite ? 'Saved' : 'Save listing' }}
               </button>
             </div>
@@ -413,52 +610,68 @@ onMounted(getListingDetails)
       </div>
     </div>
 
-    <div v-if="showReserveModal" class="rb-backdrop" @click.self="closeReserveModal">
-      <div
-        class="rb-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reserve-title"
-        @keydown.esc="closeReserveModal"
-      >
-        <template v-if="reservationSuccess && checkoutUrl">
-          <p class="rb-script rb-kicker fs-3">almost there</p>
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
-          <p class="done-copy" role="status">
-            {{ reservedQuantity }} × {{ listing.title }} is held for you for 30 minutes.
-            Pay {{ amountDue || 'the rescue price' }} on Stripe's secure checkout page to confirm it.
-          </p>
-          <div class="d-flex flex-wrap gap-3 mt-4">
-            <a :href="checkoutUrl" class="rb-pill rb-pill-dark">Pay {{ amountDue }} with Stripe</a>
-            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-line">Pay later</RouterLink>
-          </div>
-          <p class="pay-note">You can also finish payment from My Orders before the 30 minutes are up.</p>
-        </template>
-        <template v-else-if="reservationSuccess">
-          <p class="rb-script rb-kicker fs-3">nice one!</p>
-          <h2 id="reserve-title" class="rb-display display-2 done-title">Reserved.</h2>
-          <p class="done-copy" role="status">
-            {{ reservedQuantity }} × {{ listing.title }}{{ business ? ' from ' + business.name : '' }}.
-            Collect by {{ formatDate(listing.collection_end_at) }} and show your QR at the counter.
-          </p>
-          <div class="d-flex flex-wrap gap-3 mt-4">
-            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark">View my orders</RouterLink>
-            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
-          </div>
-        </template>
-        <template v-else-if="reserving">
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
-        </template>
-        <template v-else>
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
-          <p class="reserve-error" role="alert">{{ reservationError }}</p>
-          <div class="d-flex flex-wrap gap-3 mt-3">
-            <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>
-            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
-          </div>
-        </template>
+    <Transition name="pop">
+      <div v-if="showReserveModal" class="rb-backdrop" @click.self="closeReserveModal">
+        <div
+          class="rb-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reserve-title"
+          @keydown.esc="closeReserveModal"
+        >
+          <template v-if="reservationSuccess && bundleSuccess">
+            <p class="rb-script rb-kicker fs-3">bundle saved</p>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Both items are held</h2>
+            <p class="done-copy" role="status">
+              The 10% discount has been applied to both listings. Pay for both orders in My Orders.
+              Each business will have its own pickup QR code.
+            </p>
+            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark mt-3">
+              Go to My Orders
+            </RouterLink>
+          </template>
+          <template v-else-if="reservationSuccess && checkoutUrl">
+            <p class="rb-script rb-kicker fs-3">almost there</p>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
+            <p class="done-copy" role="status">
+              {{ reservedQuantity }} × {{ listing.title }} is held for you for 30 minutes.
+              Pay {{ amountDue || 'the rescue price' }} on Stripe's secure checkout page to confirm it.
+            </p>
+            <div class="d-flex flex-wrap gap-3 mt-4">
+              <a :href="checkoutUrl" class="rb-pill rb-pill-dark">Pay {{ amountDue }} with Stripe</a>
+              <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-line">Pay later</RouterLink>
+            </div>
+            <p class="pay-note">You can also finish payment from My Orders before the 30 minutes are up.</p>
+          </template>
+          <template v-else-if="reservationSuccess">
+            <div class="confetti" aria-hidden="true">
+                <span v-for="piece in confetti" :key="piece.dx + piece.dy" class="rb-burst" :style="{ '--dx': piece.dx + 'px', '--dy': piece.dy + 'px', background: piece.colour }"></span>
+              </div>
+              <p class="rb-script rb-kicker fs-3" style="animation: rb-stamp .7s cubic-bezier(.34,1.56,.64,1) .3s backwards, rb-sway 5s ease-in-out 1s infinite">nice one!</p>
+            <h2 id="reserve-title" class="rb-display display-2 done-title">Reserved.</h2>
+            <p class="done-copy" role="status">
+              {{ reservedQuantity }} × {{ listing.title }}{{ business ? ' from ' + business.name : '' }}.
+              Collect by {{ formatDate(listing.collection_end_at) }} and show your QR at the counter.
+            </p>
+            <div class="d-flex flex-wrap gap-3 mt-4">
+              <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark">View my orders</RouterLink>
+              <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
+            </div>
+          </template>
+          <template v-else-if="reserving">
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
+          </template>
+          <template v-else>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
+            <p class="reserve-error" role="alert">{{ reservationError }}</p>
+            <div class="d-flex flex-wrap gap-3 mt-3">
+              <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>
+              <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
+    </Transition>
   </main>
 </template>
 
@@ -482,6 +695,7 @@ onMounted(getListingDetails)
 
 .breadcrumbs a {
   text-decoration: none;
+  transition: color .25s;
 }
 
 .breadcrumbs a:hover {
@@ -573,7 +787,6 @@ onMounted(getListingDetails)
   font-size: 12px;
 }
 
-/* Yolk price card */
 .price-card {
   color: #000;
   background-color: #f4b30c;
@@ -730,7 +943,165 @@ onMounted(getListingDetails)
   color: #191200;
 }
 
-/* Reserved dialog */
+.partner-bundle {
+  padding: 20px;
+  border: 2px solid #000;
+  border-radius: 28px;
+  background: #fff8df;
+}
+
+.bundle-heading {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.bundle-note,
+.bundle-count,
+.bundle-qr-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.bundle-count {
+  margin-top: 12px;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+}
+
+.bundle-options {
+  display: grid;
+  gap: 12px;
+  max-height: 370px;
+  margin: 10px -6px 16px 0;
+  padding: 6px 10px 8px 2px;
+  overflow-y: auto;
+}
+
+.bundle-option {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid #000;
+  border-radius: 18px;
+  color: #000;
+  text-align: left;
+  background: #fff;
+}
+
+.bundle-option.selected {
+  box-shadow: 5px 5px 0 #000;
+  background: #f4b30c;
+  transform: translate(-2px, -2px);
+}
+
+.bundle-photo {
+  width: 92px;
+  height: 100%;
+  min-height: 100px;
+  object-fit: cover;
+  background: #f6f4ed;
+}
+
+.bundle-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-family: 'Anton', sans-serif;
+  font-size: 18px;
+  text-align: center;
+}
+
+.bundle-option-info {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 42px 14px 14px;
+}
+
+.bundle-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid #000;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+}
+
+.bundle-check-symbol {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.bundle-business {
+  padding-right: 30px;
+  color: #6a4a00;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bundle-time {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.bundle-address {
+  color: #4f4630;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.bundle-price {
+  margin-left: 8px;
+}
+
+.bundle-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+  padding-top: 14px;
+  border-top: 2px solid #000;
+}
+
+.bundle-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bundle-remove {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: #6a4a00;
+  font-size: 12px;
+  text-decoration: underline;
+  background: transparent;
+}
+
+.bundle-qr-note {
+  text-align: center;
+}
+
 .done-title {
   margin-top: 4px;
   line-height: .95;
@@ -740,6 +1111,14 @@ onMounted(getListingDetails)
   margin: 20px 0 0;
   font-size: 18px;
   line-height: 27px;
+}
+
+.confetti {
+  position: absolute;
+  top: 96px;
+  right: 88px;
+  width: 0;
+  height: 0;
 }
 
 .pay-note {

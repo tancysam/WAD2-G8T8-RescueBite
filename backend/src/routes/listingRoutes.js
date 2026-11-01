@@ -3,6 +3,7 @@ import { requireBusiness, requireConsumer } from "../middleware/auth.js";
 import {
   getListingsByParams,
   getListingById,
+  getBundleOptions,
   updateListing,
   deleteListing,
   generateListingSuggestions,
@@ -18,6 +19,7 @@ const router = Router();
 
 router.get("/", getListingsByParams);
 router.post("/:listingId/reservations", requireConsumer, createReservation);
+router.get("/:listingId/bundle-options", requireConsumer, getBundleOptions);
 router.post("/:listingId/image-upload-url", requireBusiness, createImageUploadUrl);
 router.post("/:listingId/images", requireBusiness, addListingImage);
 router.delete("/:listingId/images/:imageId", requireBusiness, deleteListingImage);

@@ -17,8 +17,6 @@ const mode = computed(() => route.name === 'register' || isLegacyRegisterUrl.val
 const pendingRole = getPendingRegistrationRole()
 const registerRole = ref(pendingRole === null || pendingRole === undefined ? 'CONSUMER' : pendingRole)
 
-// This records the registration choice with Clerk. The backend must still
-// validate and create the MongoDB role during the later profile setup step.
 const registrationMetadata = computed(() => ({ rescuebite_role_intent: registerRole.value }))
 
 function selectMode(nextMode) {
@@ -32,7 +30,6 @@ function selectRole(role) {
 
 watch(mode, (currentMode) => {
   if (currentMode === 'register') {
-    // Keep the choice across Clerk's email steps and Google's return to this page.
     setPendingRegistrationRole(registerRole.value)
   } else {
     clearPendingRegistrationRole()
@@ -51,12 +48,11 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
 <template>
   <main class="auth-page">
     <header class="auth-header px-3 px-lg-4">
-      <RouterLink to="/" class="logo fs-2">RescueBite<span class="logo-dot">.</span></RouterLink>
+      <RouterLink to="/" class="logo fs-2">RescueBite<span class="logo-dot rb-dot">.</span></RouterLink>
       <RouterLink to="/" class="rb-label back-link">← Back to home</RouterLink>
     </header>
 
     <div class="row g-0 auth-body">
-      <!-- Brand panel -->
       <section class="col-lg-6 brand-panel p-4 p-md-5" aria-hidden="true">
         <p class="rb-script rb-kicker fs-3 brand-script">{{ mode === 'login' ? 'welcome back' : 'good to meet you' }}</p>
         <p class="rb-display display-1 brand-title">
@@ -64,7 +60,6 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
         </p>
       </section>
 
-      <!-- Sign in / register -->
       <section class="col-lg-6 form-panel p-4 p-md-5" aria-label="Log in or register">
         <div class="form-inner">
           <div class="auth-tabs" role="tablist" aria-label="Account access">
@@ -88,38 +83,39 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
             >Register</button>
           </div>
 
-          <div v-if="mode === 'register'" class="role-section">
-            <div class="row g-3" role="group" aria-label="I’m here as a">
-              <div class="col-6">
-                <button
-                  type="button"
-                  class="role-option"
-                  :class="{ selected: registerRole === 'CONSUMER' }"
-                  :aria-pressed="registerRole === 'CONSUMER'"
-                  @click="selectRole('CONSUMER')"
-                >
-                  <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="14" cy="9" r="4"></circle><path d="M5.5 23c.4-5 3.5-7.5 8.5-7.5s8.1 2.5 8.5 7.5"></path></svg>
-                  <span class="rb-display role-name">Consumer</span>
-                  <span class="role-copy">Rescue good food</span>
-                </button>
-              </div>
-              <div class="col-6">
-                <button
-                  type="button"
-                  class="role-option"
-                  :class="{ selected: registerRole === 'BUSINESS' }"
-                  :aria-pressed="registerRole === 'BUSINESS'"
-                  @click="selectRole('BUSINESS')"
-                >
-                  <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11h20l-2-5H6l-2 5ZM6 11v12h16V11M11 23v-7h6v7"></path></svg>
-                  <span class="rb-display role-name">Business</span>
-                  <span class="role-copy">Share your surplus</span>
-                </button>
+          <Transition name="slide-down">
+            <div v-if="mode === 'register'" class="role-section">
+              <div class="row g-3" role="group" aria-label="I’m here as a">
+                <div class="col-6">
+                  <button
+                    type="button"
+                    class="role-option"
+                    :class="{ selected: registerRole === 'CONSUMER' }"
+                    :aria-pressed="registerRole === 'CONSUMER'"
+                    @click="selectRole('CONSUMER')"
+                  >
+                    <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="14" cy="9" r="4"></circle><path d="M5.5 23c.4-5 3.5-7.5 8.5-7.5s8.1 2.5 8.5 7.5"></path></svg>
+                    <span class="rb-display role-name">Consumer</span>
+                    <span class="role-copy">Rescue good food</span>
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button
+                    type="button"
+                    class="role-option"
+                    :class="{ selected: registerRole === 'BUSINESS' }"
+                    :aria-pressed="registerRole === 'BUSINESS'"
+                    @click="selectRole('BUSINESS')"
+                  >
+                    <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11h20l-2-5H6l-2 5ZM6 11v12h16V11M11 23v-7h6v7"></path></svg>
+                    <span class="rb-display role-name">Business</span>
+                    <span class="role-copy">Share your surplus</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </Transition>
 
-          <!-- Clerk's own sign in and sign up forms, in their default style -->
           <div
             id="auth-form"
             class="clerk-form"
@@ -185,6 +181,7 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
 .back-link {
   color: #191200;
   text-decoration: none;
+  transition: color .25s;
 }
 
 .back-link:hover {
@@ -195,7 +192,6 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
   flex: 1;
 }
 
-/* Yolk brand panel */
 .brand-panel {
   display: flex;
   flex-direction: column;
@@ -216,7 +212,6 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
 
 
 
-/* Form panel */
 .form-panel {
   display: flex;
   justify-content: center;
@@ -242,8 +237,9 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
   border-radius: 140px;
   color: #191200;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 14px;
+  font-weight: 500;
   letter-spacing: .06em;
   text-transform: uppercase;
   transition: background-color .25s, color .25s;
@@ -269,6 +265,7 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
   color: #000;
   background-color: transparent;
   text-align: left;
+  transition: border-color .25s, background-color .25s;
 }
 
 .role-option.selected {
@@ -292,7 +289,6 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
 }
 
 
-/* Centre Clerk's card under the switch */
 .clerk-form {
   display: flex;
   justify-content: center;

@@ -9,6 +9,80 @@ import { generateFoodDescription } from "../services/aiService.js";
 import { loadListingImages } from "./listingImageController.js";
 // import aiService from "../services/aiService.js";
 
+export async function getBundleOptions(req, res) {
+  const listingId = req.params.listingId;
+
+  try {
+    const listing = await Listing.findListingById(listingId);
+
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found" });
+    }
+
+    if (!listing.bundle_eligible || listing.status !== "ACTIVE") {
+      return res.json({ listings: [] });
+    }
+
+    const business = await Business.findBusinessById(listing.business_id);
+    const coordinates = business && business.location && business.location.coordinates;
+
+    if (!coordinates || coordinates.length !== 2) {
+      return res.json({ listings: [] });
+    }
+
+    const nearbyBusinesses = await Business.findNearbyActiveBusinesses(
+      coordinates[1],
+      coordinates[0],
+      0.5,
+    );
+    const nearbyBusinessIds = nearbyBusinesses
+      .filter((item) => item._id.toString() !== business._id.toString())
+      .map((item) => item._id);
+
+    if (nearbyBusinessIds.length === 0) {
+      return res.json({ listings: [] });
+    }
+
+    const results = await Listing.findActiveListings({
+      business_id: nearbyBusinessIds,
+    });
+    const listings = results.filter((item) => {
+      const sameTime =
+        item.collection_start_at < listing.collection_end_at &&
+        item.collection_end_at > listing.collection_start_at;
+
+      return (
+        item.bundle_eligible &&
+        item.quantity_available > 0 &&
+        sameTime
+      );
+    });
+
+    const bundleOptions = await loadListingImages(listings, res);
+    if (bundleOptions === null) return;
+
+    const businessesById = {};
+    for (const item of nearbyBusinesses) {
+      businessesById[item._id.toString()] = item;
+    }
+
+    const optionsWithBusinesses = bundleOptions.map((item) => {
+      const partnerBusiness = businessesById[item.business_id.toString()];
+
+      return {
+        ...item,
+        business_name: partnerBusiness ? partnerBusiness.name : "",
+        business_address: partnerBusiness ? partnerBusiness.address : "",
+        business_postal_code: partnerBusiness ? partnerBusiness.postal_code : "",
+      };
+    });
+
+    return res.json({ listings: optionsWithBusinesses });
+  } catch (error) {
+    return res.status(500).json({ error: "Unable to load bundle options" });
+  }
+}
+
 export async function createListing(req, res) {
   // creation of listing
   const id = req.params.businessId || req.params.id;
@@ -60,6 +134,7 @@ export async function createListing(req, res) {
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
+      bundleEligible: "bundle_eligible",
       status: "status",
     };
 
@@ -750,6 +825,7 @@ export async function updateListing(req, res) {
       title: listing.title,
       description: listing.description,
       bundle_contents: listing.bundle_contents,
+      bundle_eligible: listing.bundle_eligible,
       original_price_sgd: listing.original_price_sgd,
       rescue_price_sgd: listing.rescue_price_sgd,
       quantity_available: listing.quantity_available,
@@ -771,6 +847,7 @@ export async function updateListing(req, res) {
       collectionStartAt: "collection_start_at",
       collectionEndAt: "collection_end_at",
       bundleContents: "bundle_contents",
+      bundleEligible: "bundle_eligible",
       status: "status",
     };
 
