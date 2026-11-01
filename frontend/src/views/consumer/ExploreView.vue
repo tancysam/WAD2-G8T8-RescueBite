@@ -19,6 +19,56 @@ const searchText = ref('')
 const typeFilter = ref('ALL')
 const sortBy = ref('NEAREST')
 const selectedListingId = ref('')
+const mapArea = ref(null)
+const panelWidth = ref(340)
+const panelMaxWidth = ref(1288)
+const resizingPanel = ref(false)
+let panelDrag = null
+
+const listingColumnClass = computed(() => {
+    const width = Math.min(panelWidth.value, panelMaxWidth.value)
+    if (width >= 1802) return 'col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2'
+    if (width >= 1210) return 'col-12 col-sm-6 col-md-4 col-lg-3'
+    if (width >= 914) return 'col-12 col-sm-6 col-md-4'
+    if (width >= 618) return 'col-12 col-sm-6'
+    return 'col-12'
+})
+
+function updatePanelLimits() {
+    if (mapArea.value) panelMaxWidth.value = mapArea.value.clientWidth
+}
+
+function setPanelWidth(width) {
+    panelWidth.value = Math.min(panelMaxWidth.value, Math.max(Math.min(300, panelMaxWidth.value), width))
+}
+
+function startPanelResize(event) {
+    if (!event.isPrimary || event.button !== 0) return
+    updatePanelLimits()
+    const bounds = mapArea.value.getBoundingClientRect()
+    panelDrag = { pointerId: event.pointerId, right: bounds.right }
+    resizingPanel.value = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+}
+
+function movePanelResize(event) {
+    if (!panelDrag || panelDrag.pointerId !== event.pointerId) return
+    setPanelWidth(panelDrag.right - event.clientX)
+}
+
+function stopPanelResize() {
+    panelDrag = null
+    resizingPanel.value = false
+}
+
+function resizePanelByKey(event) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+    event.preventDefault()
+    updatePanelLimits()
+    if (event.key === 'Home') setPanelWidth(300)
+    else if (event.key === 'End') setPanelWidth(panelMaxWidth.value)
+    else setPanelWidth(panelWidth.value + (event.key === 'ArrowLeft' ? 40 : -40))
+}
 
 const typeFilters = [
     { value: 'ALL', label: 'All' },
@@ -374,11 +424,29 @@ onUnmounted(() => {
             </div>
         </section>
 
-        <section class="map-area" aria-label="Map of listings">
+        <section ref="mapArea" class="map-area" :class="{ 'resizing-panel': resizingPanel }" aria-label="Map of listings">
             <div ref="mapElement" class="map"></div>
 
             <div id="listings-panel" class="collapse collapse-horizontal show listings-collapse">
-                <aside class="panel-inner" aria-labelledby="listings-heading">
+                <aside class="panel-inner" :style="{ width: panelWidth + 'px' }" aria-labelledby="listings-heading">
+                    <div
+                        class="panel-resize-handle"
+                        role="separator"
+                        tabindex="0"
+                        aria-label="Resize listings pane"
+                        aria-orientation="vertical"
+                        aria-controls="listings-panel"
+                        :aria-valuemin="Math.min(300, panelMaxWidth)"
+                        :aria-valuemax="panelMaxWidth"
+                        :aria-valuenow="Math.min(panelWidth, panelMaxWidth)"
+                        @focus="updatePanelLimits"
+                        @pointerdown.prevent="startPanelResize"
+                        @pointermove="movePanelResize"
+                        @pointerup="stopPanelResize"
+                        @pointercancel="stopPanelResize"
+                        @lostpointercapture="stopPanelResize"
+                        @keydown="resizePanelByKey"
+                    ></div>
                     <div class="panel-head d-flex align-items-center justify-content-between gap-3">
                         <div>
                             <h1 id="listings-heading" class="rb-display panel-title">Listings</h1>
@@ -403,16 +471,22 @@ onUnmounted(() => {
                             {{ listingsError }}
                         </p>
 
-                        <TransitionGroup tag="div" name="stag" appear :key="typeFilter + sortBy" v-if="shownListings.length > 0" class="d-flex flex-column gap-3">
-                            <CustomerListingCard
+                        <TransitionGroup tag="div" name="stag" appear :key="typeFilter + sortBy" v-if="shownListings.length > 0" class="row g-3">
+                            <div
                                 v-for="(listing, index) in shownListings"
-                                :key="listing._id" :style="{ '--i': index }"
-                                :listing="listing"
-                                :index="index"
-                                :business-name="businessNameFor(listing)"
-                                :selected="selectedListingId === listing._id"
-                                @select="selectedListingId = $event"
-                            />
+                                :key="listing._id"
+                                :class="listingColumnClass"
+                                :style="{ '--i': index }"
+                            >
+                                <CustomerListingCard
+                                    class="h-100"
+                                    :listing="listing"
+                                    :index="index"
+                                    :business-name="businessNameFor(listing)"
+                                    :selected="selectedListingId === listing._id"
+                                    @select="selectedListingId = $event"
+                                />
+                            </div>
                         </TransitionGroup>
 
                         <div v-else-if="!listingsLoading && !listingsError" class="rb-empty">
@@ -491,12 +565,14 @@ onUnmounted(() => {
     right: 0;
     bottom: 0;
     z-index: 2;
+    max-width: 100%;
 }
 
 .panel-inner {
+    position: relative;
     display: flex;
     flex-direction: column;
-    width: 340px;
+    max-width: 100vw;
     height: 100%;
     border-left: 2px solid #000;
     background-color: #fbf9f1;
@@ -505,6 +581,45 @@ onUnmounted(() => {
 .panel-head {
     padding: 16px 20px;
     border-bottom: 1px solid #ddd9c5;
+}
+
+.panel-resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    width: 12px;
+    z-index: 3;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.panel-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 3px;
+    background: #191200;
+    opacity: 0;
+}
+
+.panel-resize-handle:hover::after,
+.panel-resize-handle:focus-visible::after,
+.resizing-panel .panel-resize-handle::after {
+    opacity: 1;
+}
+
+.panel-resize-handle:focus-visible {
+    outline: 2px solid #191200;
+    outline-offset: -2px;
+}
+
+.resizing-panel,
+.resizing-panel * {
+    cursor: col-resize !important;
+    user-select: none;
 }
 
 .panel-title {
