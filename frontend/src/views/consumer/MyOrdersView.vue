@@ -49,6 +49,36 @@ const filteredReservations = computed(function () {
   })
 })
 
+const orderGroups = computed(function () {
+  const groups = []
+  const bundleGroups = {}
+
+  for (const reservation of filteredReservations.value) {
+    if (!reservation.bundle_group_id) {
+      groups.push({
+        key: reservation._id,
+        isBundle: false,
+        items: [reservation]
+      })
+      continue
+    }
+
+    if (!bundleGroups[reservation.bundle_group_id]) {
+      const group = {
+        key: reservation.bundle_group_id,
+        isBundle: true,
+        items: []
+      }
+      bundleGroups[reservation.bundle_group_id] = group
+      groups.push(group)
+    }
+
+    bundleGroups[reservation.bundle_group_id].items.push(reservation)
+  }
+
+  return groups
+})
+
 const statusTabs = [
   { value: 'ALL', label: 'All' },
   { value: 'RESERVED', label: 'Reserved' },
@@ -354,22 +384,8 @@ function totalPrice(reservation) {
   )
 }
 
-function bundleItems(reservation) {
-  if (!reservation.bundle_group_id) return []
-
-  return reservations.value.filter(function (item) {
-    return item.bundle_group_id === reservation.bundle_group_id
-  })
-}
-
-function bundlePosition(reservation) {
-  return bundleItems(reservation).findIndex(function (item) {
-    return item._id === reservation._id
-  }) + 1
-}
-
-function bundleTotal(reservation) {
-  const total = bundleItems(reservation).reduce(function (sum, item) {
+function bundleTotal(items) {
+  const total = items.reduce(function (sum, item) {
     return sum + item.listing_snapshot.rescue_unit_price_sgd * item.quantity
   }, 0)
 
@@ -458,27 +474,29 @@ onUnmounted(closeCollectionCode)
       </div>
 
       <TransitionGroup tag="div" name="stag" appear v-else class="orders-list">
-        <article
-          v-for="(reservation, index) in filteredReservations"
-          :key="reservation._id" :style="{ '--i': index }"
-          class="order-row d-flex flex-wrap gap-4"
-          :class="{ 'bundle-order': reservation.bundle_group_id }"
+        <section
+          v-for="(group, groupIndex) in orderGroups"
+          :key="group.key"
+          :style="{ '--i': groupIndex }"
+          :class="{ 'bundle-order': group.isBundle }"
         >
-          <div v-if="reservation.bundle_group_id" class="bundle-banner">
+          <div v-if="group.isBundle" class="bundle-banner">
             <div>
               <p class="rb-label bundle-label">Bundle order</p>
-              <p class="bundle-copy">
-                Item {{ bundlePosition(reservation) }} of {{ bundleItems(reservation).length }}
-                · 10% discount applied
-              </p>
+              <p class="bundle-copy">{{ group.items.length }} items · 10% discount applied</p>
             </div>
             <div class="bundle-total">
               <span class="rb-label">Bundle total</span>
-              <strong>{{ bundleTotal(reservation) }}</strong>
+              <strong>{{ bundleTotal(group.items) }}</strong>
             </div>
           </div>
 
-          <div class="rb-tile order-thumb" :class="tileClass(reservation, index)" :style="tileStyle(reservation)">
+          <article
+            v-for="(reservation, itemIndex) in group.items"
+            :key="reservation._id"
+            class="order-row d-flex flex-wrap gap-4"
+          >
+          <div class="rb-tile order-thumb" :class="tileClass(reservation, groupIndex + itemIndex)" :style="tileStyle(reservation)">
             <img
               v-if="reservation.thumbnail_url && !failedImages[reservation._id]"
               :src="reservation.thumbnail_url"
@@ -590,6 +608,7 @@ onUnmounted(closeCollectionCode)
             </template>
           </div>
         </article>
+        </section>
       </TransitionGroup>
     </section>
 
@@ -793,10 +812,15 @@ onUnmounted(closeCollectionCode)
 
 .bundle-order {
   margin: 16px 0;
-  padding: 0 24px 24px;
+  padding: 0 24px;
+  overflow: hidden;
   border: 2px solid #f4b30c;
   border-radius: 28px;
   background-color: #fffaf0;
+}
+
+.bundle-order .order-row:last-child {
+  border-bottom: 0;
 }
 
 .bundle-banner {
