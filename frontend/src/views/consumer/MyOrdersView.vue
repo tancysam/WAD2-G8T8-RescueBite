@@ -376,7 +376,6 @@ onUnmounted(closeCollectionCode)
           <p class="rb-script rb-kicker fs-3">your rescues</p>
           <DisplayHeading :size="160">My orders</DisplayHeading>
         </div>
-        <p class="rb-label intro mb-0">Upcoming pickups and your collection history.</p>
       </div>
     </section>
 

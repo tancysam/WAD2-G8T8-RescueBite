@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;700&family=DM+Mono:wght@400;500&family=Kaushan+Script&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;700&family=Kaushan+Script&display=swap');
 
 :root {
   font-family: 'Archivo', system-ui, sans-serif;
@@ -67,7 +67,7 @@ h3 {
 .rb-label {
   margin: 0;
   color: #5f5330;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 13px;
   line-height: 20px;
   letter-spacing: .06em;
@@ -75,7 +75,7 @@ h3 {
 }
 
 .rb-mono {
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
 }
 
 
@@ -188,7 +188,7 @@ h3 {
   border-radius: 140px;
   color: #5f5330;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 12px;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -234,7 +234,7 @@ h3 {
   border-radius: 140px;
   color: #191200;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 13px;
   text-transform: uppercase;
   cursor: pointer;
@@ -282,7 +282,7 @@ h3 {
   border-radius: 50%;
   color: #000;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 20px;
   line-height: 1;
 }
@@ -334,7 +334,7 @@ h3 {
   z-index: 1;
   padding: 8px 14px;
   border-radius: 140px;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 12px;
   line-height: 12px;
   letter-spacing: .06em;

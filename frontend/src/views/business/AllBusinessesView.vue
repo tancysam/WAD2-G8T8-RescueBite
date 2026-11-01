@@ -98,11 +98,7 @@ watch(
         <div>
           <p class="rb-script rb-kicker fs-3">who’s rescuing</p>
           <DisplayHeading :size="144">Businesses</DisplayHeading>
-          <p class="rb-label mt-2">Food businesses rescuing surplus food near you.</p>
         </div>
-        <p v-if="!loading && !errorMessage" class="rb-label mb-0">
-          {{ filteredBusinesses.length }} {{ filteredBusinesses.length === 1 ? 'business' : 'businesses' }}
-        </p>
       </div>
 
       <div class="filter-bar">

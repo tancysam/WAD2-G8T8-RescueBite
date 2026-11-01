@@ -393,6 +393,13 @@ onMounted(getListingDetails)
     </section>
 
     <div v-else-if="listing">
+      <RouterLink
+        v-if="business"
+        :to="{ name: 'business-profile', params: { businessId: business._id } }"
+        class="rb-label back-link"
+      >
+        ← Back to {{ business.name }}
+      </RouterLink>
       <nav class="rb-label breadcrumbs" aria-label="Breadcrumb">
         <RouterLink to="/businesses">Businesses</RouterLink>
         <span aria-hidden="true">/</span>
@@ -435,7 +442,6 @@ onMounted(getListingDetails)
                 <span class="rb-mono">× {{ item.quantity }}</span>
               </li>
             </ul>
-            <p class="rb-label small-note">Contents can vary with what’s left at closing.</p>
           </section>
         </section>
 
@@ -448,7 +454,7 @@ onMounted(getListingDetails)
               <span v-if="savingsPercentage !== null" class="save-tag">Save {{ savingsPercentage }}%</span>
             </div>
             <p class="rb-label availability">
-              <span class="dot rb-live" aria-hidden="true"></span>{{ listing.quantity_available }} available
+              {{ listing.quantity_available }} available
             </p>
 
             <template v-if="isConsumer && listing.quantity_available > 0">
@@ -599,12 +605,6 @@ onMounted(getListingDetails)
             <p v-if="business.pickup_instructions" class="pickup-instructions">
               {{ business.pickup_instructions }}
             </p>
-            <RouterLink
-              :to="{ name: 'business-profile', params: { businessId: business._id } }"
-              class="rb-label back-link"
-            >
-              ← Back to {{ business.name }}
-            </RouterLink>
           </section>
         </aside>
       </div>
@@ -733,7 +733,11 @@ onMounted(getListingDetails)
 
 .business-line {
   margin-top: 32px;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  color: #191200;
 }
 
 .listing-title {
@@ -788,6 +792,7 @@ onMounted(getListingDetails)
 }
 
 .price-card {
+  position: relative;
   color: #000;
   background-color: #f4b30c;
 }
@@ -811,24 +816,29 @@ onMounted(getListingDetails)
   border-radius: 140px;
   color: #f4b30c;
   background-color: #000;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 13px;
   line-height: 13px;
   text-transform: uppercase;
 }
 
 .availability {
+  position: absolute;
+  top: 24px;
+  right: 24px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 24px;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 140px;
+  background-color: #000;
+  font-size: 13px;
+  line-height: 13px;
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #000;
+.price-card .availability {
+  color: #f4b30c;
 }
 
 .quantity-row {
@@ -845,7 +855,7 @@ onMounted(getListingDetails)
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 22px;
   line-height: 1;
 }
@@ -939,7 +949,7 @@ onMounted(getListingDetails)
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-top: 24px;
+  margin-bottom: 8px;
   color: #191200;
 }
 
@@ -968,7 +978,7 @@ onMounted(getListingDetails)
 
 .bundle-count {
   margin-top: 12px;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   text-transform: uppercase;
 }
 
@@ -1051,14 +1061,14 @@ onMounted(getListingDetails)
 .bundle-business {
   padding-right: 30px;
   color: #6a4a00;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .bundle-time {
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 12px;
 }
 

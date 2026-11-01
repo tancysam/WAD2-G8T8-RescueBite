@@ -89,7 +89,6 @@ onMounted(getFavourites)
     <section class="container-xxl px-4 pt-5">
       <p class="rb-script rb-kicker fs-3">saved for later</p>
       <DisplayHeading :size="144">My favourites</DisplayHeading>
-      <p class="rb-label mt-2">Your saved businesses and food listings.</p>
     </section>
 
     <section class="container-xxl px-4 pt-5 pb-5">

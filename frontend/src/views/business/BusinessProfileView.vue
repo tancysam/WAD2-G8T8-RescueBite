@@ -402,7 +402,6 @@ onUnmounted(() => {
           <section class="col-lg-8" aria-labelledby="available-listings-heading">
             <div class="section-head">
               <div>
-                <p class="rb-label mb-1">Available to rescue</p>
                 <h2 id="available-listings-heading" class="rb-display display-6 mb-0">Listings</h2>
               </div>
               <div class="d-flex flex-wrap align-items-center gap-3">
