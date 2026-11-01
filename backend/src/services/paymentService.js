@@ -152,7 +152,6 @@ export async function ensureCheckout(reservation, stripe = getStripe()) {
     try {
       session = await stripe.checkout.sessions.create({
         mode: "payment",
-        payment_method_types: ["card"],
         adaptive_pricing: { enabled: false },
         client_reference_id: id,
         metadata: { reservationId: id },
