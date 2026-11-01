@@ -354,6 +354,28 @@ function totalPrice(reservation) {
   )
 }
 
+function bundleItems(reservation) {
+  if (!reservation.bundle_group_id) return []
+
+  return reservations.value.filter(function (item) {
+    return item.bundle_group_id === reservation.bundle_group_id
+  })
+}
+
+function bundlePosition(reservation) {
+  return bundleItems(reservation).findIndex(function (item) {
+    return item._id === reservation._id
+  }) + 1
+}
+
+function bundleTotal(reservation) {
+  const total = bundleItems(reservation).reduce(function (sum, item) {
+    return sum + item.listing_snapshot.rescue_unit_price_sgd * item.quantity
+  }, 0)
+
+  return formatPrice(total)
+}
+
 function pickupCoordinates(reservation) {
   const coordinates = reservation.pickup_coordinates
   if (!Array.isArray(coordinates) || coordinates.length !== 2) return ''
@@ -440,7 +462,22 @@ onUnmounted(closeCollectionCode)
           v-for="(reservation, index) in filteredReservations"
           :key="reservation._id" :style="{ '--i': index }"
           class="order-row d-flex flex-wrap gap-4"
+          :class="{ 'bundle-order': reservation.bundle_group_id }"
         >
+          <div v-if="reservation.bundle_group_id" class="bundle-banner">
+            <div>
+              <p class="rb-label bundle-label">Bundle order</p>
+              <p class="bundle-copy">
+                Item {{ bundlePosition(reservation) }} of {{ bundleItems(reservation).length }}
+                · 10% discount applied
+              </p>
+            </div>
+            <div class="bundle-total">
+              <span class="rb-label">Bundle total</span>
+              <strong>{{ bundleTotal(reservation) }}</strong>
+            </div>
+          </div>
+
           <div class="rb-tile order-thumb" :class="tileClass(reservation, index)" :style="tileStyle(reservation)">
             <img
               v-if="reservation.thumbnail_url && !failedImages[reservation._id]"
@@ -460,7 +497,7 @@ onUnmounted(closeCollectionCode)
               </div>
               <div class="d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
-                <span v-if="reservation.bundle_group_id" class="rb-status paid">10% bundle</span>
+                <span v-if="reservation.bundle_group_id" class="rb-status bundle-badge">Part of bundle</span>
                 <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
               </div>
             </div>
@@ -752,6 +789,53 @@ onUnmounted(closeCollectionCode)
 .order-row {
   padding: 24px 0;
   border-bottom: 1px solid #ddd9c5;
+}
+
+.bundle-order {
+  margin: 16px 0;
+  padding: 0 24px 24px;
+  border: 2px solid #f4b30c;
+  border-radius: 28px;
+  background-color: #fffaf0;
+}
+
+.bundle-banner {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 -24px;
+  padding: 16px 24px;
+  border-radius: 25px 25px 0 0;
+  color: #000;
+  background-color: #f4b30c;
+}
+
+.bundle-label,
+.bundle-copy {
+  margin: 0;
+}
+
+.bundle-copy {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.bundle-total {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.bundle-total strong {
+  font-size: 22px;
+}
+
+.bundle-badge {
+  color: #f4b30c;
+  background-color: #000;
 }
 
 .order-thumb {
