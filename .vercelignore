@@ -1,0 +1,13 @@
+.env
+.env.*
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+.git
+.agents
+.claude
+.codex
+AGENTS.md
+**/*.test.js
+backend/scripts/
