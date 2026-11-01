@@ -513,7 +513,7 @@ onUnmounted(closeCollectionCode)
                 <p class="rb-label">{{ reservation.listing_snapshot.business_name }}</p>
                 <h2 class="rb-display display-6 order-title">{{ reservation.listing_snapshot.title }}</h2>
               </div>
-              <div class="d-flex flex-wrap gap-2">
+              <div class="order-statuses d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
                 <span v-if="reservation.bundle_group_id" class="rb-status bundle-badge">Part of bundle</span>
                 <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
@@ -886,6 +886,11 @@ onUnmounted(closeCollectionCode)
 .order-title {
   margin: 6px 0 0;
   line-height: 1.05;
+}
+
+.order-statuses {
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .order-facts {
