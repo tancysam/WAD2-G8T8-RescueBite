@@ -78,7 +78,6 @@ function statusClass(status) {
   return 'rb-status ' + status.toLowerCase()
 }
 
-// Newest reservation first (insert each item at the right position)
 function newestFirst(list) {
   const sorted = []
 
@@ -198,7 +197,6 @@ async function confirmCollection() {
   await loadOrders()
 }
 
-// Load the reservations of the business that is currently chosen
 async function loadReservations() {
   const token = await getToken.value()
   const response = await axios.get(
@@ -209,7 +207,6 @@ async function loadReservations() {
   reservations.value = response.data.reservations
 }
 
-// When the owner picks another business from the dropdown
 async function changeBusiness() {
   for (const item of businesses.value) {
     if (item._id === selectedBusinessId.value) {
@@ -232,7 +229,6 @@ async function changeBusiness() {
   }
 }
 
-// Find the owner's active businesses, then load the first one's reservations
 async function loadOrders() {
   loading.value = true
   errorMessage.value = ''
@@ -295,44 +291,46 @@ onUnmounted(closeScanner)
         <div v-show="!verifying && !collectedOrder && !verificationError" id="collection-scanner" class="scanner-frame"></div>
       </div>
 
-      <div v-if="collectedOrder || verificationError" class="rb-backdrop">
-        <section class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="verification-title">
-          <template v-if="collectedOrder">
-            <p class="rb-script rb-kicker fs-3">collected!</p>
-            <h2 id="verification-title" class="rb-display display-6 mb-3">Review collection details</h2>
-            <section v-if="collectedOrder.listingName" class="detail-panel mb-4" aria-label="Collection summary">
-              <div class="row g-3">
-                <div class="col-4">
-                  <p class="rb-label mb-1">Customer</p>
-                  <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
+      <Transition name="pop">
+        <div v-if="collectedOrder || verificationError" class="rb-backdrop">
+          <section class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="verification-title">
+            <template v-if="collectedOrder">
+              <p class="rb-script rb-kicker fs-3">collected!</p>
+              <h2 id="verification-title" class="rb-display display-6 mb-3">Review collection details</h2>
+              <section v-if="collectedOrder.listingName" class="detail-panel mb-4" aria-label="Collection summary">
+                <div class="row g-3">
+                  <div class="col-4">
+                    <p class="rb-label mb-1">Customer</p>
+                    <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
+                  </div>
+                  <div class="col-4">
+                    <p class="rb-label mb-1">Quantity</p>
+                    <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
+                  </div>
+                  <div class="col-4">
+                    <p class="rb-label mb-1">Total</p>
+                    <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
+                  </div>
+                  <div class="col-12">
+                    <p class="rb-label mb-1">Listing</p>
+                    <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
+                  </div>
+                  <div class="col-12">
+                    <p class="rb-label mb-1">Collected at</p>
+                    <p class="fw-semibold mb-0">{{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
+                  </div>
                 </div>
-                <div class="col-4">
-                  <p class="rb-label mb-1">Quantity</p>
-                  <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
-                </div>
-                <div class="col-4">
-                  <p class="rb-label mb-1">Total</p>
-                  <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
-                </div>
-                <div class="col-12">
-                  <p class="rb-label mb-1">Listing</p>
-                  <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
-                </div>
-                <div class="col-12">
-                  <p class="rb-label mb-1">Collected at</p>
-                  <p class="fw-semibold mb-0">{{ formatDate(collectedOrder.collectedAt) }}, {{ formatTime(collectedOrder.collectedAt) }}</p>
-                </div>
-              </div>
-            </section>
-            <p v-else>{{ collectedOrder.message }}</p>
-            <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="confirmCollection">Confirm</button>
-          </template>
-          <template v-else>
-            <h2 id="verification-title" class="rb-display display-6 mb-4" role="alert">{{ verificationError }}</h2>
-            <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="openScanner">Try again</button>
-          </template>
-        </section>
-      </div>
+              </section>
+              <p v-else>{{ collectedOrder.message }}</p>
+              <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="confirmCollection">Confirm</button>
+            </template>
+            <template v-else>
+              <h2 id="verification-title" class="rb-display display-6 mb-4" role="alert">{{ verificationError }}</h2>
+              <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="openScanner">Try again</button>
+            </template>
+          </section>
+        </div>
+      </Transition>
     </section>
 
     <template v-else>
@@ -365,22 +363,18 @@ onUnmounted(closeScanner)
       </section>
 
       <section class="container-xxl px-4 pt-5 pb-5">
-        <!-- Loading -->
         <p v-if="loading" class="rb-label">Loading your orders…</p>
 
-        <!-- Error -->
         <p v-else-if="errorMessage" class="rb-note error" role="alert">
           {{ errorMessage }}
         </p>
 
-        <!-- No active business -->
         <div v-else-if="business === null" class="rb-note">
           <span>You do not have an active business yet.</span>
           <RouterLink to="/register-business" class="rb-pill rb-pill-dark rb-pill-sm">Register a business</RouterLink>
         </div>
 
         <template v-else>
-          <!-- Status filters -->
           <div class="rb-chip-row" role="group" aria-label="Filter by status">
             <button
               v-for="tab in tabs"
@@ -400,7 +394,6 @@ onUnmounted(closeScanner)
             <p class="mb-0">No reservations in this tab.</p>
           </div>
 
-          <!-- Table on tablets and desktops -->
           <div v-else class="d-none d-md-block mt-4">
             <div class="table-responsive">
               <table class="orders-table">
@@ -433,7 +426,6 @@ onUnmounted(closeScanner)
             </div>
           </div>
 
-          <!-- Cards on phones -->
           <div v-if="visibleReservations.length > 0" class="d-md-none mt-2">
             <article
               v-for="reservation in visibleReservations"

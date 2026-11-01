@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import DisplayHeading from '@/components/DisplayHeading.vue'
+import CountUp from '@/components/CountUp.vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { API_URL } from '@/config'
@@ -24,7 +25,6 @@ function formatMoney(amount) {
   return 'S$' + amount.toFixed(2)
 }
 
-// Stat cards shown on the dashboard
 const stats = computed(() => {
   if (impact.value === null) {
     return []
@@ -34,27 +34,30 @@ const stats = computed(() => {
     {
       label: 'Meals rescued',
       value: String(impact.value.mealsRescued),
+      number: Number(impact.value.mealsRescued), decimals: 0, prefix: '', suffix: '',
       note: 'Items collected by customers (1 item = 1 meal)'
     },
     {
       label: 'Food saved',
       value: impact.value.estimatedKgSaved + ' kg',
+      number: Number(impact.value.estimatedKgSaved), decimals: 0, prefix: '', suffix: ' kg',
       note: 'Estimated at 0.5 kg per item'
     },
     {
       label: 'Revenue recovered',
       value: formatMoney(impact.value.revenueSgd),
+      number: Number(impact.value.revenueSgd), decimals: 2, prefix: 'S$', suffix: '',
       note: 'Earned from food that would have been wasted'
     },
     {
       label: 'Customer savings',
       value: formatMoney(impact.value.customerSavingsSgd),
+      number: Number(impact.value.customerSavingsSgd), decimals: 2, prefix: 'S$', suffix: '',
       note: 'Original price minus rescue price'
     }
   ]
 })
 
-// Items collected in each of the last 8 weeks, oldest first
 const weeklyBars = computed(() => {
   const counts = [0, 0, 0, 0, 0, 0, 0, 0]
   const now = Number(new Date())
@@ -94,7 +97,6 @@ const chartTotal = computed(() => {
   return total
 })
 
-// Reserved orders whose collection window starts today, earliest first
 const todaysPickups = computed(() => {
   const pickups = []
   for (const reservation of reservations.value) {
@@ -112,7 +114,6 @@ const todaysPickups = computed(() => {
   return pickups
 })
 
-// Active listings with how many units have been reserved or collected
 const liveListings = computed(() => {
   const rows = []
   for (const listing of managedListings.value) {
@@ -147,7 +148,6 @@ const hasCollected = computed(() => {
   return impact.value !== null && impact.value.reservationsCollected > 0
 })
 
-// Load the impact of the business that is currently chosen
 async function loadImpact() {
   const token = await getToken.value()
   const impactResponse = await axios.get(
@@ -171,7 +171,6 @@ async function loadImpact() {
   managedListings.value = listingsResponse.data.listings
 }
 
-// When the owner picks another business from the dropdown
 async function changeBusiness() {
   for (const item of businesses.value) {
     if (item._id === selectedBusinessId.value) {
@@ -196,7 +195,6 @@ async function changeBusiness() {
   }
 }
 
-// Find the owner's active businesses, then load the first one's impact
 async function loadDashboard() {
   loading.value = true
   errorMessage.value = ''
@@ -269,15 +267,12 @@ onMounted(loadDashboard)
     </section>
 
     <section class="container-xxl px-4 pt-5 pb-5">
-      <!-- Loading -->
       <p v-if="loading" class="rb-label">Loading your impact…</p>
 
-      <!-- Error -->
       <p v-else-if="errorMessage" class="rb-note error" role="alert">
         {{ errorMessage }}
       </p>
 
-      <!-- No active business -->
       <div v-else-if="business === null" class="rb-note">
         <span>You do not have an active business yet.</span>
         <RouterLink to="/register-business" class="rb-pill rb-pill-dark rb-pill-sm">
@@ -285,21 +280,28 @@ onMounted(loadDashboard)
         </RouterLink>
       </div>
 
-      <!-- Impact -->
       <template v-else>
-        <div class="row g-3">
+        <TransitionGroup tag="div" name="stag" appear class="row g-3">
           <div
             v-for="(stat, index) in stats"
-            :key="stat.label"
+            :key="stat.label" :style="{ '--i': index }"
             class="col-12 col-sm-6 col-xl-3"
           >
             <div class="kpi p-4 h-100" :class="{ first: index === 0 }">
               <p class="rb-label kpi-label">{{ stat.label }}</p>
-              <p class="rb-display display-3 kpi-value">{{ stat.value }}</p>
+              <p class="rb-display display-3 kpi-value">
+                <CountUp
+                  :key="business._id + stat.label + stat.number"
+                  :value="stat.number"
+                  :decimals="stat.decimals"
+                  :prefix="stat.prefix"
+                  :suffix="stat.suffix"
+                />
+              </p>
               <p class="kpi-note">{{ stat.note }}</p>
             </div>
           </div>
-        </div>
+        </TransitionGroup>
 
         <div class="row g-4 mt-2">
           <div class="col-lg-7">
@@ -314,7 +316,7 @@ onMounted(loadDashboard)
 
               <div class="chart">
                 <button
-                  v-for="bar in weeklyBars"
+                  v-for="(bar, index) in weeklyBars"
                   :key="bar.label"
                   type="button"
                   class="chart-column"
@@ -325,7 +327,7 @@ onMounted(loadDashboard)
                   @blur="chartReadout = ''"
                 >
                   <span class="bar-value rb-mono">{{ bar.value }}</span>
-                  <span class="bar" :class="{ current: bar.label === 'Now' }" :style="{ height: bar.height + '%' }"></span>
+                  <span class="bar" :class="{ current: bar.label === 'Now' }" :style="{ height: bar.height + '%', animationDelay: (0.3 + index * 0.07) + 's' }"></span>
                   <span class="bar-label rb-mono">{{ bar.label }}</span>
                 </button>
               </div>
@@ -338,13 +340,13 @@ onMounted(loadDashboard)
                 <h2 class="rb-display display-6 panel-title">Today’s pickups</h2>
                 <span class="rb-label muted-light">{{ todaysPickups.length }} upcoming</span>
               </div>
-              <ul class="pickup-list">
-                <li v-for="pickup in todaysPickups" :key="pickup._id">
+              <TransitionGroup tag="ul" name="stag" appear class="pickup-list">
+                <li v-for="(pickup, index) in todaysPickups" :key="pickup._id" :style="{ '--i': index }">
                   <span class="rb-display pickup-time">{{ shortTime(pickup.listing_snapshot.collection_start_at) }}</span>
                   <span class="pickup-item">{{ pickup.listing_snapshot.title }} × {{ pickup.quantity }}</span>
                 </li>
                 <li v-if="todaysPickups.length === 0" class="muted-light">No pickups scheduled for today.</li>
-              </ul>
+              </TransitionGroup>
               <RouterLink to="/business-orders" class="rb-pill rb-pill-yolk w-100 mt-auto">
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg>
                 Scan collection QR
@@ -353,7 +355,7 @@ onMounted(loadDashboard)
           </div>
         </div>
 
-        <div class="panel p-4 p-md-5 mt-4">
+        <div v-reveal class="panel p-4 p-md-5 mt-4">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <h2 class="rb-display display-6 panel-title">Live listings</h2>
             <RouterLink to="/business-listings" class="rb-pill rb-pill-line">Manage listings</RouterLink>
@@ -400,7 +402,7 @@ onMounted(loadDashboard)
           </div>
         </div>
 
-        <div class="collected-banner p-4 p-md-5 d-flex flex-wrap align-items-center justify-content-between gap-4 mt-4">
+        <div v-reveal class="collected-banner p-4 p-md-5 d-flex flex-wrap align-items-center justify-content-between gap-4 mt-4">
           <p v-if="hasCollected" class="rb-display display-5 banner-copy">
             Customers have collected {{ impact.reservationsCollected }} reservations. Every one kept good food out of the bin.
           </p>
@@ -431,7 +433,6 @@ onMounted(loadDashboard)
   background-color: #ff7a7a;
 }
 
-/* KPI tiles */
 .kpi {
   display: flex;
   flex-direction: column;
@@ -483,7 +484,6 @@ onMounted(loadDashboard)
   text-align: right;
 }
 
-/* Weekly bar chart */
 .chart {
   display: flex;
   gap: 2px;
@@ -512,6 +512,8 @@ onMounted(loadDashboard)
 
 .bar {
   display: block;
+  transform-origin: bottom;
+  animation: rb-growy .9s cubic-bezier(.16, 1, .3, 1) backwards;
   width: 70%;
   min-height: 2px;
   background-color: #191200;
@@ -532,7 +534,6 @@ onMounted(loadDashboard)
   text-transform: uppercase;
 }
 
-/* Shell-dark pickups panel */
 .pickups {
   color: #fbf9f1;
   background-color: #1a1200;
@@ -571,7 +572,6 @@ onMounted(loadDashboard)
   line-height: 22px;
 }
 
-/* Live listings table */
 .live-table {
   width: 100%;
   min-width: 760px;

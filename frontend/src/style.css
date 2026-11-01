@@ -1,11 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;700&family=DM+Mono:wght@400;500&family=Kaushan+Script&display=swap');
 
-/*
-  RescueBite theme (BEGG design system)
-  cream #fbf9f1 · raised #f6f4ed · parchment #e8e6d7 · sand #ddd9c5 · khaki #bbb283
-  ink #191200 · ink-muted #5f5330 · yolk #f4b30c · yolk-text #8a6200 · shell dark #1a1200
-*/
-
 :root {
   font-family: 'Archivo', system-ui, sans-serif;
   color: #191200;
@@ -52,7 +46,6 @@ h3 {
   height: auto;
 }
 
-/* ---- Type ---- */
 
 .rb-display {
   margin: 0;
@@ -85,7 +78,6 @@ h3 {
   font-family: 'DM Mono', ui-monospace, monospace;
 }
 
-/* ---- Pill buttons ---- */
 
 .rb-pill {
   display: inline-flex;
@@ -96,10 +88,11 @@ h3 {
   padding: 0 30px;
   border: 2px solid #000;
   border-radius: 140px;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 15px;
+  font-weight: 500;
   line-height: 15px;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
   text-decoration: none;
   text-transform: uppercase;
   cursor: pointer;
@@ -161,7 +154,6 @@ h3 {
   border-color: #ddd9c5;
 }
 
-/* Filter chips: outlined in yolk, filled black when chosen */
 .rb-chip {
   min-height: 44px;
   padding: 0 22px;
@@ -169,9 +161,10 @@ h3 {
   border-radius: 140px;
   color: #191200;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 13px;
-  letter-spacing: .04em;
+  font-weight: 500;
+  letter-spacing: .06em;
   text-transform: uppercase;
   transition: background-color .25s, color .25s;
 }
@@ -186,7 +179,6 @@ h3 {
   border-color: #000;
 }
 
-/* Status tags */
 .rb-status {
   display: inline-flex;
   align-items: center;
@@ -222,7 +214,6 @@ h3 {
   border-color: #bbb283;
 }
 
-/* ---- Form fields ---- */
 
 .rb-field {
   width: 100%;
@@ -257,7 +248,6 @@ h3 {
   outline-offset: 3px;
 }
 
-/* ---- Modals ---- */
 
 .rb-backdrop {
   position: fixed;
@@ -297,7 +287,6 @@ h3 {
   line-height: 1;
 }
 
-/* Typographic tile shown in place of a missing food photo */
 .rb-tile {
   position: relative;
   display: flex;
@@ -307,7 +296,6 @@ h3 {
   background-color: #f4b30c;
 }
 
-/* A listing photo is set as the tile background through a style binding */
 .rb-tile.photo {
   background-color: #e8e6d7;
   background-position: center;
@@ -365,7 +353,6 @@ h3 {
   background-color: #fbf9f1;
 }
 
-/* ---- Notices and empty states ---- */
 
 .rb-note {
   display: flex;
@@ -392,13 +379,11 @@ h3 {
   text-align: center;
 }
 
-/* Handwritten line that sits on its own above a heading, never inside it */
 .rb-kicker {
   margin: 0 0 6px;
   line-height: 1.2;
 }
 
-/* Underlined row of filter chips above a list */
 .rb-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -407,7 +392,6 @@ h3 {
   border-bottom: 2px solid #000;
 }
 
-/* ---- Bootstrap cards in the RescueBite theme ---- */
 
 .card.rb-card {
   min-width: 0;
@@ -446,7 +430,6 @@ h3 {
   background-color: transparent;
 }
 
-/* Pickup time line used on cards */
 .rb-pickup {
   display: flex;
   align-items: flex-start;

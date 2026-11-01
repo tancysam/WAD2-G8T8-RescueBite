@@ -27,15 +27,24 @@ const reserving = ref(false)
 const reservationError = ref('')
 const reservationSuccess = ref(false)
 const reservedQuantity = ref(0)
-// Stripe Checkout: the backend returns a link to Stripe's payment page for paid listings
 const checkoutUrl = ref('')
 const amountDue = ref('')
-// Reused when retrying after a network error so the backend does not book twice
 const checkoutRequestId = ref('')
 const canRetryReservation = ref(false)
 const bundleOptions = ref([])
 const selectedBundleId = ref('')
 const bundleSuccess = ref(false)
+
+const confetti = [
+  { dx: 72, dy: -44, colour: '#f4b30c' },
+  { dx: -64, dy: -52, colour: '#000' },
+  { dx: 84, dy: 28, colour: '#000' },
+  { dx: -76, dy: 40, colour: '#f4b30c' },
+  { dx: 8, dy: -86, colour: '#f4b30c' },
+  { dx: -6, dy: 82, colour: '#bbb283' },
+  { dx: 52, dy: 72, colour: '#f4b30c' },
+  { dx: -44, dy: -84, colour: '#bbb283' }
+]
 
 const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
@@ -57,7 +66,6 @@ const tileStyle = computed(() => {
   return { backgroundImage: 'url("' + photoUrl.value + '")' }
 })
 
-// The first word of the title stands in for a photo
 const tileWord = computed(() => {
   if (!listing.value) return ''
   return listing.value.title.trim().split(' ')[0]
@@ -269,7 +277,6 @@ async function reserveBundle() {
   }
 }
 
-// Reserve the chosen quantity, then show the result in a dialog
 async function openReserveModal() {
   reservationError.value = ''
   reservationSuccess.value = false
@@ -281,7 +288,6 @@ async function openReserveModal() {
   await reserveListing()
 }
 
-// Try again with the same retry key, so a reservation that did go through is not made twice
 async function retryReservation() {
   reservationError.value = ''
   await reserveListing()
@@ -309,7 +315,6 @@ async function reserveListing() {
       { headers: await getHeaders() }
     )
 
-    // Paid listings come back with a Stripe checkout link to finish payment
     checkoutUrl.value = response.data.checkoutUrl || ''
     amountDue.value = paymentAmount(response.data.reservation)
 
@@ -321,7 +326,6 @@ async function reserveListing() {
     reservationError.value =
       (error.response && error.response.data && error.response.data.error) ||
       'Unable to reserve this listing. Please try again.'
-    // Only a lost connection or a busy server is worth retrying with the same key
     canRetryReservation.value = !error.response || error.response.status === 503
   } finally {
     reserving.value = false
@@ -444,7 +448,7 @@ onMounted(getListingDetails)
               <span v-if="savingsPercentage !== null" class="save-tag">Save {{ savingsPercentage }}%</span>
             </div>
             <p class="rb-label availability">
-              <span class="dot" aria-hidden="true"></span>{{ listing.quantity_available }} available
+              <span class="dot rb-live" aria-hidden="true"></span>{{ listing.quantity_available }} available
             </p>
 
             <template v-if="isConsumer && listing.quantity_available > 0">
@@ -452,13 +456,13 @@ onMounted(getListingDetails)
                 <span id="qty-label" class="rb-label price-label">Quantity</span>
                 <div class="d-flex align-items-center gap-3" role="group" aria-labelledby="qty-label">
                   <button type="button" class="step step-line" aria-label="Decrease quantity" @click="changeQuantity(-1)">−</button>
-                  <output class="rb-display qty" aria-live="polite">{{ reserveQuantity }}</output>
+                  <output class="rb-display qty" aria-live="polite"><span :key="reserveQuantity" class="rb-bump">{{ reserveQuantity }}</span></output>
                   <button type="button" class="step step-dark" aria-label="Increase quantity" @click="changeQuantity(1)">+</button>
                 </div>
               </div>
               <div class="total-row rb-label price-label">
                 <span>Total</span>
-                <span class="rb-display total">{{ totalPrice }}</span>
+                <span :key="totalPrice" class="rb-display total rb-bump">{{ totalPrice }}</span>
               </div>
             </template>
 
@@ -554,7 +558,7 @@ onMounted(getListingDetails)
                 :aria-pressed="isFavourite"
                 @click="toggleFavourite"
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
+                <svg :key="'heart-' + isFavourite" class="rb-pop" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
                 {{ isFavourite ? 'Saved' : 'Save listing' }}
               </button>
             </div>
@@ -606,63 +610,68 @@ onMounted(getListingDetails)
       </div>
     </div>
 
-    <div v-if="showReserveModal" class="rb-backdrop" @click.self="closeReserveModal">
-      <div
-        class="rb-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reserve-title"
-        @keydown.esc="closeReserveModal"
-      >
-        <template v-if="reservationSuccess && bundleSuccess">
-          <p class="rb-script rb-kicker fs-3">bundle saved</p>
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Both items are held</h2>
-          <p class="done-copy" role="status">
-            The 10% discount has been applied to both listings. Pay for both orders in My Orders.
-            Each business will have its own pickup QR code.
-          </p>
-          <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark mt-3">
-            Go to My Orders
-          </RouterLink>
-        </template>
-        <template v-else-if="reservationSuccess && checkoutUrl">
-          <p class="rb-script rb-kicker fs-3">almost there</p>
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
-          <p class="done-copy" role="status">
-            {{ reservedQuantity }} × {{ listing.title }} is held for you for 30 minutes.
-            Pay {{ amountDue || 'the rescue price' }} on Stripe's secure checkout page to confirm it.
-          </p>
-          <div class="d-flex flex-wrap gap-3 mt-4">
-            <a :href="checkoutUrl" class="rb-pill rb-pill-dark">Pay {{ amountDue }} with Stripe</a>
-            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-line">Pay later</RouterLink>
-          </div>
-          <p class="pay-note">You can also finish payment from My Orders before the 30 minutes are up.</p>
-        </template>
-        <template v-else-if="reservationSuccess">
-          <p class="rb-script rb-kicker fs-3">nice one!</p>
-          <h2 id="reserve-title" class="rb-display display-2 done-title">Reserved.</h2>
-          <p class="done-copy" role="status">
-            {{ reservedQuantity }} × {{ listing.title }}{{ business ? ' from ' + business.name : '' }}.
-            Collect by {{ formatDate(listing.collection_end_at) }} and show your QR at the counter.
-          </p>
-          <div class="d-flex flex-wrap gap-3 mt-4">
-            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark">View my orders</RouterLink>
-            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
-          </div>
-        </template>
-        <template v-else-if="reserving">
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
-        </template>
-        <template v-else>
-          <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
-          <p class="reserve-error" role="alert">{{ reservationError }}</p>
-          <div class="d-flex flex-wrap gap-3 mt-3">
-            <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>
-            <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
-          </div>
-        </template>
+    <Transition name="pop">
+      <div v-if="showReserveModal" class="rb-backdrop" @click.self="closeReserveModal">
+        <div
+          class="rb-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reserve-title"
+          @keydown.esc="closeReserveModal"
+        >
+          <template v-if="reservationSuccess && bundleSuccess">
+            <p class="rb-script rb-kicker fs-3">bundle saved</p>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Both items are held</h2>
+            <p class="done-copy" role="status">
+              The 10% discount has been applied to both listings. Pay for both orders in My Orders.
+              Each business will have its own pickup QR code.
+            </p>
+            <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark mt-3">
+              Go to My Orders
+            </RouterLink>
+          </template>
+          <template v-else-if="reservationSuccess && checkoutUrl">
+            <p class="rb-script rb-kicker fs-3">almost there</p>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Pay to confirm</h2>
+            <p class="done-copy" role="status">
+              {{ reservedQuantity }} × {{ listing.title }} is held for you for 30 minutes.
+              Pay {{ amountDue || 'the rescue price' }} on Stripe's secure checkout page to confirm it.
+            </p>
+            <div class="d-flex flex-wrap gap-3 mt-4">
+              <a :href="checkoutUrl" class="rb-pill rb-pill-dark">Pay {{ amountDue }} with Stripe</a>
+              <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-line">Pay later</RouterLink>
+            </div>
+            <p class="pay-note">You can also finish payment from My Orders before the 30 minutes are up.</p>
+          </template>
+          <template v-else-if="reservationSuccess">
+            <div class="confetti" aria-hidden="true">
+                <span v-for="piece in confetti" :key="piece.dx + piece.dy" class="rb-burst" :style="{ '--dx': piece.dx + 'px', '--dy': piece.dy + 'px', background: piece.colour }"></span>
+              </div>
+              <p class="rb-script rb-kicker fs-3" style="animation: rb-stamp .7s cubic-bezier(.34,1.56,.64,1) .3s backwards, rb-sway 5s ease-in-out 1s infinite">nice one!</p>
+            <h2 id="reserve-title" class="rb-display display-2 done-title">Reserved.</h2>
+            <p class="done-copy" role="status">
+              {{ reservedQuantity }} × {{ listing.title }}{{ business ? ' from ' + business.name : '' }}.
+              Collect by {{ formatDate(listing.collection_end_at) }} and show your QR at the counter.
+            </p>
+            <div class="d-flex flex-wrap gap-3 mt-4">
+              <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark">View my orders</RouterLink>
+              <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
+            </div>
+          </template>
+          <template v-else-if="reserving">
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
+          </template>
+          <template v-else>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
+            <p class="reserve-error" role="alert">{{ reservationError }}</p>
+            <div class="d-flex flex-wrap gap-3 mt-3">
+              <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>
+              <button type="button" class="rb-pill rb-pill-line" autofocus @click="closeReserveModal">Close</button>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
+    </Transition>
   </main>
 </template>
 
@@ -686,6 +695,7 @@ onMounted(getListingDetails)
 
 .breadcrumbs a {
   text-decoration: none;
+  transition: color .25s;
 }
 
 .breadcrumbs a:hover {
@@ -777,7 +787,6 @@ onMounted(getListingDetails)
   font-size: 12px;
 }
 
-/* Yolk price card */
 .price-card {
   color: #000;
   background-color: #f4b30c;
@@ -1093,7 +1102,6 @@ onMounted(getListingDetails)
   text-align: center;
 }
 
-/* Reserved dialog */
 .done-title {
   margin-top: 4px;
   line-height: .95;
@@ -1103,6 +1111,14 @@ onMounted(getListingDetails)
   margin: 20px 0 0;
   font-size: 18px;
   line-height: 27px;
+}
+
+.confetti {
+  position: absolute;
+  top: 96px;
+  right: 88px;
+  width: 0;
+  height: 0;
 }
 
 .pay-note {
