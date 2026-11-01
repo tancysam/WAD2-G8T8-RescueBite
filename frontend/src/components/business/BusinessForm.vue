@@ -223,161 +223,99 @@ function submitForm() {
 </script>
 
 <template>
-  <div class="business-form-card">
+  <form class="row g-5 mt-0" @submit.prevent="submitForm">
+    <section class="col-lg-7 d-flex flex-column gap-5">
+      <!-- Business Details -->
+      <section>
+        <h2 class="rb-display display-6 section-title">The basics</h2>
 
-    <div class="business-form-header">
-      <h2>Business Information</h2>
-      <p>
-        {{ isEditing
-          ? 'Edit the details of your business.'
-          : 'Fill in the details of your business.' }}
-      </p>
-    </div>
+        <div class="d-flex flex-column gap-4">
+          <div class="field">
+            <label for="business-name" class="rb-label">Business name *</label>
+            <input
+              id="business-name"
+              v-model="business.name"
+              type="text"
+              placeholder="Enter business name"
+              required
+            />
+          </div>
 
-    <form
-      class="business-form-body"
-      @submit.prevent="submitForm"
-    >
-      <div class="row g-4">
+          <div class="field">
+            <label for="business-description" class="rb-label">Description</label>
+            <textarea
+              id="business-description"
+              v-model="business.description"
+              rows="4"
+              placeholder="Describe your business"
+            ></textarea>
+          </div>
 
-        <!-- Business Name -->
-        <div class="col-12">
-          <label for="business-name">
-            Business Name *
-          </label>
-
-          <input
-            id="business-name"
-            v-model="business.name"
-            type="text"
-            placeholder="Enter business name"
-            required
-          />
+          <div class="field">
+            <label for="business-phone" class="rb-label">Phone number</label>
+            <input
+              id="business-phone"
+              v-model="business.phone"
+              type="text"
+              placeholder="Enter phone number"
+            />
+          </div>
         </div>
+      </section>
 
-        <!-- Description -->
-        <div class="col-12">
-          <label for="business-description">
-            Description
-          </label>
+      <!-- Business Location -->
+      <section>
+        <h2 class="rb-display display-6 section-title">Where to find you</h2>
+        <p class="section-note">
+          {{ isEditing
+            ? 'Your existing location will be retained unless you select a new address.'
+            : 'Select your business address from Google Maps.' }}
+        </p>
 
-          <textarea
-            id="business-description"
-            v-model="business.description"
-            rows="4"
-            placeholder="Describe your business"
-          ></textarea>
+        <div class="d-flex flex-column gap-4">
+          <div class="field">
+            <span class="rb-label">
+              {{ isEditing ? 'Change business address' : 'Search business address *' }}
+            </span>
+
+            <p v-if="addressLoading" class="hint">Loading address search…</p>
+            <div ref="addressSearch" class="address-search"></div>
+
+            <p v-if="locationProcessing" class="hint">Retrieving location details…</p>
+            <p v-else-if="locationChanged" class="hint selected">New address selected.</p>
+            <p v-else-if="isEditing && business.address" class="hint">
+              Current address: {{ business.address }}
+            </p>
+
+            <p v-if="locationWarning" class="hint">{{ locationWarning }}</p>
+            <p v-if="locationError" class="rb-note error mt-2" role="alert">{{ locationError }}</p>
+          </div>
+
+          <!-- Manual Postal Code Fallback -->
+          <div v-if="showPostalInput" class="field">
+            <label for="postal-code" class="rb-label">Postal code *</label>
+            <input
+              id="postal-code"
+              v-model="business.postalCode"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="Enter 6-digit postal code"
+              required
+            />
+            <p class="hint">
+              Google Maps could not automatically determine the postal code for this location.
+            </p>
+          </div>
         </div>
+      </section>
 
-        <!-- Phone -->
-        <div class="col-12">
-          <label for="business-phone">
-            Phone Number
-          </label>
+      <!-- Collection Details -->
+      <section>
+        <h2 class="rb-display display-6 section-title">Collection</h2>
 
-          <input
-            id="business-phone"
-            v-model="business.phone"
-            type="text"
-            placeholder="Enter phone number"
-          />
-        </div>
-
-        <!-- Business Location -->
-        <div class="col-12">
-          <h3 class="section-title">
-            Business Location
-          </h3>
-
-          <p class="section-description">
-            {{ isEditing
-              ? 'Your existing location will be retained unless you select a new address.'
-              : 'Select your business address from Google Maps.' }}
-          </p>
-        </div>
-
-        <!-- Google Maps Address Search -->
-        <div class="col-12">
-          <label>
-            {{ isEditing
-              ? 'Change Business Address'
-              : 'Search Business Address *' }}
-          </label>
-
-          <p v-if="addressLoading" class="field-hint">
-            Loading address search...
-          </p>
-
-          <div
-            ref="addressSearch"
-            class="address-search"
-          ></div>
-
-          <p v-if="locationProcessing" class="field-hint">
-            Retrieving location details...
-          </p>
-
-          <p
-            v-else-if="locationChanged"
-            class="location-success"
-          >
-            New address selected successfully.
-          </p>
-
-          <p
-            v-else-if="isEditing && business.address"
-            class="field-hint"
-          >
-            Current address: {{ business.address }}
-          </p>
-
-          <p v-if="locationWarning" class="field-hint">
-            {{ locationWarning }}
-          </p>
-
-          <p v-if="locationError" class="location-error">
-            {{ locationError }}
-          </p>
-        </div>
-
-        <!-- Manual Postal Code Fallback -->
-        <div
-          v-if="showPostalInput"
-          class="col-12"
-        >
-          <label for="postal-code">
-            Postal Code *
-          </label>
-
-          <input
-            id="postal-code"
-            v-model="business.postalCode"
-            type="text"
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="Enter 6-digit postal code"
-            required
-          />
-
-          <p class="field-hint">
-            Google Maps could not automatically determine
-            the postal code for this location.
-          </p>
-        </div>
-
-        <!-- Collection Details -->
-        <div class="col-12">
-          <h3 class="section-title">
-            Collection Details
-          </h3>
-        </div>
-
-        <!-- Pickup Instructions -->
-        <div class="col-12">
-          <label for="pickup-instructions">
-            Pickup Instructions
-          </label>
-
+        <div class="field">
+          <label for="pickup-instructions" class="rb-label">Pickup instructions</label>
           <textarea
             id="pickup-instructions"
             v-model="business.pickupInstructions"
@@ -385,114 +323,83 @@ function submitForm() {
             placeholder="Provide instructions for customers collecting orders"
           ></textarea>
         </div>
+      </section>
+    </section>
 
+    <aside class="col-lg-5 d-flex flex-column gap-4">
+      <!-- Shopfront Preview and Actions -->
+      <div class="shopfront-card p-4 p-md-5">
+        <p class="rb-label">Your shopfront</p>
+        <p class="rb-display shopfront-name">{{ business.name || 'Your business' }}</p>
+        <p class="shopfront-line">{{ business.address || 'No address selected yet' }}</p>
+        <p v-if="business.phone" class="shopfront-line">{{ business.phone }}</p>
+
+        <div class="d-flex flex-column gap-3 actions">
+          <button
+            type="submit"
+            class="rb-pill rb-pill-dark w-100"
+            :disabled="saving || addressLoading || locationProcessing"
+          >
+            {{ saving
+              ? (isEditing ? 'Saving…' : 'Registering…')
+              : (isEditing ? 'Save changes' : 'Register business') }}
+          </button>
+          <button type="button" class="rb-pill cancel-button w-100" @click="emit('cancel')">
+            Cancel
+          </button>
+        </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="form-actions">
+      <section v-if="business.pickupInstructions" class="px-1">
+        <h2 class="rb-label">Pickup instructions</h2>
+        <p class="pickup-instructions">{{ business.pickupInstructions }}</p>
+      </section>
 
-        <button
-          type="button"
-          class="cancel-button"
-          @click="emit('cancel')"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="submit"
-          class="submit-button"
-          :disabled="saving || addressLoading || locationProcessing"
-        >
-          {{ saving
-            ? (isEditing ? 'Saving...' : 'Registering...')
-            : (isEditing ? 'Save Changes' : 'Register Business') }}
-        </button>
-
-      </div>
-
-    </form>
-  </div>
+      <slot name="aside"></slot>
+    </aside>
+  </form>
 </template>
 
 <style scoped>
-.business-form-card {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.business-form-header {
-  background: #e8f5e9;
-  padding: 24px;
-}
-
-.business-form-header h2 {
-  color: #256b45;
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.business-form-header p {
-  color: #555;
-  margin: 0;
-  font-size: 14px;
-}
-
-.business-form-body {
-  padding: 30px;
-}
-
-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-input,
-textarea {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  box-sizing: border-box;
-}
-
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: #256b45;
-  box-shadow: 0 0 0 2px rgba(37, 107, 69, .1);
-}
-
-textarea {
-  resize: vertical;
-}
-
 .section-title {
-  color: #256b45;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 5px 0 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #000;
+  line-height: 1.1;
 }
 
-.section-description {
-  color: #777;
-  font-size: 13px;
-  margin: 8px 0 0;
+.section-note {
+  margin: -4px 0 20px;
+  font-size: 16px;
+  line-height: 24px;
 }
 
-.address-search {
-  width: 100%;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
+
+.field input {
+  height: 52px;
+  padding: 0 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 140px;
+  color: #191200;
+  background-color: #f6f4ed;
+  font-size: 16px;
+}
+
+.field textarea {
+  padding: 16px 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 28px;
+  color: #191200;
+  background-color: #f6f4ed;
+  font-size: 16px;
+  line-height: 24px;
+}
+
 
 .address-search :deep(gmp-place-autocomplete) {
   width: 100%;
@@ -500,79 +407,61 @@ textarea {
   color-scheme: light;
 }
 
-.field-hint {
-  color: #777;
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.location-success {
-  color: #256b45;
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.location-error {
-  color: #b91c1c;
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-}
-
-.submit-button,
-.cancel-button {
-  padding: 11px 20px;
-  border-radius: 8px;
+.hint {
+  margin: 0;
+  color: #5f5330;
   font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+  line-height: 20px;
 }
 
-.submit-button {
-  background: #256b45;
-  color: white;
-  border: 1px solid #256b45;
+.hint.selected {
+  color: #8a6200;
 }
 
-.submit-button:hover:not(:disabled) {
-  background: #1b5034;
+.shopfront-card {
+  color: #000;
+  background-color: #f4b30c;
 }
 
-.submit-button:disabled {
-  opacity: .6;
-  cursor: not-allowed;
+.shopfront-card .rb-label {
+  color: #000;
 }
+
+.shopfront-name {
+  margin: 8px 0 12px;
+  font-size: 56px;
+  line-height: .95;
+}
+
+.shopfront-line {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.actions {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #000;
+}
+
 
 .cancel-button {
-  background: white;
-  color: #256b45;
-  border: 1px solid #256b45;
+  color: #000;
+  background-color: transparent;
 }
 
 .cancel-button:hover {
-  background: #e8f5e9;
+  color: #f4b30c;
+  background-color: #000;
 }
 
-@media (max-width: 600px) {
-  .business-form-body {
-    padding: 20px;
-  }
-
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .submit-button,
-  .cancel-button {
-    width: 100%;
-  }
+.pickup-instructions {
+  margin: 8px 0 0;
+  padding: 16px 20px;
+  border: 2px solid #f4b30c;
+  border-radius: 28px;
+  font-size: 15px;
+  line-height: 22px;
 }
 </style>

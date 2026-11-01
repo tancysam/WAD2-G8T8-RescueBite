@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
 import { API_URL } from '@/config'
+import DisplayHeading from '@/components/DisplayHeading.vue'
+import { formatPrice } from '@/formatters'
 
 const router = useRouter()
 const { getToken } = useAuth()
@@ -37,6 +39,19 @@ const listing = ref({
   bundleContents: [],
   bundleEligible: false,
   status: 'ACTIVE'
+})
+
+// Price Card Preview
+const rescuePriceLabel = computed(() => {
+  if (listing.value.rescuePriceSgd === '' || listing.value.rescuePriceSgd === null) return 'S$—'
+  return formatPrice(listing.value.rescuePriceSgd)
+})
+
+const savingsPercentage = computed(() => {
+  const original = Number(listing.value.originalPriceSgd)
+  const rescue = Number(listing.value.rescuePriceSgd)
+  if (!(original > 0) || listing.value.rescuePriceSgd === '' || !(rescue >= 0) || rescue >= original) return null
+  return Math.round((1 - rescue / original) * 100)
 })
 
 // Selected Business and Form State
@@ -623,348 +638,544 @@ onMounted(loadPage)
 </script>
 
 <template>
-  <main class="listing-form-page container py-4 py-md-5">
-    <!-- Create Listing Header -->
-    <header class="mb-4">
-      <h1 class="page-title">Create listing</h1>
-      <p v-if="selectedBusiness" class="text-muted mb-0">
-        Create a new listing for {{ selectedBusiness.name }}
-      </p>
-      <p v-else class="text-muted mb-0">
-        Select which business will own this listing
-      </p>
+  <main class="listing-form-page container-xxl px-4 pt-4 pb-5">
+    <RouterLink to="/business-listings" class="rb-label back-link">← Back to listings</RouterLink>
+
+    <header class="header-copy">
+      <p class="rb-script rb-kicker fs-3">something new to rescue</p>
+      <DisplayHeading :size="128">Create listing</DisplayHeading>
     </header>
 
-    <p v-if="loading" class="text-muted">Preparing the listing form...</p>
+    <p v-if="loading" class="rb-label mt-4">Preparing the listing form…</p>
 
-    <div v-else-if="businesses.length === 0" class="alert alert-warning" role="alert">
-      You need an active business before creating a listing.
+    <div v-else-if="businesses.length === 0" class="rb-note mt-4">
+      <span>You need an active business before creating a listing.</span>
+      <RouterLink to="/register-business" class="rb-pill rb-pill-dark rb-pill-sm">
+        Register a business
+      </RouterLink>
     </div>
 
-    <form v-else class="form-card" @submit.prevent="createListing">
-      <div v-if="errorMessage" class="alert alert-danger" role="alert">
-        {{ errorMessage }}
-      </div>
+    <form v-else class="row g-5 mt-0" @submit.prevent="createListing">
+      <section class="col-lg-7 d-flex flex-column gap-5">
+        <div class="d-flex flex-column gap-3">
+          <p v-if="errorMessage" class="rb-note error" role="alert">
+            {{ errorMessage }}
+          </p>
 
-      <div v-if="informationMessage" class="alert alert-info" role="alert">
-        {{ informationMessage }}
-        <span v-if="listing.listingType === 'BUNDLE'">
-          Enter the quantity for every suggested bundle item.
-        </span>
-      </div>
+          <p v-if="informationMessage" class="rb-note">
+            <span>
+              {{ informationMessage }}
+              <template v-if="listing.listingType === 'BUNDLE'">
+                Enter the quantity for every suggested bundle item.
+              </template>
+            </span>
+          </p>
 
-      <p v-if="!suggestionsReady && !manualMode" class="text-muted">
-        Select a business, listing type and image, then enter the original price,
-        available quantity and collection times. AI can suggest the title, description,
-        category and rescue price.
-      </p>
+          <p v-if="!suggestionsReady && !manualMode" class="section-note">
+            Select a business, listing type and image, then enter the original price,
+            available quantity and collection times. AI can suggest the title, description,
+            category and rescue price.
+          </p>
 
-      <p v-if="manualMode" class="text-muted">
-        Complete the listing details below. AI suggestions will not be requested.
-      </p>
-
-      <div class="row g-3">
-        <!-- Listing Image -->
-        <!-- Business Selector -->
-        <div class="col-12">
-          <label for="listingImage" class="form-label">Listing image</label>
-          <input
-            id="listingImage"
-            type="file"
-            class="form-control"
-            accept="image/jpeg,image/png,image/webp"
-            required
-            :disabled="createdListingId !== ''"
-            @change="selectImage"
-          />
-          <p class="form-text mb-0">JPEG, PNG or WebP. Maximum file size: 5 MB.</p>
-          <p v-if="imageFile" class="small text-success mb-0">
-            Selected: {{ imageFile.name }}
+          <p v-if="manualMode" class="section-note">
+            Complete the listing details below. AI suggestions will not be requested.
           </p>
         </div>
 
-        <div class="col-12">
-          <label for="businessId" class="form-label">Business</label>
-          <select
-            id="businessId"
-            v-model="selectedBusinessId"
-            class="form-select"
-            required
-            :disabled="createdListingId !== ''"
-          >
-            <option value="" disabled>Select a business</option>
-            <option
-              v-for="item in businesses"
-              :key="item._id"
-              :value="item._id"
-            >
-              {{ item.name }}
-            </option>
-          </select>
-        </div>
+        <!-- Listing Image and Business -->
+        <section>
+          <h2 class="rb-display display-6 section-title">Photo &amp; shopfront</h2>
+
+          <div class="d-flex flex-column gap-4">
+            <div class="field">
+              <label for="listingImage" class="rb-label">Listing image</label>
+              <input
+                id="listingImage"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                required
+                :disabled="createdListingId !== ''"
+                @change="selectImage"
+              />
+              <p class="hint">JPEG, PNG or WebP. Maximum file size: 5 MB.</p>
+              <p v-if="imageFile" class="hint">Selected: {{ imageFile.name }}</p>
+            </div>
+
+            <div class="field">
+              <label for="businessId" class="rb-label">Business</label>
+              <select
+                id="businessId"
+                v-model="selectedBusinessId"
+                required
+                :disabled="createdListingId !== ''"
+              >
+                <option value="" disabled>Select a business</option>
+                <option
+                  v-for="item in businesses"
+                  :key="item._id"
+                  :value="item._id"
+                >
+                  {{ item.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </section>
 
         <!-- Listing Information -->
-        <div class="col-12 col-md-6">
-          <label for="listingType" class="form-label">Listing type</label>
-          <select
-            id="listingType"
-            v-model="listing.listingType"
-            class="form-select"
-            required
-            :disabled="formLocked"
-            @change="changeListingType"
-          >
-            <option value="" disabled>Select listing type</option>
-            <option value="ITEM">Single item</option>
-            <option value="BUNDLE">Bundle</option>
-          </select>
-        </div>
+        <section>
+          <h2 class="rb-display display-6 section-title">The basics</h2>
 
-        <div class="col-12 col-md-6">
-          <label for="categoryId" class="form-label">Category</label>
-          <select
-            id="categoryId"
-            v-model="listing.categoryId"
-            class="form-select"
-            :required="manualMode || suggestionsReady"
-            :disabled="formLocked"
-          >
-            <option value="" disabled>
-              {{ manualMode ? 'Select a category' : 'Let AI suggest' }}
-            </option>
-            <option
-              v-for="category in categories"
-              :key="category._id"
-              :value="category._id"
-            >
-              {{ category.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="col-12">
-          <label for="title" class="form-label">Title</label>
-          <input
-            id="title"
-            v-model.trim="listing.title"
-            type="text"
-            class="form-control"
-            :placeholder="manualMode ? 'Enter listing title' : 'Let AI suggest a title'"
-            :required="manualMode || suggestionsReady"
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12">
-          <label for="description" class="form-label">Description</label>
-          <textarea
-            id="description"
-            v-model.trim="listing.description"
-            class="form-control"
-            rows="3"
-            :placeholder="manualMode ? 'Enter a description' : 'Let AI suggest a description'"
-            :disabled="formLocked"
-          ></textarea>
-        </div>
-
-        <div class="col-12 col-md-4">
-          <label for="originalPrice" class="form-label">Original price (S$)</label>
-          <input
-            id="originalPrice"
-            v-model.number="listing.originalPriceSgd"
-            type="number"
-            class="form-control"
-            min="0.01"
-            step="0.01"
-            required
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12 col-md-4">
-          <label for="rescuePrice" class="form-label">Rescue price (S$)</label>
-          <input
-            id="rescuePrice"
-            v-model.number="listing.rescuePriceSgd"
-            type="number"
-            class="form-control"
-            min="0"
-            step="0.01"
-            :required="manualMode || suggestionsReady"
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12 col-md-4">
-          <label for="quantity" class="form-label">Quantity available</label>
-          <input
-            id="quantity"
-            v-model.number="listing.quantityAvailable"
-            type="number"
-            class="form-control"
-            min="0"
-            step="1"
-            required
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label for="collectionStart" class="form-label">Collection starts</label>
-          <input
-            id="collectionStart"
-            v-model="listing.collectionStartAt"
-            type="datetime-local"
-            class="form-control"
-            required
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label for="collectionEnd" class="form-label">Collection ends</label>
-          <input
-            id="collectionEnd"
-            v-model="listing.collectionEndAt"
-            type="datetime-local"
-            class="form-control"
-            required
-            :disabled="formLocked"
-          />
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label for="status" class="form-label">Listing status</label>
-          <select
-            id="status"
-            v-model="listing.status"
-            class="form-select"
-            :disabled="formLocked"
-          >
-            <option value="ACTIVE">Active</option>
-            <option value="DRAFT">Draft</option>
-          </select>
-        </div>
-
-        <div class="col-12">
-          <div class="form-check">
-            <input
-              id="bundleEligible"
-              v-model="listing.bundleEligible"
-              class="form-check-input"
-              type="checkbox"
+          <div class="row g-4">
+            <div class="col-12 col-md-6 field">
+              <label for="listingType" class="rb-label">Listing type</label>
+              <select
+                id="listingType"
+                v-model="listing.listingType"
+                required
               :disabled="formLocked"
-            />
-            <label class="form-check-label" for="bundleEligible">
-              Allow this listing in 10% partner bundles
-            </label>
-          </div>
-          <small class="text-muted">
-            Customers may pair it with a nearby business during the same pickup time.
-          </small>
-        </div>
-      </div>
+                @change="changeListingType"
+              >
+                <option value="" disabled>Select listing type</option>
+                <option value="ITEM">Single item</option>
+                <option value="BUNDLE">Bundle</option>
+              </select>
+            </div>
 
-      <!-- Bundle Contents -->
-      <section v-if="listing.listingType === 'BUNDLE'" class="bundle-section mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h5 mb-0">Bundle contents</h2>
-          <button
-            type="button"
-            class="btn btn-outline-success btn-sm"
-            :disabled="formLocked"
-            @click="addBundleItem"
-          >
-            Add item
-          </button>
-        </div>
+            <div class="col-12 col-md-6 field">
+              <label for="categoryId" class="rb-label">Category</label>
+              <select
+                id="categoryId"
+                v-model="listing.categoryId"
+                :required="manualMode || suggestionsReady"
+                :disabled="formLocked"
+              >
+                <option value="" disabled>
+                  {{ manualMode ? 'Select a category' : 'Let AI suggest' }}
+                </option>
+                <option
+                  v-for="category in categories"
+                  :key="category._id"
+                  :value="category._id"
+                >
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
 
-        <div
-          v-for="(item, index) in listing.bundleContents"
-          :key="index"
-          class="row g-2 align-items-end mb-2"
-        >
-          <div class="col-12 col-md-7">
-            <label :for="'bundleName' + index" class="form-label">Item name</label>
-            <input
-              :id="'bundleName' + index"
-              v-model.trim="item.name"
-              type="text"
-              class="form-control"
-              required
+            <div class="col-12 field">
+              <label for="title" class="rb-label">Title</label>
+              <input
+                id="title"
+                v-model.trim="listing.title"
+                type="text"
+                :placeholder="manualMode ? 'Enter listing title' : 'Let AI suggest a title'"
+                :required="manualMode || suggestionsReady"
+                :disabled="formLocked"
+              />
+            </div>
+
+            <div class="col-12 field">
+              <label for="description" class="rb-label">Description</label>
+              <textarea
+                id="description"
+                v-model.trim="listing.description"
+                rows="3"
+                :placeholder="manualMode ? 'Enter a description' : 'Let AI suggest a description'"
               :disabled="formLocked"
-            />
+              ></textarea>
+            </div>
           </div>
-          <div class="col-8 col-md-3">
-            <label :for="'bundleQuantity' + index" class="form-label">Quantity</label>
-            <input
-              :id="'bundleQuantity' + index"
-              v-model.number="item.quantity"
-              type="number"
-              class="form-control"
-              min="1"
-              step="1"
-              required
-              :disabled="formLocked"
-            />
-          </div>
-          <div class="col-4 col-md-2">
+        </section>
+        <!-- Bundle Contents -->
+        <section v-if="listing.listingType === 'BUNDLE'">
+          <div class="section-head">
+            <h2 class="rb-display display-6 section-title">What’s inside</h2>
             <button
               type="button"
-              class="btn btn-outline-danger w-100"
-              :disabled="formLocked"
-              @click="removeBundleItem(index)"
+              class="rb-pill rb-pill-line rb-pill-sm"
+                :disabled="formLocked"
+              @click="addBundleItem"
             >
-              Remove
+              + Add item
             </button>
           </div>
-        </div>
+
+          <ul class="bundle-list">
+            <li v-for="(item, index) in listing.bundleContents" :key="index">
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-7 field">
+                  <label :for="'bundleName' + index" class="rb-label">Item name</label>
+                  <input
+                    :id="'bundleName' + index"
+                    v-model.trim="item.name"
+                    type="text"
+                    required
+                :disabled="formLocked"
+                  />
+                </div>
+                <div class="col-7 col-md-3 field">
+                  <label :for="'bundleQuantity' + index" class="rb-label">Quantity</label>
+                  <input
+                    :id="'bundleQuantity' + index"
+                    v-model.number="item.quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                :disabled="formLocked"
+                  />
+                </div>
+                <div class="col-5 col-md-2">
+                  <button
+                    type="button"
+                    class="rb-pill rb-pill-sm remove-button w-100"
+                :disabled="formLocked"
+                    @click="removeBundleItem(index)"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </section>
       </section>
 
-      <!-- Form Actions -->
-      <div class="d-flex gap-2 mt-4">
-        <button type="submit" class="btn btn-success" :disabled="saving">
-          {{ submitText }}
-        </button>
-        <button
-          v-if="!suggestionsReady && !manualMode"
-          type="button"
-          class="btn btn-outline-success"
-          :disabled="saving"
-          @click="enterManualMode"
-        >
-          Enter details manually
-        </button>
-        <RouterLink :to="{ name: 'business-listings' }" class="btn btn-outline-secondary">
-          Cancel
-        </RouterLink>
-      </div>
+      <aside class="col-lg-5 d-flex flex-column gap-4">
+        <!-- Pricing, Status and Actions -->
+        <div class="price-card p-4 p-md-5">
+          <p class="rb-label">Rescue price</p>
+          <p class="rb-display display-1 price">{{ rescuePriceLabel }}</p>
+          <div v-if="savingsPercentage !== null" class="d-flex flex-wrap align-items-center gap-3 mt-2">
+            <del>{{ formatPrice(listing.originalPriceSgd) }}</del>
+            <span class="save-tag">Save {{ savingsPercentage }}%</span>
+          </div>
+
+          <div class="row g-3 card-block">
+            <div class="col-6 field">
+              <label for="originalPrice" class="rb-label">Original price (S$)</label>
+              <input
+                id="originalPrice"
+                v-model.number="listing.originalPriceSgd"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                :disabled="formLocked"
+              />
+            </div>
+            <div class="col-6 field">
+              <label for="rescuePrice" class="rb-label">Rescue price (S$)</label>
+              <input
+                id="rescuePrice"
+                v-model.number="listing.rescuePriceSgd"
+                type="number"
+                min="0"
+                step="0.01"
+                :required="manualMode || suggestionsReady"
+                :disabled="formLocked"
+              />
+            </div>
+            <div class="col-6 field">
+              <label for="quantity" class="rb-label">Quantity available</label>
+              <input
+                id="quantity"
+                v-model.number="listing.quantityAvailable"
+                type="number"
+                min="0"
+                step="1"
+                required
+                :disabled="formLocked"
+              />
+            </div>
+            <div class="col-6 field">
+              <label for="status" class="rb-label">Listing status</label>
+              <select
+                id="status"
+                v-model="listing.status"
+                :disabled="formLocked"
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="DRAFT">Draft</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card-block">
+            <label class="check-row" for="bundleEligible">
+              <input
+                id="bundleEligible"
+                v-model="listing.bundleEligible"
+                type="checkbox"
+                :disabled="formLocked"
+              />
+              Allow this listing in 10% partner bundles
+            </label>
+            <p class="check-note">
+              Customers may pair it with a nearby business during the same pickup time.
+            </p>
+          </div>
+
+          <div class="d-flex flex-column gap-3 card-block">
+            <button type="submit" class="rb-pill rb-pill-dark w-100" :disabled="saving">
+              {{ submitText }}
+            </button>
+            <button
+              v-if="!suggestionsReady && !manualMode"
+              type="button"
+              class="rb-pill secondary-button w-100"
+              :disabled="saving"
+              @click="enterManualMode"
+            >
+              Enter details manually
+            </button>
+            <RouterLink to="/business-listings" class="rb-pill rb-pill-text w-100">
+              Cancel
+            </RouterLink>
+          </div>
+        </div>
+
+        <!-- Collection Window -->
+        <section class="px-1">
+          <h2 class="rb-label">Collection window</h2>
+          <div class="row g-3 mt-0">
+            <div class="col-6">
+              <div class="time-card">
+                <label for="collectionStart" class="rb-label">From</label>
+                <input
+                  id="collectionStart"
+                  v-model="listing.collectionStartAt"
+                  type="datetime-local"
+                  required
+                :disabled="formLocked"
+                />
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="time-card">
+                <label for="collectionEnd" class="rb-label">Until</label>
+                <input
+                  id="collectionEnd"
+                  v-model="listing.collectionEndAt"
+                  type="datetime-local"
+                  required
+                :disabled="formLocked"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
     </form>
   </main>
 </template>
 
 <style scoped>
-/* Create Listing Form */
-.listing-form-page {
-  color: #173d2c;
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #191200;
+  text-decoration: none;
+  transition: color .25s;
 }
 
-.page-title {
-  margin: 0 0 4px;
-  color: #164936;
-  font-size: 38px;
+.back-link:hover {
+  color: #8a6200;
 }
 
-.form-card {
+.header-copy {
   max-width: 900px;
-  padding: 24px;
-  border: 1px solid #d9e6dc;
-  border-radius: 12px;
-  background-color: white;
+  margin-top: 16px;
 }
 
-.bundle-section {
-  padding-top: 20px;
-  border-top: 1px solid #d9e6dc;
+
+.section-title {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #000;
+  line-height: 1.1;
 }
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #000;
+}
+
+.section-head .section-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.section-note {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 52px;
+  padding: 0 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 140px;
+  color: #191200;
+  background-color: #f6f4ed;
+  font-size: 16px;
+}
+
+.field textarea {
+  padding: 16px 24px;
+  border: 1px solid #ddd9c5;
+  border-radius: 28px;
+  color: #191200;
+  background-color: #f6f4ed;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.field input[type="file"] {
+  padding: 0 24px 0 0;
+  line-height: 50px;
+}
+
+
+
+
+.hint {
+  margin: 0;
+  color: #5f5330;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.bundle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bundle-list li {
+  padding: 16px 20px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+.bundle-list .field input {
+  background-color: #fbf9f1;
+}
+
+.remove-button {
+  color: #191200;
+  background-color: transparent;
+  border-color: #ff7a7a;
+}
+
+
+.price-card {
+  color: #000;
+  background-color: #f4b30c;
+}
+
+.price-card .rb-label {
+  color: #000;
+}
+
+.price {
+  margin-top: 8px;
+  line-height: .95;
+}
+
+.save-tag {
+  padding: 8px 14px;
+  border-radius: 140px;
+  color: #f4b30c;
+  background-color: #000;
+  font-size: 13px;
+  line-height: 13px;
+  text-transform: uppercase;
+}
+
+.price-card .field input,
+.price-card .field select {
+  border-color: #000;
+  background-color: #fbf9f1;
+}
+
+
+.card-block {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #000;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.check-row input {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+}
+
+.check-note {
+  margin: 6px 0 0 34px;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.secondary-button {
+  color: #000;
+  background-color: transparent;
+}
+
+.secondary-button:hover {
+  color: #f4b30c;
+  background-color: #000;
+}
+
+
+.time-card {
+  height: 100%;
+  padding: 16px;
+  border-radius: 28px;
+  background-color: #f6f4ed;
+}
+
+.time-card input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 2px solid #000;
+  color: #191200;
+  background: transparent;
+  font-size: 15px;
+}
+
 </style>

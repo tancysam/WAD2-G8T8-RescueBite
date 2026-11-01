@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@clerk/vue'
 import axios from 'axios'
 import BusinessForm from '@/components/business/BusinessForm.vue'
+import DisplayHeading from '@/components/DisplayHeading.vue'
 import { API_URL } from '@/config'
 
 const router = useRouter()
@@ -21,7 +22,7 @@ async function registerBusiness(data) {
       headers: { Authorization: `Bearer ${token}` }
     })
     
-    router.push('/businesses')
+    router.push('/myBusinesses')
   } catch (error) {
     console.error('Error registering business:', error)
     errorMessage.value = error.response?.data?.error || 'Failed to register business.'
@@ -32,30 +33,42 @@ async function registerBusiness(data) {
 </script>
 
 <template>
-  <main class="business-page">
-    <div class="page-heading">
-      <h1>Register Business</h1>
-      <p>Add your business details to get started.</p>
-    </div>
+  <main class="register-business container-xxl px-4 pt-4 pb-5">
+    <RouterLink to="/myBusinesses" class="rb-label back-link">← Back to my businesses</RouterLink>
 
-    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+    <header class="header-copy">
+      <p class="rb-script rb-kicker fs-3">open a new shopfront</p>
+      <DisplayHeading :size="128">Register business</DisplayHeading>
+    </header>
+
+    <p v-if="errorMessage" class="rb-note error mt-4" role="alert">{{ errorMessage }}</p>
 
     <BusinessForm
+      class="mt-4"
       :saving="saving"
       @submit="registerBusiness"
-      @cancel="router.push('/businesses')"
+      @cancel="router.push('/myBusinesses')"
     />
   </main>
 </template>
 
 <style scoped>
-.business-page { max-width: 1000px; margin: 0 auto; padding: 30px; }
-.page-heading { margin-bottom: 25px; }
-.page-heading h1 { color: #256b45; font-size: 30px; font-weight: 700; margin-bottom: 8px; }
-.page-heading p { color: #666; margin: 0; }
-.error-message {
-  color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca;
-  padding: 12px; border-radius: 8px; margin-bottom: 20px;
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #191200;
+  text-decoration: none;
+  transition: color .25s;
 }
-@media (max-width: 600px) { .business-page { padding: 16px; } }
+
+.back-link:hover {
+  color: #8a6200;
+}
+
+.header-copy {
+  max-width: 900px;
+  margin-top: 16px;
+}
+
 </style>

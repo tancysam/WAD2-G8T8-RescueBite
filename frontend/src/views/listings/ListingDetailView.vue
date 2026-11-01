@@ -484,7 +484,7 @@ onMounted(getListingDetails)
               </button>
               <section v-if="bundleOptions.length > 0" class="partner-bundle">
                 <p class="rb-label mb-1">Nearby bundle deal</p>
-                <h2 class="bundle-heading">Add another rescue and save 10%</h2>
+                <h2 class="rb-display bundle-heading">Add another rescue and save 10%</h2>
                 <p class="bundle-note">
                   Choose one nearby item. You will collect each order from its own business.
                 </p>
@@ -525,7 +525,7 @@ onMounted(getListingDetails)
                       <span v-if="option.business_address" class="bundle-address">
                         {{ option.business_address }}<template v-if="option.business_postal_code">, Singapore {{ option.business_postal_code }}</template>
                       </span>
-                      <span>
+                      <span class="bundle-prices">
                         <s>{{ formatPrice(option.rescue_price_sgd) }}</s>
                         <strong class="bundle-price">{{ discountedBundlePrice(option) }}</strong>
                       </span>
@@ -955,17 +955,19 @@ onMounted(getListingDetails)
 
 .partner-bundle {
   padding: 20px;
-  border: 2px solid #000;
   border-radius: 28px;
-  background: #fff8df;
+  color: #191200;
+  background-color: #fbf9f1;
+}
+
+.price-card .partner-bundle .rb-label {
+  color: #5f5330;
 }
 
 .bundle-heading {
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: 28px;
+  line-height: 32px;
 }
 
 .bundle-note,
@@ -978,7 +980,7 @@ onMounted(getListingDetails)
 
 .bundle-count {
   margin-top: 12px;
-  font-family: 'Archivo', system-ui, sans-serif;
+  color: #5f5330;
   text-transform: uppercase;
 }
 
@@ -996,17 +998,22 @@ onMounted(getListingDetails)
   grid-template-columns: 92px 1fr;
   overflow: hidden;
   padding: 0;
-  border: 2px solid #000;
-  border-radius: 18px;
-  color: #000;
+  border: 2px solid transparent;
+  border-radius: 28px;
+  color: #191200;
   text-align: left;
-  background: #fff;
+  background-color: #f6f4ed;
+  transition: background-color .25s, border-color .25s;
+}
+
+.bundle-option:hover {
+  border-color: #f4b30c;
 }
 
 .bundle-option.selected {
-  box-shadow: 5px 5px 0 #000;
-  background: #f4b30c;
-  transform: translate(-2px, -2px);
+  border-color: #000;
+  color: #000;
+  background-color: #f4b30c;
 }
 
 .bundle-photo {
@@ -1014,7 +1021,7 @@ onMounted(getListingDetails)
   height: 100%;
   min-height: 100px;
   object-fit: cover;
-  background: #f6f4ed;
+  background-color: #e8e6d7;
 }
 
 .bundle-placeholder {
@@ -1022,8 +1029,9 @@ onMounted(getListingDetails)
   align-items: center;
   justify-content: center;
   padding: 8px;
-  font-family: 'Anton', sans-serif;
+  font-family: 'Anton', Impact, sans-serif;
   font-size: 18px;
+  text-transform: uppercase;
   text-align: center;
 }
 
@@ -1053,33 +1061,32 @@ onMounted(getListingDetails)
 .bundle-check-symbol {
   display: block;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   transform: translateY(-1px);
 }
 
 .bundle-business {
   padding-right: 30px;
-  color: #6a4a00;
-  font-family: 'Archivo', system-ui, sans-serif;
+  color: #5f5330;
   font-size: 11px;
-  font-weight: 700;
   text-transform: uppercase;
 }
 
 .bundle-time {
-  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 12px;
 }
 
 .bundle-address {
-  color: #4f4630;
+  color: #5f5330;
   font-size: 11px;
   line-height: 15px;
 }
 
-.bundle-price {
-  margin-left: 8px;
+.bundle-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
 }
 
 .bundle-summary {
@@ -1102,7 +1109,7 @@ onMounted(getListingDetails)
   width: fit-content;
   padding: 0;
   border: 0;
-  color: #6a4a00;
+  color: #191200;
   font-size: 12px;
   text-decoration: underline;
   background: transparent;

@@ -37,6 +37,6 @@ onMounted(async function () {
   width: 100%;
   height: 260px;
   margin: 16px 0;
-  border-radius: 8px;
+  border-radius: 28px;
 }
 </style>
