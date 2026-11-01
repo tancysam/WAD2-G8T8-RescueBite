@@ -8,7 +8,6 @@ import CustomerListingCard from '../../components/listings/CustomerListingCard.v
 import DisplayHeading from '../../components/DisplayHeading.vue'
 import { API_URL } from '@/config'
 
-// Business ID received from Vue Router
 const { getToken } = useAuth()
 
 const stars = [1, 2, 3, 4, 5]
@@ -20,7 +19,6 @@ const props = defineProps({
   }
 })
 
-// Reactive variables
 const business = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
@@ -62,7 +60,6 @@ async function getUserRole() {
     userRole.value = response.data.user.role
     isOwner.value = false
 
-    // Only check ownership for business accounts
     if (userRole.value === 'BUSINESS') {
       const ownedResponse = await axios.get(
         `${API_URL}/businesses/ownedBusinesses`,
@@ -89,12 +86,10 @@ async function getUserRole() {
   }
 }
 
-// Google Maps variables
 let map = null
 let marker = null
 let requestId = 0
 
-// Load Google Maps
 async function loadMap(businessData) {
   const coordinates = businessData.location ? businessData.location.coordinates : undefined
 
@@ -106,16 +101,13 @@ async function loadMap(businessData) {
   }
 
   try {
-    // MongoDB stores [longitude, latitude]
     const [longitude, latitude] = coordinates
 
-    // Google Maps uses { lat, lng }
     const position = {
       lat: latitude,
       lng: longitude
     }
 
-    // Import Google Maps libraries
     const { Map } = await importLibrary('maps')
     const { AdvancedMarkerElement } = await importLibrary('marker')
 
@@ -123,14 +115,12 @@ async function loadMap(businessData) {
       return
     }
 
-    // Create map
     map = new Map(mapElement.value, {
       center: position,
       zoom: 16,
       mapId: 'DEMO_MAP_ID'
     })
 
-    // Create business marker
     marker = new AdvancedMarkerElement({
       map,
       position,
@@ -143,7 +133,6 @@ async function loadMap(businessData) {
   }
 }
 
-// Retrieve business details from backend
 async function getBusiness() {
   const currentRequest = ++requestId
 
@@ -152,7 +141,6 @@ async function getBusiness() {
   errorMessage.value = ''
   mapError.value = ''
 
-  // Clear previous map and marker
   if (marker) {
     marker.map = null
   }
@@ -173,13 +161,10 @@ async function getBusiness() {
 
     console.log('Business loaded:', business.value)
 
-    // Render business information first
     loading.value = false
 
-    // Wait for the map container to exist
     await nextTick()
 
-    // Display business location
     if (business.value && business.value.location) {
       await loadMap(business.value)
     }
@@ -292,7 +277,6 @@ async function getReviews() {
   reviewsLoading.value = false
 }
 
-// Open directions in Google Maps
 function openDirections() {
   const coordinates = business.value && business.value.location
     ? business.value.location.coordinates
@@ -322,7 +306,6 @@ watch(() => props.businessId, () => {
   getListings()
 })
 
-// Cleanup
 onUnmounted(() => {
   requestId++
 
@@ -338,7 +321,6 @@ onUnmounted(() => {
 <template>
   <main class="business-profile">
     <section class="container-xxl px-4 pt-4">
-      <!-- Back to Businesses -->
       <RouterLink
         v-if="!roleLoading"
         :to="backRoute"
@@ -349,17 +331,13 @@ onUnmounted(() => {
     </section>
 
     <section class="container-xxl px-4 pb-5">
-      <!-- Loading -->
       <p v-if="loading" class="rb-label mt-4">Loading business information…</p>
 
-      <!-- Error -->
       <p v-else-if="errorMessage" class="rb-note error mt-4" role="alert">
         {{ errorMessage }}
       </p>
 
-      <!-- Business Profile -->
       <template v-else-if="business">
-        <!-- Business Header -->
         <header class="d-flex flex-wrap align-items-end justify-content-between gap-4 mt-4">
           <div class="header-copy">
             <p class="rb-script rb-kicker fs-3">rescue from</p>
@@ -383,7 +361,7 @@ onUnmounted(() => {
               :aria-pressed="isFavourite"
               @click="toggleFavourite"
             >
-              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
+              <svg :key="'heart-' + isFavourite" class="rb-pop" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" :fill="isFavourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"></path></svg>
               {{ isFavourite ? 'Saved' : 'Save business' }}
             </button>
           </div>
@@ -391,7 +369,6 @@ onUnmounted(() => {
         <p v-if="favouriteMessage" class="rb-label mt-3 text-end" aria-live="polite">{{ favouriteMessage }}</p>
 
         <div class="row g-4 mt-4">
-          <!-- Contact Information -->
           <aside class="col-lg-4">
             <section class="info-panel p-4" aria-labelledby="info-heading">
               <h2 id="info-heading" class="rb-display display-6 mb-3">Visit</h2>
@@ -422,7 +399,6 @@ onUnmounted(() => {
             </section>
           </aside>
 
-          <!-- Listings -->
           <section class="col-lg-8" aria-labelledby="available-listings-heading">
             <div class="section-head">
               <div>
@@ -451,11 +427,11 @@ onUnmounted(() => {
               {{ listingsError }}
             </p>
 
-            <div v-else-if="listings.length" class="row row-cols-1 row-cols-md-2 g-4 mt-1">
-              <div v-for="(listing, index) in listings" :key="listing._id" class="col d-flex">
+            <TransitionGroup tag="div" name="stag" appear v-else-if="listings.length" class="row row-cols-1 row-cols-md-2 g-4 mt-1">
+              <div v-for="(listing, index) in listings" :key="listing._id" :style="{ '--i': index }" class="col d-flex">
                 <CustomerListingCard class="w-100" :listing="listing" :index="index" :business-name="business.name" />
               </div>
-            </div>
+            </TransitionGroup>
 
             <div v-else class="rb-empty mt-4">
               <p class="rb-display display-6 mb-2">Nothing listed right now</p>
@@ -464,7 +440,6 @@ onUnmounted(() => {
           </section>
         </div>
 
-        <!-- Reviews -->
         <section class="reviews mt-5" aria-labelledby="reviews-heading">
           <div class="section-head">
             <h2 id="reviews-heading" class="rb-display display-6 mb-0">Customer reviews</h2>
@@ -475,8 +450,8 @@ onUnmounted(() => {
           <p v-else-if="reviewsError" class="rb-note error mt-4" role="alert">{{ reviewsError }}</p>
           <p v-else-if="reviews.length === 0" class="rb-empty mt-4">No reviews yet.</p>
 
-          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mt-1">
-            <div v-for="review in reviews" :key="review._id" class="col">
+          <TransitionGroup tag="div" name="stag" appear v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mt-1">
+            <div v-for="(review, index) in reviews" :key="review._id" :style="{ '--i': index }" class="col">
               <article class="review-card h-100">
                 <p class="star-row" :aria-label="review.rating + ' out of 5'">
                   <svg
@@ -492,7 +467,7 @@ onUnmounted(() => {
                 <p class="mb-0">{{ review.comment || 'No comment added.' }}</p>
               </article>
             </div>
-          </div>
+          </TransitionGroup>
         </section>
       </template>
     </section>
@@ -506,6 +481,7 @@ onUnmounted(() => {
   min-height: 44px;
   color: #191200;
   text-decoration: none;
+  transition: color .25s;
 }
 
 .back-link:hover {

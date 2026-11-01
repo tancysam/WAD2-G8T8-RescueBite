@@ -8,16 +8,13 @@ import { API_URL } from '@/config'
 
 const router = useRouter()
 
-// Google Maps
 const mapElement = ref(null)
 const mapBounds = ref(null)
 
-// Listings
 const listings = ref([])
 const listingsLoading = ref(false)
 const listingsError = ref('')
 
-// Search, type filter and sort for the listing grid
 const searchText = ref('')
 const typeFilter = ref('ALL')
 const sortBy = ref('NEAREST')
@@ -35,7 +32,6 @@ function savingOf(listing) {
     return (original - Number(listing.rescue_price_sgd)) / original
 }
 
-// True when listing a should come before listing b
 function comesBefore(a, b) {
     if (sortBy.value === 'ENDING') {
         return new Date(a.collection_end_at) < new Date(b.collection_end_at)
@@ -53,7 +49,6 @@ const shownListings = computed(() => {
         return text.includes(search)
     })
 
-    // The API already returns the nearest listings first
     if (sortBy.value === 'NEAREST') return matches
 
     const sorted = []
@@ -80,48 +75,40 @@ function businessNameFor(listing) {
     return business ? business.name : ''
 }
 
-// Map and request management
 let map = null
 let mapListener = null
 let searchTimeout = null
 let latestRequest = 0
 let isDestroyed = false
-// for the map pins on the map
 const businesses = ref([])
 const businessMarkers = []
 let AdvancedMarkerElement = null
 let infoWindow = null
 let isOpeningInfoWindow = false
 
-// Google Maps API
 setOptions({
     key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 })
 
-// Initialise Google Maps
 async function initMap() {
     try {
         const { Map, InfoWindow } = await importLibrary('maps')
         const markerLibrary = await importLibrary('marker')
 
-        // for the map pin
         AdvancedMarkerElement = markerLibrary.AdvancedMarkerElement
 
         if (isDestroyed || !mapElement.value) return
 
         map = new Map(mapElement.value, {
             center: { lat: 1.3521, lng: 103.8198 },
-            // Whole of Singapore until the user's location is known
             zoom: 12,
             mapId: '13484fcc455d81ef9c7b2de5'
         })
 
         infoWindow = new InfoWindow()
 
-        // display pins when map is ready
         updateBusinessMarkers()
 
-        // Listen for completed map movements
         mapListener = map.addListener('idle', () => {
 
             if (isOpeningInfoWindow) {
@@ -133,7 +120,6 @@ async function initMap() {
             if (bounds) {
                 const newBounds = bounds.toJSON()
 
-                // Only update if boundaries actually changed
                 const oldBounds = mapBounds.value
 
                 if (
@@ -148,7 +134,6 @@ async function initMap() {
             }
         })
 
-        // Get user's current location
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -192,7 +177,6 @@ async function getBusinesses(){
     }
 }
 
-// for removing map pins when they are no longer within map bounds
 function clearBusinessMarkers() {
     if (infoWindow){infoWindow.close()}
     for (const marker of businessMarkers) {marker.map=null}
@@ -207,20 +191,16 @@ function updateBusinessMarkers() {
     const { north, south, east, west } = mapBounds.value
 
     for (const business of businesses.value) {
-        //skip getting coordinates for businesses that dont have coords
         if (!business.location?.coordinates) continue
         const [lng, lat] = business.location.coordinates
 
-        // checks if coordinate values are infinite
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
 
-        // Check whether business is within map boundaries
         const withinBounds = lat >= south && lat <= north &&
             (west <= east ? lng >= west && lng <= east : lng >= west || lng <= east)
 
         if (!withinBounds) continue
 
-        // Check if business has available listings
         const hasListings =  listings.value.some((listing)=>{
             const businessId = listing.business_id?._id || listing.business_id
             return String(businessId) === String(business._id)})
@@ -260,7 +240,6 @@ function updateBusinessMarkers() {
     }
 }
 
-// Retrieve listings within the map area
 async function getVisibleListings() {
     if (!mapBounds.value) return
 
@@ -271,12 +250,9 @@ async function getVisibleListings() {
 
     const { north, south, east, west } = mapBounds.value
 
-    // Calculate centre
     const lat = (north + south) / 2
     const lng = (east + west) / 2
 
-    // Radius covers the longer side of the visible map, so listings near the
-    // left and right edges of a wide map are included too
     const halfHeightKm = (north - south) * 111 / 2
     const halfWidthKm = (east - west) * 111 / 2
     const radiusKm = Math.min(50, Math.max(0.1, halfHeightKm, halfWidthKm))
@@ -309,30 +285,24 @@ async function getVisibleListings() {
     }
 }
 
-// Watch map boundaries
 watch(mapBounds, () => {
-    // Invalidate any older response immediately
     latestRequest++
 
-    // Cancel any previous scheduled search
     if (searchTimeout) {
         clearTimeout(searchTimeout)
     }
 
-    // Wait briefly before fetching
     searchTimeout = setTimeout(() => {
         getVisibleListings()
     }, 300)
 })
 
-// When component loads
 onMounted(() => {
     isDestroyed = false
     getBusinesses()
     initMap()
 })
 
-// Cleanup when leaving the page
 onUnmounted(() => {
     isDestroyed = true
     latestRequest++
@@ -360,7 +330,6 @@ onUnmounted(() => {
 
 <template>
     <div class="explore-page d-flex flex-column flex-grow-1">
-        <!-- Search, filters and the panel toggle -->
         <section class="filter-bar d-flex flex-wrap align-items-center gap-3 px-3 px-lg-4 py-3">
             <label class="search-field">
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f5330" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
@@ -405,7 +374,6 @@ onUnmounted(() => {
             </div>
         </section>
 
-        <!-- Map fills the rest of the screen; the listings slide over it from the right -->
         <section class="map-area" aria-label="Map of listings">
             <div ref="mapElement" class="map"></div>
 
@@ -435,17 +403,17 @@ onUnmounted(() => {
                             {{ listingsError }}
                         </p>
 
-                        <div v-if="shownListings.length > 0" class="d-flex flex-column gap-3">
+                        <TransitionGroup tag="div" name="stag" appear :key="typeFilter + sortBy" v-if="shownListings.length > 0" class="d-flex flex-column gap-3">
                             <CustomerListingCard
                                 v-for="(listing, index) in shownListings"
-                                :key="listing._id"
+                                :key="listing._id" :style="{ '--i': index }"
                                 :listing="listing"
                                 :index="index"
                                 :business-name="businessNameFor(listing)"
                                 :selected="selectedListingId === listing._id"
                                 @select="selectedListingId = $event"
                             />
-                        </div>
+                        </TransitionGroup>
 
                         <div v-else-if="!listingsLoading && !listingsError" class="rb-empty">
                             <p class="rb-display display-6 mb-2">Nothing here yet</p>
@@ -469,7 +437,6 @@ onUnmounted(() => {
     background-color: #fbf9f1;
 }
 
-/* Chips, sort and the panel toggle stay on one row and scroll sideways on narrow screens */
 .filter-controls {
     display: flex;
     flex: 0 1 auto;
@@ -502,7 +469,6 @@ onUnmounted(() => {
     font-size: 16px;
 }
 
-/* The map takes all the space left under the filter bar */
 .map-area {
     position: relative;
     flex: 1;
@@ -519,7 +485,6 @@ onUnmounted(() => {
     left: 0;
 }
 
-/* Listings panel pinned to the right edge of the map */
 .listings-collapse {
     position: absolute;
     top: 0;

@@ -8,10 +8,9 @@ import NotificationBell from './components/notifications/NotificationBell.vue'
 
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
-// Explore fills the screen: the page becomes one column the height of the window
 const isFullScreen = computed(() => route.name === 'explore')
+const pageKey = computed(() => route.name === 'register' ? 'login' : route.name)
 const profileRole = ref(null)
-// Small screens show the page links only after the Menu button is pressed
 const menuOpen = ref(false)
 
 watch(() => route.meta.requiresAuth, (requiresAuth) => {
@@ -21,8 +20,9 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
 
 <template>
   <div :class="isFullScreen ? 'd-flex flex-column vh-100' : ''">
+    <span class="rb-progress" aria-hidden="true"></span>
     <header v-if="!isLanding" class="navbar-rb px-3 px-lg-4">
-      <RouterLink to="/auth/complete" class="logo fs-2">RescueBite<span class="logo-dot">.</span></RouterLink>
+      <RouterLink to="/auth/complete" class="logo fs-2">RescueBite<span class="logo-dot rb-dot">.</span></RouterLink>
 
       <div class="account order-lg-3">
         <Show when="signed-in">
@@ -57,7 +57,6 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
         <RouterLink v-if="profileRole === 'CONSUMER'" to="/my-orders">
           My orders
         </RouterLink>
-        <!-- Business Listing Navigation -->
         <RouterLink v-if="profileRole === 'BUSINESS'" to="/business-dashboard">
           Dashboard
         </RouterLink>
@@ -74,9 +73,17 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
     </header>
 
     <ProfileGate v-if="route.meta.requiresAuth" @role-change="profileRole = $event">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <Transition name="rise" mode="out-in" appear>
+          <component :is="Component" :key="pageKey" />
+        </Transition>
+      </RouterView>
     </ProfileGate>
-    <RouterView v-else />
+    <RouterView v-else v-slot="{ Component }">
+      <Transition name="rise" mode="out-in" appear>
+        <component :is="Component" :key="pageKey" />
+      </Transition>
+    </RouterView>
   </div>
 </template>
 
@@ -109,9 +116,10 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
 .nav-links {
   flex-wrap: wrap;
   gap: 8px 32px;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 14px;
-  letter-spacing: .04em;
+  font-weight: 500;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
 
@@ -141,9 +149,10 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
   border-radius: 140px;
   color: #191200;
   background-color: transparent;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 13px;
-  letter-spacing: .04em;
+  font-weight: 500;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
 </style>

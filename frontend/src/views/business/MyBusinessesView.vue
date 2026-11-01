@@ -10,17 +10,14 @@ import { API_URL } from '@/config'
 const { user, isLoaded } = useUser()
 const { getToken } = useAuth()
 
-// User role
 const userRole = ref(null)
 const isBusiness = computed(() => userRole.value === 'BUSINESS')
 
-// Current user's business
 const myBusinesses = ref([])
 const myBusinessLoading = ref(false)
 const myBusinessError = ref('')
 
 
-// Retrieve user role from MongoDB
 async function getUserRole() {
   if (!user.value) return
 
@@ -48,7 +45,6 @@ async function getUserRole() {
     console.error('Error fetching user role:', error)
   }
 }
-// Retrieve businesses owned by current user
 async function getMyBusiness() {
   myBusinessLoading.value = true
   myBusinessError.value = ''
@@ -81,10 +77,8 @@ async function getMyBusiness() {
 }
 
 
-// Load all businesses
 onMounted(getMyBusiness)
 
-// Retrieve role when Clerk finishes loading
 watch(
   [user, isLoaded],
   () => {
@@ -101,7 +95,6 @@ watch(
 
 <template>
   <main class="businesses-page">
-    <!-- My Businesses: BUSINESS Users Only -->
     <template v-if="isBusiness">
       <section class="container-xxl px-4 pt-5">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
@@ -120,9 +113,8 @@ watch(
           {{ myBusinessError }}
         </p>
 
-        <!-- Registered Businesses -->
-        <div v-else-if="myBusinesses.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-          <div v-for="(business, index) in myBusinesses" :key="business._id" class="col d-flex">
+        <TransitionGroup tag="div" name="stag" appear v-else-if="myBusinesses.length > 0" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+          <div v-for="(business, index) in myBusinesses" :key="business._id" :style="{ '--i': index }" class="col d-flex">
             <BusinessTile :business="business" :index="index" show-status>
               <RouterLink
                 :to="{ name: 'business-profile', params: { businessId: business._id } }"
@@ -138,9 +130,8 @@ watch(
               </RouterLink>
             </BusinessTile>
           </div>
-        </div>
+        </TransitionGroup>
 
-        <!-- No Registered Businesses -->
         <div v-else class="rb-empty">
           <p class="rb-display display-6 mb-2">No businesses yet</p>
           <p class="mb-4">You do not have any businesses registered to your account yet.</p>

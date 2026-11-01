@@ -108,14 +108,14 @@ onMounted(getFavourites)
             <RouterLink to="/explore" class="rb-pill rb-pill-dark">Find food nearby</RouterLink>
           </div>
 
-          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
-            <div v-for="(listing, index) in listings" :key="listing._id" class="col d-flex flex-column gap-2">
+          <TransitionGroup tag="div" name="stag" appear v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+            <div v-for="(listing, index) in listings" :key="listing._id" :style="{ '--i': index }" class="col d-flex flex-column gap-2">
               <CustomerListingCard class="flex-grow-1" :listing="listing" :index="index" />
               <button type="button" class="rb-pill rb-pill-text rb-pill-sm align-self-start" @click="removeListing(listing._id)">
                 Remove from favourites
               </button>
             </div>
-          </div>
+          </TransitionGroup>
         </section>
 
         <section class="favourite-section" aria-labelledby="saved-businesses">
@@ -129,8 +129,8 @@ onMounted(getFavourites)
             <RouterLink to="/businesses" class="rb-pill rb-pill-dark">Browse businesses</RouterLink>
           </div>
 
-          <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
-            <div v-for="(business, index) in businesses" :key="business._id" class="col d-flex">
+          <TransitionGroup tag="div" name="stag" appear v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+            <div v-for="(business, index) in businesses" :key="business._id" :style="{ '--i': index }" class="col d-flex">
               <BusinessTile :business="business" :index="index">
                 <RouterLink
                   :to="{ name: 'business-profile', params: { businessId: business._id } }"
@@ -143,7 +143,7 @@ onMounted(getFavourites)
                 </button>
               </BusinessTile>
             </div>
-          </div>
+          </TransitionGroup>
         </section>
       </template>
     </section>

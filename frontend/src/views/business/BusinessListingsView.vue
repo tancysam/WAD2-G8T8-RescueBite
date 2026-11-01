@@ -8,7 +8,6 @@ import { API_URL } from '@/config'
 
 const { getToken } = useAuth()
 
-// Business Listing Data
 const businesses = ref([])
 const selectedBusinessId = ref('')
 const listings = ref([])
@@ -29,7 +28,6 @@ const tabs = [
   { key: 'REMOVED', label: 'Removed' }
 ]
 
-// Selected Business and Listing Filters
 const selectedBusiness = computed(() => {
   for (const business of businesses.value) {
     if (business._id === selectedBusinessId.value) return business
@@ -69,7 +67,6 @@ function categoryName(categoryId) {
   return 'Uncategorised'
 }
 
-// Load Businesses and Listings
 async function loadListings() {
   loading.value = true
   errorMessage.value = ''
@@ -116,7 +113,6 @@ async function loadListings() {
   loading.value = false
 }
 
-// Change Selected Business
 async function changeBusiness() {
   loading.value = true
   errorMessage.value = ''
@@ -149,7 +145,6 @@ async function changeBusiness() {
   loading.value = false
 }
 
-// Remove Listing
 function askToRemove(listing) {
   listingToRemove.value = listing
   removeError.value = ''
@@ -275,7 +270,6 @@ onMounted(loadListings)
           </div>
         </div>
 
-        <!-- Listing Status Filters -->
         <div class="rb-chip-row" role="group" aria-label="Filter by status">
           <button
             v-for="tab in tabs"
@@ -295,9 +289,8 @@ onMounted(loadListings)
           <p class="mb-0">No listings in this tab.</p>
         </div>
 
-        <!-- Business Listing Cards -->
-        <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
-          <div v-for="(listing, index) in visibleListings" :key="listing._id" class="col d-flex">
+        <TransitionGroup tag="div" name="stag" appear v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mt-1">
+          <div v-for="(listing, index) in visibleListings" :key="listing._id" :style="{ '--i': index }" class="col d-flex">
             <BusinessListingCard
               class="w-100"
               :listing="listing"
@@ -307,7 +300,7 @@ onMounted(loadListings)
               @request-remove="askToRemove"
             />
           </div>
-        </div>
+        </TransitionGroup>
       </template>
     </section>
   </main>

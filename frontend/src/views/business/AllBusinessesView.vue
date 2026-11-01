@@ -10,19 +10,15 @@ import { API_URL } from '@/config'
 const { user, isLoaded } = useUser()
 const { getToken } = useAuth()
 
-// User role
 const userRole = ref(null)
 const isBusiness = computed(() => userRole.value === 'BUSINESS')
 
-// All businesses
 const businesses = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 
-// for searchbar
 const searchQuery = ref('')
 
-// Retrieve user role from MongoDB
 async function getUserRole() {
   if (!user.value) return
 
@@ -51,7 +47,6 @@ async function getUserRole() {
   }
 }
 
-// Retrieve all active businesses
 async function getBusinesses() {
   loading.value = true
   errorMessage.value = ''
@@ -74,17 +69,14 @@ async function getBusinesses() {
   }
 }
 
-//searchbar
 const filteredBusinesses = computed(() => {
   return businesses.value.filter((business) => {
     return business.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   })
 })
 
-// Load all businesses
 onMounted(getBusinesses)
 
-// Retrieve role when Clerk finishes loading
 watch(
   [user, isLoaded],
   () => {
@@ -123,23 +115,19 @@ watch(
     </section>
 
     <section class="container-xxl px-4 pt-4 pb-5">
-      <!-- Loading -->
       <p v-if="loading" class="rb-label">Loading businesses…</p>
 
-      <!-- Error -->
       <p v-else-if="errorMessage" class="rb-note error" role="alert">
         {{ errorMessage }}
       </p>
 
-      <!-- No Businesses -->
       <div v-else-if="filteredBusinesses.length === 0" class="rb-empty">
         <p class="rb-display display-6 mb-2">Nothing here yet</p>
         <p class="mb-0">No businesses found. Try another search.</p>
       </div>
 
-      <!-- Business Cards -->
-      <div v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-        <div v-for="(business, index) in filteredBusinesses" :key="business._id" class="col d-flex">
+      <TransitionGroup tag="div" name="stag" appear v-else class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        <div v-for="(business, index) in filteredBusinesses" :key="business._id" :style="{ '--i': index }" class="col d-flex">
           <BusinessTile :business="business" :index="index">
             <RouterLink
               :to="{ name: 'business-profile', params: { businessId: business._id } }"
@@ -149,7 +137,7 @@ watch(
             </RouterLink>
           </BusinessTile>
         </div>
-      </div>
+      </TransitionGroup>
     </section>
   </main>
 </template>

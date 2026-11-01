@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import { clerkPlugin } from '@clerk/vue'
 import { setOptions } from '@googlemaps/js-api-loader'
 import './style.css'
+import './animations.css'
+import { reveal } from './motion.js'
 import App from './App.vue'
 import router from './router'
 
@@ -21,4 +23,5 @@ createApp(App)
     signUpUrl: '/register'
   })
   .use(router)
+  .directive('reveal', reveal)
   .mount('#app')
