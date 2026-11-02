@@ -9,7 +9,11 @@ import NotificationBell from './components/notifications/NotificationBell.vue'
 const route = useRoute()
 const isLanding = computed(() => route.meta.isLanding)
 const isFullScreen = computed(() => route.name === 'explore')
-const pageKey = computed(() => route.name === 'register' ? 'login' : route.name)
+const pageKey = computed(() => {
+  if (route.name === 'business-profile') return route.name + ':' + route.params.businessId
+  if (route.name === 'listing-detail') return route.name + ':' + route.params.listingId
+  return route.name === 'register' ? 'login' : route.name
+})
 const profileRole = ref(null)
 const menuOpen = ref(false)
 
@@ -72,10 +76,14 @@ watch(() => route.meta.requiresAuth, (requiresAuth) => {
       </nav>
     </header>
 
-    <ProfileGate v-if="route.meta.requiresAuth" @role-change="profileRole = $event">
+    <ProfileGate v-if="route.meta.requiresAuth" v-slot="{ role }" @role-change="profileRole = $event">
       <RouterView v-slot="{ Component }">
         <Transition name="rise" mode="out-in" appear>
-          <component :is="Component" :key="pageKey" />
+          <component
+            :is="Component"
+            :key="pageKey"
+            v-bind="route.name === 'business-profile' || route.name === 'listing-detail' ? { profileRole: role } : {}"
+          />
         </Transition>
       </RouterView>
     </ProfileGate>
