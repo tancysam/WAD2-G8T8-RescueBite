@@ -44,7 +44,21 @@ This test checks that a consumer is able to discover businesses and listings via
 - Consumers are able to search for a given listing and view its details.
 - Consumers are able to filter lisitngs by Items and Bundles and see the corresponding listings.
 
+Run:
+
 ```powershell
 pnpm exec playwright test 'e2e_testing/consumer_discovery.spec.js'
+pnpm exec playwright show-report
+```
+
+### 3. Consumer Favourites
+
+This test checks that a consumer is able to add and remove a business and listing to/from favourites, and check that it reflects accordingly.
+
+- Consumer adds a business to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites. 
+- Consumer adds a listing to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites.
+
+```powershell
+pnpm exec playwright test e2e_testing/consumer_favourites.spec.js
 pnpm exec playwright show-report
 ```
