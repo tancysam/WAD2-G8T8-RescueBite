@@ -412,7 +412,7 @@ onUnmounted(closeCollectionCode)
       <div class="d-flex flex-wrap align-items-end justify-content-between gap-4">
         <div>
           <p class="rb-script rb-kicker fs-3">your rescues</p>
-          <DisplayHeading :size="160">My orders</DisplayHeading>
+          <DisplayHeading :size="112">My orders</DisplayHeading>
         </div>
       </div>
     </section>
@@ -478,6 +478,7 @@ onUnmounted(closeCollectionCode)
           v-for="(group, groupIndex) in orderGroups"
           :key="group.key"
           :style="{ '--i': groupIndex }"
+          class="order-card"
           :class="{ 'bundle-order': group.isBundle }"
         >
           <div v-if="group.isBundle" class="bundle-banner">
@@ -494,7 +495,7 @@ onUnmounted(closeCollectionCode)
           <article
             v-for="(reservation, itemIndex) in group.items"
             :key="reservation._id"
-            class="order-row d-flex flex-wrap gap-4"
+            class="order-row"
           >
           <div class="rb-tile order-thumb" :class="tileClass(reservation, groupIndex + itemIndex)" :style="tileStyle(reservation)">
             <img
@@ -508,26 +509,26 @@ onUnmounted(closeCollectionCode)
           </div>
 
           <div class="order-body d-flex flex-column gap-3">
-            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div class="order-heading">
               <div>
                 <p class="rb-label">{{ reservation.listing_snapshot.business_name }}</p>
                 <h2 class="rb-display display-6 order-title">{{ reservation.listing_snapshot.title }}</h2>
               </div>
               <div class="order-statuses d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
-                <span v-if="reservation.bundle_group_id" class="rb-status bundle-badge">Part of bundle</span>
+                
                 <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
               </div>
             </div>
 
-            <dl class="row g-3 order-facts">
+            <dl class="order-facts">
               <div class="col-6 col-md-3"><dt class="rb-label">Quantity</dt><dd>{{ reservation.quantity }}</dd></div>
               <div class="col-6 col-md-3"><dt class="rb-label">Total</dt><dd>{{ totalPrice(reservation) }}</dd></div>
               <div class="col-12 col-md-3"><dt class="rb-label">Pickup</dt><dd>{{ reservation.listing_snapshot.pickup_address }}</dd></div>
               <div class="col-12 col-md-3"><dt class="rb-label">Collection window</dt><dd>{{ windowOf(reservation) }}</dd></div>
             </dl>
 
-            <div class="d-flex flex-wrap gap-3">
+            <div class="order-actions">
               <button
                 v-if="reservation.status === 'RESERVED' && canCollect(reservation)"
                 type="button"
@@ -798,35 +799,44 @@ onUnmounted(closeCollectionCode)
   margin-bottom: 8px;
 }
 
+.orders-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.order-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d8d3c0;
+  border-radius: 20px;
+  background: #fffdf7;
+}
+
 .order-row {
-  padding: 24px 0;
-  border-bottom: 1px solid #ddd9c5;
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 24px;
+  padding: 28px;
 }
 
 .bundle-order {
-  margin: 16px 0;
-  padding: 0 24px;
-  overflow: hidden;
-  border: 2px solid #f4b30c;
-  border-radius: 28px;
-  background-color: #fffaf0;
+  border: 2px solid #dba82d;
 }
 
-.bundle-order .order-row:last-child {
-  border-bottom: 0;
+.bundle-order .order-row + .order-row {
+  border-top: 1px solid #ded7bd;
 }
 
 .bundle-banner {
   display: flex;
-  flex: 1 0 100%;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin: 0 -24px;
-  padding: 16px 24px;
-  border-radius: 25px 25px 0 0;
-  color: #000;
-  background-color: #f4b30c;
+  gap: 16px;
+  padding: 20px 28px;
+  color: #191200;
+  background: #f0c75b;
 }
 
 .bundle-label,
@@ -834,32 +844,33 @@ onUnmounted(closeCollectionCode)
   margin: 0;
 }
 
+.bundle-label {
+  font-weight: 700;
+}
+
 .bundle-copy {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 6px;
+  font-size: 15px;
 }
 
 .bundle-total {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  gap: 4px;
   text-align: right;
 }
 
 .bundle-total strong {
-  font-size: 22px;
-}
-
-.bundle-badge {
-  color: #f4b30c;
-  background-color: #000;
+  font-size: 24px;
 }
 
 .order-thumb {
-  flex: 0 0 160px;
-  width: 160px;
-  height: 160px;
-  padding: 16px;
+  width: 128px;
+  height: 128px;
+  padding: 12px;
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
 }
 
 .photo-probe {
@@ -867,18 +878,35 @@ onUnmounted(closeCollectionCode)
 }
 
 .thumb-word {
-  font-size: 48px;
-  line-height: .85;
+  font-size: 36px;
+  line-height: 1;
 }
 
 .order-body {
-  flex: 999 1 280px;
+  min-width: 0;
+}
+
+.order-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.order-heading > div:first-child {
+  flex: 1 1 260px;
   min-width: 0;
 }
 
 .order-title {
   margin: 6px 0 0;
-  line-height: 1.05;
+  font-family: inherit;
+  font-size: 25px;
+  font-weight: 750;
+  line-height: 1.3;
+  text-transform: none;
+  overflow-wrap: anywhere;
 }
 
 .order-statuses {
@@ -886,14 +914,108 @@ onUnmounted(closeCollectionCode)
   justify-content: flex-end;
 }
 
+.order-statuses .rb-status {
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
 .order-facts {
-  margin: 0;
+  display: grid;
+  grid-template-columns: 100px 120px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  margin: 4px 0 0;
+  padding: 18px 0;
+  border-top: 1px solid #e7e2d1;
+  border-bottom: 1px solid #e7e2d1;
+}
+
+.order-facts > div {
+  width: auto;
+  padding: 0;
+  min-width: 0;
+}
+
+.order-facts dt {
+  color: #665c42;
+  font-size: 11px;
 }
 
 .order-facts dd {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-size: 16px;
-  line-height: 24px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.order-facts > div:nth-child(2) dd {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.order-actions .rb-pill {
+  min-height: 44px;
+  padding: 12px 20px;
+  font-size: 12px;
+}
+
+.order-actions .rb-pill:focus-visible,
+.status-tabs button:focus-visible {
+  outline: 3px solid #8a6200;
+  outline-offset: 4px;
+}
+
+@media (max-width: 991px) {
+  .order-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575px) {
+  .order-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .order-thumb {
+    width: 96px;
+    height: 96px;
+  }
+
+  .order-title {
+    font-size: 22px;
+  }
+
+  .order-statuses {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .bundle-banner {
+    padding: 18px 20px;
+  }
+
+  .order-actions .rb-pill {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .order-facts {
+    gap: 18px 14px;
+  }
+
+  .order-facts > div:nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
 }
 
 .review-card {
