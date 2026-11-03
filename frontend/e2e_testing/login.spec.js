@@ -10,7 +10,7 @@ async function signIn(page, username, password) {
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
 }
 
-test('signed-out visitors are sent to login', async ({ page }) => {
+test('Signed-out visitors are sent to login', async ({ page }) => {
   await page.goto('/explore')
   await expect(page).toHaveURL(/\/login(?:\/.*)?$/)
   await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible()
@@ -31,7 +31,7 @@ for (const account of [
   })
 }
 
-test('incorrect password shows an error and stays on login', async ({ page }) => {
+test('Incorrect password shows an error and stays on login', async ({ page }) => {
   await signIn(page, 'demo_consumer', 'definitely-wrong-e2e-password')
   await expect(page.getByText(/Password is incorrect/i).first()).toBeVisible()
   await expect(page).toHaveURL(/\/login\/factor-one$/)

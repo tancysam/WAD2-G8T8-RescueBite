@@ -41,6 +41,8 @@ pnpm exec playwright show-report
 This test checks that a consumer is able to discover businesses and listings via search and filters, and view their details respectively:
 
 - Consumers are able to search for a business using search, and view its details.
+- Consumers are able to search for a given listing and view its details.
+- Consumers are able to filter lisitngs by Items and Bundles and see the corresponding listings.
 
 ```powershell
 pnpm exec playwright test 'e2e_testing/consumer_discovery.spec.js'
