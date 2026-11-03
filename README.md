@@ -80,9 +80,16 @@ pnpm exec playwright show-report
 
 ### 5. Business Listings and Impact
 
-These tests use `demo_business` and the same Playwright setup as the consumer tests.
+These tests check that a business can create, edit and remove a listing, and view its impact figures on the dashboard.
 
-Before running, set a path to an existing food photo (JPEG, PNG or WebP, no more than 5 MB). The file stays on your computer and is uploaded through the listing form:
+- Creates and publishes a listing, then checks that it remains after refresh.
+- Edits the title, description, price and quantity, then checks the saved values.
+- Removes a listing and checks the Active and Removed tabs.
+- Checks that the dashboard figures match the impact API response.
+
+Use `demo_business` with an active business and an available category. Set the password and the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
+
+Run from `frontend`:
 
 ```powershell
 $env:E2E_BUSINESS_PASSWORD = 'PASTE_BUSINESS_PASSWORD_HERE'
@@ -90,14 +97,3 @@ $env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
 pnpm exec playwright test e2e_testing/business.spec.js
 pnpm exec playwright show-report
 ```
-
-Run these commands from `frontend`. The configured base URL is the deployed app, so local frontend/backend servers are not required.
-
-- Creates a manual listing with predefined fields, checks the saved card after refresh and checks that it appears in the dashboard's live listings.
-- Creates a separate test listing, edits its title, description, price and quantity, then reopens the edit form to check the saved values.
-- Creates a separate test listing, removes it, then checks the Active and Removed tabs after refresh.
-- Checks that the dashboard's four impact figures match the real impact API response. This checks display, not whether a completed collection increases the figures.
-
-The demo business account needs an active business and at least one available category. Use the dedicated demo account only. Each listing test uses a unique title and attempts to remove only its own listing afterward. Removal is a soft delete, so test records can remain in the Removed tab. If creation fails during image upload, check for an unfinished test draft before rerunning. Existing consumer test listings are not edited or removed.
-
-Syntax and test discovery were checked during implementation. Full browser execution still needs the demo password, food photo and access to the deployed app.
