@@ -420,7 +420,7 @@ onUnmounted(closeCollectionCode)
     <section v-if="nextPickup" class="container-xxl px-4 mt-5">
       <div class="next-pickup p-4 p-md-5 d-flex flex-wrap align-items-center justify-content-between gap-4">
         <div class="d-flex flex-wrap align-items-center gap-4">
-          <p class="rb-label next-label"><span class="dot rb-live" aria-hidden="true"></span>Next pickup</p>
+          <p class="rb-label next-label">Next pickup</p>
           <p class="rb-display display-5 next-time">{{ windowOf(nextPickup) }}</p>
           <p class="next-copy">
             {{ nextPickup.listing_snapshot.title }} × {{ nextPickup.quantity }}<br />
@@ -748,13 +748,6 @@ onUnmounted(closeCollectionCode)
   align-items: center;
   gap: 10px;
   color: #000;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: #000;
 }
 
 .next-time {
