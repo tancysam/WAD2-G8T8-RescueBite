@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 
-// Use the same dedicated demo business account as the login tests.
 async function signIn(page) {
   const password = process.env.E2E_BUSINESS_PASSWORD
   if (!password) throw new Error('Set E2E_BUSINESS_PASSWORD before running business tests')
@@ -13,7 +12,7 @@ async function signIn(page) {
   await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Dashboard' })).toBeVisible()
 }
 
-// datetime-local inputs need local time rather than a UTC timestamp.
+// Use local time for the collection fields.
 function collectionTime(hoursFromNow) {
   const date = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000)
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
@@ -43,7 +42,7 @@ async function createListing(page, title) {
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
 }
 
-// Only remove the unique listing created by this test, never the consumer fixtures.
+// Remove only this test's listing.
 async function removeTestListing(page, title) {
   await page.goto('/business-listings')
   await expect(page.getByRole('link', { name: '+ Create listing', exact: true })).toBeVisible()
@@ -114,7 +113,6 @@ test('Business_edits a listing and saves the changes', async ({ page }) => {
     await expect(page.getByLabel('Rescue price (S$)', { exact: true })).toHaveValue('4')
     await expect(page.getByLabel('Quantity available', { exact: true })).toHaveValue('4')
   } finally {
-    // Check both names in case saving succeeded but navigation failed.
     await removeTestListing(page, currentTitle)
     if (currentTitle !== updatedTitle) await removeTestListing(page, updatedTitle)
   }
@@ -146,7 +144,7 @@ test('Business_views impact figures on the dashboard', async ({ page }) => {
   test.setTimeout(60000)
   await page.emulateMedia({ reducedMotion: 'reduce' })
 
-  // Login opens the dashboard, so read its response without navigating again.
+  // Get the impact figures when login opens the dashboard.
   const impactData = page.waitForResponse(response =>
     /\/businesses\/[^/]+\/impact$/.test(new URL(response.url()).pathname) &&
     response.request().method() === 'GET'
