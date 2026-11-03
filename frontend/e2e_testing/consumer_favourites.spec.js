@@ -30,32 +30,17 @@ test('Consumer_adds and removes business from favourites', async ({ page }) => {
   await openTestBusiness(page)
   await expect(page.getByRole('button', { name: 'Save business' })).toBeVisible()
 
-  let added = false
-  try {
-    added = true
-    await page.getByRole('button', { name: 'Save business' }).click()
-    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save business' }).click()
+  await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
 
-    await page.goto('/favourites')
-    await expect(page.getByRole('heading', { name: 'My favourites' })).toBeVisible()
-    const businessCard = page.locator('section[aria-labelledby="saved-businesses"] article').filter({
-      has: page.getByRole('heading', { name: /Tom.s carrot cake/i })
-    })
-    await expect(businessCard).toBeVisible()
-    await businessCard.getByRole('button', { name: 'Remove' }).click()
-    await expect(businessCard).not.toBeVisible()
-    added = false
-  } finally { // always runs despite of the outcome in try
-    if (added) {
-      await openTestBusiness(page)
-      await expect(page.locator('.save-button')).toBeVisible()
-      const savedButton = page.getByRole('button', { name: 'Saved' })
-      if (await savedButton.count()) {
-        await savedButton.click()
-        await expect(page.getByRole('button', { name: 'Save business' })).toBeVisible()
-      }
-    }
-  }
+  await page.goto('/favourites')
+  await expect(page.getByRole('heading', { name: 'My favourites' })).toBeVisible()
+  const businessCard = page.locator('section[aria-labelledby="saved-businesses"] article').filter({
+    has: page.getByRole('heading', { name: /Tom.s carrot cake/i })
+  })
+  await expect(businessCard).toBeVisible()
+  await businessCard.getByRole('button', { name: 'Remove' }).click()
+  await expect(businessCard).not.toBeVisible()
 })
 
 test('Consumer_adds and removes listing from favourites', async ({ page }) => {
@@ -72,30 +57,15 @@ test('Consumer_adds and removes listing from favourites', async ({ page }) => {
   await openTestListing(page)
   await expect(page.getByRole('button', { name: 'Save listing' })).toBeVisible()
 
-  let added = false
-  try {
-    added = true
-    await page.getByRole('button', { name: 'Save listing' }).click()
-    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save listing' }).click()
+  await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible()
 
-    await page.goto('/favourites')
-    await expect(page.getByRole('heading', { name: 'My favourites' })).toBeVisible()
-    const listingCard = page.locator('section[aria-labelledby="saved-listings"] .row > .col').filter({
-      has: page.getByRole('heading', { name: listingTitle })
-    })
-    await expect(listingCard).toBeVisible()
-    await listingCard.getByRole('button', { name: 'Remove from favourites' }).click()
-    await expect(listingCard).not.toBeVisible()
-    added = false
-  } finally {
-    if (added) {
-      await openTestListing(page)
-      await expect(page.locator('.save-button')).toBeVisible()
-      const savedButton = page.getByRole('button', { name: 'Saved' })
-      if (await savedButton.count()) {
-        await savedButton.click()
-        await expect(page.getByRole('button', { name: 'Save listing' })).toBeVisible()
-      }
-    }
-  }
+  await page.goto('/favourites')
+  await expect(page.getByRole('heading', { name: 'My favourites' })).toBeVisible()
+  const listingCard = page.locator('section[aria-labelledby="saved-listings"] .row > .col').filter({
+    has: page.getByRole('heading', { name: listingTitle })
+  })
+  await expect(listingCard).toBeVisible()
+  await listingCard.getByRole('button', { name: 'Remove from favourites' }).click()
+  await expect(listingCard).not.toBeVisible()
 })

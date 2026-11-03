@@ -36,7 +36,7 @@ pnpm exec playwright test e2e_testing/login.spec.js
 pnpm exec playwright show-report
 ```
 
-### 2. Consumer Discover Functions
+### 2. Consumer Discover
 
 This test checks that a consumer is able to discover businesses and listings via search and filters, and view their details respectively:
 
@@ -60,5 +60,20 @@ This test checks that a consumer is able to add and remove a business and listin
 
 ```powershell
 pnpm exec playwright test e2e_testing/consumer_favourites.spec.js
+pnpm exec playwright show-report
+```
+
+### 4. Consumer Reservation and Cancellation
+
+This test checks that a consumer is able to reserve an active listing or cross-business bundle, view it in upcoming orders, and viewing further details show the information correctly. It then checks that cancelling the order reflects correctly in Cancelled orders.
+
+- Reserves one item, chooses Pay later, and checks that the newest Reserved order and its details match the listing.
+- Checks that the listing quantity is updated accordingly.
+- Cancels that order, checks that the newest Cancelled order reflects the cancellation, and checks that the listing quantity returns to its starting value.
+
+Run:
+
+```powershell
+pnpm exec playwright test e2e_testing/consumer_reservations.spec.js
 pnpm exec playwright show-report
 ```
