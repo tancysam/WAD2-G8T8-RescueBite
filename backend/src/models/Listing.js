@@ -173,6 +173,15 @@ function findListingsPendingImagePurge(cutoff) {
   });
 }
 
+function findExpiredListings() {
+  return Listing.find({
+    $or: [
+      { status: "EXPIRED" },
+      { collection_end_at: { $lte: new Date() } },
+    ],
+  });
+}
+
 function markImagesPurged(id) {
   return Listing.updateOne({ _id: id }, { images_purged_at: new Date() });
 }
@@ -255,6 +264,7 @@ module.exports = {
   findCascadableListingsByBusiness,
   findListingsPendingImagePurge,
   markImagesPurged,
+  findExpiredListings,
   listingExistsForCategory,
   reduceStock,
   restoreStock,

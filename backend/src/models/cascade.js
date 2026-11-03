@@ -110,6 +110,17 @@ async function expireOverdueReservations() {
   }
 }
 
+async function removeExpiredListingFavourites() {
+  const listings = await Listing.findExpiredListings();
+  for (const listing of listings) {
+    try {
+      await ListingFavourite.removeFavouritesByListing(listing._id);
+    } catch (error) {
+      console.error("Failed to remove expired listing favourites", listing._id.toString(), error);
+    }
+  }
+}
+
 async function purgeRemovedListingImages() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const listings = await Listing.findListingsPendingImagePurge(cutoff);
@@ -193,6 +204,7 @@ async function runCleanupSweep() {
   try {
     await expireOverdueReservations();
     await reconcilePendingStockRestores();
+    await removeExpiredListingFavourites();
     await purgeRemovedListingImages();
   } catch (error) {
     console.error("Cleanup sweep failed:", error);
@@ -208,5 +220,6 @@ module.exports = {
   expireOverdueReservations,
   reconcilePendingStockRestores,
   purgeRemovedListingImages,
+  removeExpiredListingFavourites,
   runCleanupSweep,
 };
