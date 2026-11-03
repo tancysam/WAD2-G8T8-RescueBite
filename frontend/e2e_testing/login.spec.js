@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 async function signIn(page, username, password) {
-  expect(password, 'Set E2E_TEST_PASSWORD before running login tests').toBeTruthy()
+  expect(password, 'Set both demo account password variables before running login tests').toBeTruthy()
 
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Username' }).fill(username)
@@ -17,11 +17,11 @@ test('signed-out visitors are sent to login', async ({ page }) => {
 })
 
 for (const account of [
-  { username: 'test-consumer', home: '/explore', nav: 'Explore' },
-  { username: 'test-business', home: '/business-dashboard', nav: 'Dashboard' }
+  { username: 'demo_consumer', password: process.env.E2E_CONSUMER_PASSWORD, home: '/explore', nav: 'Explore' },
+  { username: 'demo_business', password: process.env.E2E_BUSINESS_PASSWORD, home: '/business-dashboard', nav: 'Dashboard' }
 ]) {
   test(`${account.username} logs in to the correct home page and stays signed in after refresh`, async ({ page }) => {
-    await signIn(page, account.username, process.env.E2E_TEST_PASSWORD)
+    await signIn(page, account.username, account.password)
     await expect(page).toHaveURL(new RegExp(`${account.home}$`)) // check that the home page is correct
     await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: account.nav })).toBeVisible()
 
@@ -32,7 +32,7 @@ for (const account of [
 }
 
 test('incorrect password shows an error and stays on login', async ({ page }) => {
-  await signIn(page, 'test-consumer', 'definitely-wrong-e2e-password')
+  await signIn(page, 'demo_consumer', 'definitely-wrong-e2e-password')
   await expect(page.getByText(/Password is incorrect/i).first()).toBeVisible()
   await expect(page).toHaveURL(/\/login\/factor-one$/)
 })
