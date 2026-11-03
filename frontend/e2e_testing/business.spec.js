@@ -144,19 +144,19 @@ test('Business_removes a listing from active listings', async ({ page }) => {
 
 test('Business_views impact figures on the dashboard', async ({ page }) => {
   test.setTimeout(60000)
-  await signIn(page)
-
   await page.emulateMedia({ reducedMotion: 'reduce' })
 
-  // Read the real response, without mocking the dashboard or changing any orders.
-  const impactResponse = page.waitForResponse(response =>
+  // Login opens the dashboard, so read its response without navigating again.
+  const impactData = page.waitForResponse(response =>
     /\/businesses\/[^/]+\/impact$/.test(new URL(response.url()).pathname) &&
     response.request().method() === 'GET'
-  )
-  await page.goto('/business-dashboard')
-  const response = await impactResponse
-  expect(response.ok()).toBeTruthy()
-  const { impact } = await response.json()
+  ).then(async response => {
+    expect(response.ok()).toBeTruthy()
+    return response.json()
+  })
+
+  await signIn(page)
+  const { impact } = await impactData
 
   await expect(page.getByRole('heading', { name: 'Impact', exact: true })).toBeVisible()
   const meals = page.locator('.kpi').filter({ hasText: 'Meals rescued' })
