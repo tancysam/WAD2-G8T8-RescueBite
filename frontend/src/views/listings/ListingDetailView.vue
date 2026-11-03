@@ -9,6 +9,10 @@ import { dayLabel, formatPrice, shortTime } from '../../formatters.js'
 import { newCheckoutRequestId, paymentAmount } from '../../payments.js'
 import { API_URL } from '@/config'
 
+const props = defineProps({
+  profileRole: { type: String, default: null }
+})
+
 const route = useRoute()
 const { getToken } = useAuth()
 
@@ -20,7 +24,7 @@ const imageFailed = ref(false)
 const isFavourite = ref(false)
 const canFavourite = ref(false)
 const favouriteMessage = ref('')
-const isConsumer = ref(false)
+const isConsumer = computed(() => props.profileRole === 'CONSUMER')
 const showReserveModal = ref(false)
 const reserveQuantity = ref(1)
 const reserving = ref(false)
@@ -32,6 +36,8 @@ const amountDue = ref('')
 const checkoutRequestId = ref('')
 const canRetryReservation = ref(false)
 const bundleOptions = ref([])
+const bundleLoading = ref(false)
+const bundleError = ref('')
 const selectedBundleId = ref('')
 const bundleSuccess = ref(false)
 
@@ -152,9 +158,9 @@ async function getListingDetails() {
     )
 
     business.value = businessResponse.data.business
-    await checkFavourite()
-    await checkConsumerRole()
-    await loadBundleOptions()
+    loading.value = false
+    checkFavourite()
+    loadBundleOptions()
   } catch (error) {
     console.error('Error fetching listing details:', error)
 
@@ -178,25 +184,14 @@ async function getHeaders() {
   }
 }
 
-async function checkConsumerRole() {
-  try {
-    const response = await axios.get(`${API_URL}/users/me`, {
-      headers: await getHeaders()
-    })
-    isConsumer.value = response.data.user.role === 'CONSUMER'
-  } catch (error) {
-    console.error('Error checking user role:', error)
-    isConsumer.value = false
-  }
-}
-
-
 async function loadBundleOptions() {
   bundleOptions.value = []
   selectedBundleId.value = ''
+  bundleError.value = ''
 
   if (!isConsumer.value || !listing.value.bundle_eligible) return
 
+  bundleLoading.value = true
   try {
     const response = await axios.get(
       `${API_URL}/listings/${listing.value._id}/bundle-options`,
@@ -205,6 +200,9 @@ async function loadBundleOptions() {
     bundleOptions.value = response.data.listings || []
   } catch (error) {
     bundleOptions.value = []
+    bundleError.value = 'Unable to load nearby bundle options.'
+  } finally {
+    bundleLoading.value = false
   }
 }
 
@@ -482,7 +480,10 @@ onMounted(getListingDetails)
               >
                 {{ reserving ? 'Reserving…' : 'Reserve listing' }}
               </button>
-              <section v-if="bundleOptions.length > 0" class="partner-bundle">
+              <p v-if="bundleLoading" class="rb-label" role="status">Loading nearby bundle options…</p>
+              <p v-else-if="bundleError" class="rb-note error" role="alert">{{ bundleError }}</p>
+              <p v-else-if="isConsumer && listing.bundle_eligible && bundleOptions.length === 0" class="rb-label">No nearby bundle options available.</p>
+              <section v-else-if="bundleOptions.length > 0" class="partner-bundle">
                 <p class="rb-label mb-1">Nearby bundle deal</p>
                 <h2 class="rb-display bundle-heading">Add another rescue and save 10%</h2>
                 <p class="bundle-note">

@@ -181,7 +181,7 @@ watch([phase, profileRole, () => route.name, () => route.meta.requiredRole], ([c
 </script>
 
 <template>
-  <slot v-if="canShowPage" />
+  <slot v-if="canShowPage" :role="profileRole" />
 
   <main v-else class="profile-gate container-xxl px-4 py-5">
     <div class="profile-card p-4 p-md-5" aria-live="polite">

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { API_URL } from '@/config'
 import { useAuth } from '@clerk/vue'
 
 const hasUnread = ref(false)
@@ -13,7 +14,7 @@ const { getToken } = useAuth()
 async function getNotifications() {
   try {
     const token = await getToken.value()
-    const response = await axios.get('http://localhost:8000/api/notifications', 
+    const response = await axios.get(API_URL + '/notifications',
       {headers:{Authorization: `Bearer ${token}`}, params: {page: page.value}})
     notifications.value.push(...response.data.notifications)
     hasMore.value = response.data.hasMore
@@ -27,7 +28,7 @@ async function markNotificationsAsRead() {
     const token = await getToken.value()
     const notificationIds = notifications.value.slice(-5).map(notif => notif._id)
     if (notificationIds.length===0) return
-    await axios.patch('http://localhost:8000/api/notifications/read',
+    await axios.patch(API_URL + '/notifications/read',
       {notificationIds}, {headers: {Authorization: `Bearer ${token}`}})
   } catch (error) {
     console.error(error.response?.data?.error || error.message)
@@ -48,7 +49,7 @@ async function toggleNotifications() {
 async function clearAllNotifications() {
   try {
     const token = await getToken.value()
-    await axios.delete('http://localhost:8000/api/notifications',
+    await axios.delete(API_URL + '/notifications',
       {headers: {Authorization: `Bearer ${token}`}})
     
     notifications.value = []
@@ -63,7 +64,7 @@ onMounted(async () => {
 
   try {
     const token = await getToken.value()
-    const response = await axios.get('http://localhost:8000/api/notifications/unread',
+    const response = await axios.get(API_URL + '/notifications/unread',
       {headers: {Authorization: `Bearer ${token}`}})
     hasUnread.value = response.data.hasUnread
   } catch (error) {

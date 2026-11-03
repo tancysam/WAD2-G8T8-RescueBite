@@ -351,6 +351,10 @@ onMounted(() => {
     isDestroyed = false
     getBusinesses()
     initMap()
+
+    // Open the listings pane at half of the map area.
+    updatePanelLimits()
+    setPanelWidth(Math.round(panelMaxWidth.value / 2))
 })
 
 onUnmounted(() => {
@@ -633,5 +637,36 @@ onUnmounted(() => {
     min-height: 0;
     overflow-y: auto;
     padding: 16px 20px;
+}
+
+/* Phones: listings become a bottom sheet so the map stays visible above. */
+@media (max-width: 767.98px) {
+    .listings-collapse {
+        top: 45%;
+        left: 0;
+    }
+
+    .panel-inner {
+        width: 100% !important;
+        border-top: 2px solid #000;
+        border-left: 0;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .panel-resize-handle {
+        display: none;
+    }
+
+    .panel-head {
+        padding: 12px 16px;
+    }
+
+    .panel-title {
+        font-size: 24px;
+    }
+
+    .panel-body {
+        padding: 12px 16px;
+    }
 }
 </style>

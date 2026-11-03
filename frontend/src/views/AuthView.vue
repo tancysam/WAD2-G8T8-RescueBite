@@ -53,14 +53,7 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
     </header>
 
     <div class="row g-0 auth-body">
-      <section class="col-lg-6 brand-panel p-4 p-md-5" aria-hidden="true">
-        <p class="rb-script rb-kicker fs-3 brand-script">{{ mode === 'login' ? 'welcome back' : 'good to meet you' }}</p>
-        <p class="rb-display display-1 brand-title">
-          {{ mode === 'login' ? 'Back for' : 'Make every' }}<br />{{ mode === 'login' ? 'more?' : 'bite count.' }}
-        </p>
-      </section>
-
-      <section class="col-lg-6 form-panel p-4 p-md-5" aria-label="Log in or register">
+      <section class="col-12 form-panel p-4 p-md-5" aria-label="Log in or register">
         <div class="form-inner">
           <div class="auth-tabs" role="tablist" aria-label="Account access">
             <button
@@ -191,26 +184,6 @@ watch([isLoaded, isSignedIn], ([loaded, signedIn]) => {
 .auth-body {
   flex: 1;
 }
-
-.brand-panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  color: #000;
-  background-color: #f4b30c;
-}
-
-.brand-script {
-  color: #000;
-  line-height: 1.1;
-}
-
-.brand-title {
-  margin-top: 8px;
-  line-height: .92;
-}
-
-
 
 .form-panel {
   display: flex;

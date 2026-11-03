@@ -6,15 +6,23 @@ import routes from "./routes/routes.js";
 import Cascade from "./models/cascade.js";
 import { stripeWebhook } from "./controllers/paymentController.js";
 import { startPaymentReconciliation } from "./services/paymentService.js";
-import cors from "cors"; // function so that the ports are the same across frontend and backend
+import cors from "cors";
 
 dotenv.config({ path: "../.env" });
 
 const server = express();
 
-// function so that the ports are the same across frontend and backend
+const allowedOrigins = ["http://localhost:5173"];
+const configuredOrigins = `${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`;
+for (const value of configuredOrigins.split(",")) {
+  const origin = value.trim();
+  if (origin && origin !== "*" && origin !== "null" && !allowedOrigins.includes(origin)) {
+    allowedOrigins.push(origin);
+  }
+}
+
 server.use(cors({
-  origin: "http://localhost:5173"
+  origin: allowedOrigins
 }));
 
 server.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhook);
@@ -25,8 +33,8 @@ server.use("/api", clerkMiddleware());
 server.use("/api", routes);
 
 function startServer() {
-  const hostname = "localhost";
-  const port = 8000;
+  const hostname = "0.0.0.0";
+  const port = Number(process.env.PORT) || 8080;
 
   server.listen(port, hostname, () => {
     console.log(`Server running at http://${hostname}:${port}/`);

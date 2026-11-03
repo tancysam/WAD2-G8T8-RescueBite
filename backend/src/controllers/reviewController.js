@@ -23,21 +23,19 @@ export async function getBusinessReviews(req, res) {
     }
 
     const listings = await Listing.findListingsByBusiness(business._id);
+    const listingIds = {};
+    for (const listing of listings) {
+      listingIds[listing._id.toString()] = true;
+    }
+
+    const reservations = await Reservation.findCollectedReservationsByBusiness(
+      business._id,
+    );
     const reservationIds = [];
 
-    for (const listing of listings) {
-      const reservations = await Reservation.findReservationsByListing(
-        listing._id,
-        "COLLECTED",
-      );
-
-      for (const reservation of reservations) {
-        if (
-          reservation.listing_snapshot.business_id.toString() ===
-          business._id.toString()
-        ) {
-          reservationIds.push(reservation._id);
-        }
+    for (const reservation of reservations) {
+      if (listingIds[reservation.listing_id.toString()]) {
+        reservationIds.push(reservation._id);
       }
     }
 

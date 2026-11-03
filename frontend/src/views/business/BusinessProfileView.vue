@@ -1,6 +1,6 @@
 
 <script setup>
-import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { importLibrary } from '@googlemaps/js-api-loader'
@@ -13,6 +13,7 @@ const { getToken } = useAuth()
 const stars = [1, 2, 3, 4, 5]
 
 const props = defineProps({
+  profileRole: { type: String, default: null },
   businessId: {
     type: String,
     required: true
@@ -34,7 +35,7 @@ const reviews = ref([])
 const reviewsLoading = ref(false)
 const reviewsError = ref('')
 
-const userRole = ref(null)
+const userRole = computed(() => props.profileRole)
 const roleLoading = ref(true)
 const isOwner = ref(false)
 
@@ -44,45 +45,30 @@ const backRoute = computed(() => {
     : '/businesses'
 })
 
-async function getUserRole() {
+async function checkOwnership() {
+  const currentRequest = requestId
+  isOwner.value = false
+  roleLoading.value = true
   try {
-    const token = await getToken.value()
-
-    const response = await axios.get(
-      `${API_URL}/users/me`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    )
-
-    userRole.value = response.data.user.role
-    isOwner.value = false
-
     if (userRole.value === 'BUSINESS') {
-      const ownedResponse = await axios.get(
+      const response = await axios.get(
         `${API_URL}/businesses/ownedBusinesses`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        { headers: await getHeaders() }
       )
-
-      for (const business of ownedResponse.data.businesses) {
-        if (business._id === props.businessId) {
+      if (currentRequest !== requestId) return
+      for (const item of response.data.businesses) {
+        if (item._id === props.businessId) {
           isOwner.value = true
           break
         }
       }
     }
-
   } catch (error) {
-    console.error('Error fetching user role:', error)
+    if (currentRequest !== requestId) return
+    console.error('Error checking business ownership:', error)
     isOwner.value = false
   } finally {
-    roleLoading.value = false
+    if (currentRequest === requestId) roleLoading.value = false
   }
 }
 
@@ -129,7 +115,9 @@ async function loadMap(businessData) {
 
   } catch (error) {
     console.error('Google Maps error:', error)
-    mapError.value = 'Unable to load Google Maps.'
+    if (business.value === businessData && mapElement.value) {
+      mapError.value = 'Unable to load Google Maps.'
+    }
   }
 }
 
@@ -156,16 +144,13 @@ async function getBusiness() {
     if (currentRequest !== requestId) return
 
     business.value = response.data.business
-    await checkFavourite()
-    await getReviews()
-
-    console.log('Business loaded:', business.value)
-
     loading.value = false
+    checkFavourite()
+    getReviews()
 
     await nextTick()
 
-    if (business.value && business.value.location) {
+    if (currentRequest === requestId && business.value && business.value.location) {
       await loadMap(business.value)
     }
 
@@ -186,6 +171,7 @@ async function getBusiness() {
 }
 
 async function getListings() {
+  const currentRequest = requestId
   listingsLoading.value = true
   listingsError.value = ''
   listings.value = []
@@ -195,9 +181,11 @@ async function getListings() {
       `${API_URL}/businesses/${props.businessId}/listings`
     )
 
+    if (currentRequest !== requestId) return
     listings.value = response.data.listings || []
 
   } catch (error) {
+    if (currentRequest !== requestId) return
     console.error('Error fetching listings:', error)
 
     listingsError.value =
@@ -205,7 +193,7 @@ async function getListings() {
       'Unable to retrieve listings.'
 
   } finally {
-    listingsLoading.value = false
+    if (currentRequest === requestId) listingsLoading.value = false
   }
 }
 
@@ -217,6 +205,9 @@ async function getHeaders() {
 }
 
 async function checkFavourite() {
+  const currentRequest = requestId
+  canFavourite.value = false
+  isFavourite.value = false
   try {
     const headers = await getHeaders()
     const response = await axios.get(
@@ -224,11 +215,13 @@ async function checkFavourite() {
       { headers: headers }
     )
 
+    if (currentRequest !== requestId) return
     canFavourite.value = true
     isFavourite.value = response.data.businesses.some(function (item) {
       return item._id === props.businessId
     })
   } catch (error) {
+    if (currentRequest !== requestId) return
     canFavourite.value = false
     isFavourite.value = false
   }
@@ -262,6 +255,8 @@ async function toggleFavourite() {
 }
 
 async function getReviews() {
+  const currentRequest = requestId
+  reviews.value = []
   reviewsLoading.value = true
   reviewsError.value = ''
 
@@ -269,12 +264,14 @@ async function getReviews() {
     const response = await axios.get(
       `${API_URL}/businesses/${props.businessId}/reviews`
     )
+    if (currentRequest !== requestId) return
     reviews.value = response.data.reviews
   } catch (error) {
+    if (currentRequest !== requestId) return
     reviewsError.value = 'Unable to load reviews.'
   }
 
-  reviewsLoading.value = false
+  if (currentRequest === requestId) reviewsLoading.value = false
 }
 
 function openDirections() {
@@ -294,16 +291,9 @@ function openDirections() {
 }
 
 onMounted(() => {
-  getUserRole()
   getBusiness()
   getListings()
-})
-
-watch(() => props.businessId, () => {
-  isOwner.value = false
-  getUserRole()
-  getBusiness()
-  getListings()
+  checkOwnership()
 })
 
 onUnmounted(() => {
