@@ -24,9 +24,10 @@ async function createListing(page, title) {
   if (!image) throw new Error('Set E2E_LISTING_IMAGE to a JPEG, PNG or WebP file before running listing tests')
 
   await page.goto('/business-listings/create')
-  await page.getByRole('button', { name: 'Enter details manually' }).click()
   await page.getByLabel('Business', { exact: true }).selectOption({ index: 1 })
   await page.getByLabel('Listing image', { exact: true }).setInputFiles(image)
+  await page.getByRole('button', { name: /Enter details manually/ }).click()
+  await expect(page.getByLabel('Title', { exact: true })).toBeVisible()
   await page.getByLabel('Listing type', { exact: true }).selectOption('ITEM')
   await page.getByLabel('Category', { exact: true }).selectOption({ index: 1 })
   await page.getByLabel('Title', { exact: true }).fill(title)
@@ -37,7 +38,7 @@ async function createListing(page, title) {
   await page.getByLabel('From', { exact: true }).fill(collectionTime(1))
   await page.getByLabel('Until', { exact: true }).fill(collectionTime(3))
   await page.getByLabel('Listing status', { exact: true }).selectOption('ACTIVE')
-  await page.getByRole('button', { name: 'Create listing manually', exact: true }).click()
+  await page.getByRole('button', { name: 'Publish listing', exact: true }).click()
   await expect(page).toHaveURL(/\/business-listings$/)
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
 }
