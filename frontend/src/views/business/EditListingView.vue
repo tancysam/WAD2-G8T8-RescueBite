@@ -624,8 +624,27 @@ onMounted(loadPage)
 }
 
 .field input[type="file"] {
-  padding: 0 24px 0 0;
+  padding: 0 24px 0 6px;
   line-height: 50px;
+}
+
+.field input[type="file"]::file-selector-button {
+  height: 40px;
+  line-height: 40px;
+  vertical-align: middle;
+  margin-right: 16px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 140px;
+  color: #fff;
+  background-color: #191200;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.field input[type="file"]:disabled::file-selector-button {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 
