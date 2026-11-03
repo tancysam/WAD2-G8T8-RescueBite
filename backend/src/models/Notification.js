@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema(
     {
@@ -72,7 +72,7 @@ function clearAllNotifications(userId) {
   });
 }
 
-module.exports = {
+export default {
   findNotificationsByUser,
   hasUnreadNotifications,
   markNotificationsAsRead,
