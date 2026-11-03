@@ -92,6 +92,7 @@ async function toggleNotifications() {
     notifications.value = []
     hasMore.value = false
 
+    await checkUnreadStatus()
     const newNotifications = await getNotifications()
 
     if (newNotifications) {

@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import Reservation from "../models/Reservation.js";
 import Listing from "../models/Listing.js";
-import { notifyBusiness } from "./notificationService.js";
+import { notify, notifyBusiness } from "./notificationService.js";
 
 export function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe is not configured");
@@ -131,6 +131,10 @@ export async function syncCheckout(session, stripe) {
   );
 
   if (result.modifiedCount === 1) {
+    await notify(
+      reservation.consumer_user_id,
+      `Payment confirmed for your reservation for ${reservation.listing_snapshot.title}`
+    );
     await notifyBusiness(
       reservation,
       `New paid reservation received for ${reservation.listing_snapshot.title}`

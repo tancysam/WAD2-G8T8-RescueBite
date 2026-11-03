@@ -145,11 +145,16 @@ function removeListing(id) {
 }
 
 async function softDeleteListing(id) {
-  const result = await Listing.updateOne({ _id: id }, { status: "REMOVED" });
-  await Listing.updateOne(
-    { _id: id, deleted_at: null },
-    { deleted_at: new Date() },
+  const result = await Listing.updateOne(
+    { _id: id, status: { $ne: "REMOVED" } },
+    {
+      $set: {
+        status: "REMOVED",
+        deleted_at: new Date()
+      }
+    }
   );
+
   return result;
 }
 

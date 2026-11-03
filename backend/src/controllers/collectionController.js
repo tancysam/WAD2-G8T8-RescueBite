@@ -174,6 +174,11 @@ export async function verifyCollectionCode(req, res) {
       return res.status(409).json({ error: "Reservation is no longer available for collection" });
     }
 
+    await notify(
+      reservation.consumer_user_id,
+      `Your reservation for ${reservation.listing_snapshot.title} has been collected`
+    );
+
     return res.status(200).json({
       reservationId,
       status: "COLLECTED",

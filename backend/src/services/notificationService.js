@@ -1,8 +1,7 @@
-import Notification from "../models/Notification.js";
-import Reservation from "../models/Reservation.js";
-import Business from "../models/Business.js";
+const Notification = require("../models/Notification.js");
+const Business = require("../models/Business.js");
 
-export async function notify(userId, message) {
+async function notify(userId, message) {
   if (!userId) return;
 
   try {
@@ -15,7 +14,7 @@ export async function notify(userId, message) {
   }
 }
 
-export async function notifyBusiness(reservation, message) {
+async function notifyBusiness(reservation, message) {
   try {
     const businessId = reservation.listing_snapshot?.business_id;
     if (!businessId) return;
@@ -30,7 +29,7 @@ export async function notifyBusiness(reservation, message) {
   }
 }
 
-export async function notifyConsumers(reservations, message) {
+async function notifyConsumers(reservations, message) {
   const userIds = [
     ...new Set(reservations.map(r => String(r.consumer_user_id)))
   ];
@@ -39,3 +38,9 @@ export async function notifyConsumers(reservations, message) {
     userIds.map(id => notify(id, message))
   );
 }
+
+module.exports = {
+  notify,
+  notifyBusiness,
+  notifyConsumers
+};

@@ -4,8 +4,7 @@ import Listing from "../models/Listing.js";
 import Review from "../models/Review.js";
 import { getListingThumbnailUrl } from "./listingImageController.js";
 import { amountInCents, checkoutConfiguration, ensureCheckout, paymentSummary, reconcileReservation } from "../services/paymentService.js";
-import { createNotification } from "./notificationController.js";
-import { notifyBusiness } from "../services/notificationService.js";
+import { notify, notifyBusiness } from "../services/notificationService.js";
 
 
 function distanceInKm(first, second) {
@@ -244,6 +243,10 @@ export async function createReservation(req, res) {
     }
 
     if (reservation.payment_status === "NOT_REQUIRED") {
+      await notify(
+        reservation.consumer_user_id,
+        `Your reservation for ${listing.title} is confirmed`
+      );
       await notifyBusiness(
         reservation,
         `New reservation received for ${listing.title}`
@@ -526,11 +529,9 @@ export async function getBusinessReservations(req, res) {
   }
 }
 
-export async function updateReservationStatus(req, res) {
-  // update reservation status
-}
 
 export async function cancelReservation(req, res) {
+  console.log("CANCEL ENDPOINT REACHED");
   // cancel reservation
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -559,7 +560,7 @@ export async function cancelReservation(req, res) {
     if (reservation.amount_cents !== null && reservation.amount_cents !== undefined) {
       if (reservation.status !== "CANCELLED") {
         const result = await Reservation.cancelReservation(reservation._id, req.user._id);
-
+        console.log("Cancellation result:", result);
         if (result.modifiedCount === 1) {
           await notifyBusiness(
             reservation,

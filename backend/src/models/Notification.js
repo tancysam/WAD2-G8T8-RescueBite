@@ -7,11 +7,13 @@ const notificationSchema = new mongoose.Schema(
             ref: "User",
             required: true
         },
+
         message: {
             type: String,
             required: true,
             trim: true
         },
+
         is_read: {
             type: Boolean,
             default: false
@@ -30,9 +32,9 @@ notificationSchema.index({
     created_at: -1
 });
 
-const Notification = mongoose.model("Notification", notificationSchema, "notifications")
+const Notification = mongoose.model("Notification", notificationSchema, "notifications");
 
-//retrieves notifications respective to the user
+// retrieves notifications respective to the user
 function findNotificationsByUser(userId, skip=0, limit=5) {
     return Notification.find({user_id: userId})
         .sort({created_at: -1, _id:-1})
@@ -49,33 +51,41 @@ function hasUnreadNotifications(userId) {
 
 // mark loaded notifs as read once the user opens the notif bar
 function markNotificationsAsRead(userId, notificationIds) {
-  return Notification.updateMany(
-    {
-      user_id: userId,
-      _id: { $in: notificationIds }
-    },
-    {
-      $set: { is_read: true }
-    }
-  );
+    return Notification.updateMany(
+        {
+            user_id: userId,
+            _id: { $in: notificationIds }
+        },
+        {
+            $set: { is_read: true }
+        }
+    );
 }
 
 // create notifs
 function addNotification(data) {
-  return Notification.create(data);
+    return Notification.create(data);
 }
 
 // clear all notifs
 function clearAllNotifications(userId) {
-  return Notification.deleteMany({
-    user_id: userId
-  });
+    return Notification.deleteMany({
+        user_id: userId
+    });
 }
 
+export {
+    findNotificationsByUser,
+    hasUnreadNotifications,
+    markNotificationsAsRead,
+    addNotification,
+    clearAllNotifications
+};
+
 export default {
-  findNotificationsByUser,
-  hasUnreadNotifications,
-  markNotificationsAsRead,
-  addNotification,
-  clearAllNotifications
+    findNotificationsByUser,
+    hasUnreadNotifications,
+    markNotificationsAsRead,
+    addNotification,
+    clearAllNotifications
 };
