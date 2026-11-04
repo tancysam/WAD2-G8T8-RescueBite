@@ -6,71 +6,132 @@ import { useAuth } from '@clerk/vue'
 
 const hasUnread = ref(false)
 const notifications = ref([])
-const showNotifications = ref(false);
+const showNotifications = ref(false)
 const page = ref(1)
 const hasMore = ref(false)
+const loading = ref(false)
 const { getToken } = useAuth()
 
 async function getNotifications() {
+  if (loading.value) return
+
+  loading.value = true
+
   try {
     const token = await getToken.value()
-    const response = await axios.get(API_URL + '/notifications',
-      {headers:{Authorization: `Bearer ${token}`}, params: {page: page.value}})
-    notifications.value.push(...response.data.notifications)
+    const response = await axios.get(API_URL + '/notifications', {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { page: page.value }
+    })
+
+    const newNotifications = response.data.shownNotifications
+
+    const existingIds = new Set(notifications.value.map(n => n._id))
+    notifications.value.push(
+      ...newNotifications.filter(n => !existingIds.has(n._id))
+    )
+
     hasMore.value = response.data.hasMore
+    return newNotifications
+  } catch (error) {
+    console.error(error.response?.data?.error || error.message)
+    return null
+  } finally {
+    loading.value = false
+  }
+}
+
+async function markNotificationsAsRead(newNotifications) {
+  const notificationIds = newNotifications
+    .filter(n => !n.is_read)
+    .map(n => n._id)
+
+  if (notificationIds.length === 0) return
+
+  try {
+    const token = await getToken.value()
+
+    await axios.patch(
+      API_URL + '/notifications/read',
+      { notificationIds },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    for (const notification of notifications.value) {
+      if (notificationIds.includes(notification._id)) {
+        notification.is_read = true
+      }
+    }
+
+    await checkUnreadStatus()
   } catch (error) {
     console.error(error.response?.data?.error || error.message)
   }
 }
 
-async function markNotificationsAsRead() {
+async function checkUnreadStatus() {
   try {
     const token = await getToken.value()
-    const notificationIds = notifications.value.slice(-5).map(notif => notif._id)
-    if (notificationIds.length===0) return
-    await axios.patch(API_URL + '/notifications/read',
-      {notificationIds}, {headers: {Authorization: `Bearer ${token}`}})
+    const response = await axios.get(API_URL + '/notifications/unread', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    hasUnread.value = response.data.hasUnread
   } catch (error) {
     console.error(error.response?.data?.error || error.message)
   }
 }
 
 async function toggleNotifications() {
+  if (loading.value) return
+
   showNotifications.value = !showNotifications.value
+
   if (showNotifications.value) {
     page.value = 1
-    notifications.value=[]
+    notifications.value = []
+    hasMore.value = false
 
-    await getNotifications()
-    await markNotificationsAsRead()
+    await checkUnreadStatus()
+    const newNotifications = await getNotifications()
+
+    if (newNotifications) {
+      await markNotificationsAsRead(newNotifications)
+    }
+  }
+}
+
+async function loadMore() {
+  if (loading.value || !hasMore.value) return
+
+  page.value++
+
+  const newNotifications = await getNotifications()
+
+  if (newNotifications) {
+    await markNotificationsAsRead(newNotifications)
+  } else {
+    page.value--
   }
 }
 
 async function clearAllNotifications() {
   try {
     const token = await getToken.value()
-    await axios.delete(API_URL + '/notifications',
-      {headers: {Authorization: `Bearer ${token}`}})
-    
+
+    await axios.delete(API_URL + '/notifications', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
     notifications.value = []
     hasMore.value = false
+    hasUnread.value = false
   } catch (error) {
     console.error(error.response?.data?.error || error.message)
   }
 }
 
-onMounted(async () => {
-  await getNotifications()
-
-  try {
-    const token = await getToken.value()
-    const response = await axios.get(API_URL + '/notifications/unread',
-      {headers: {Authorization: `Bearer ${token}`}})
-    hasUnread.value = response.data.hasUnread
-  } catch (error) {
-    console.error(error.response?.data?.error || error.message)
-  }
-})
+onMounted(checkUnreadStatus)
 </script>
 
 <template>
@@ -96,7 +157,7 @@ onMounted(async () => {
         v-if="hasMore"
         type="button"
         class="rb-pill rb-pill-line rb-pill-sm"
-        @click="page++; getNotifications().then(markNotificationsAsRead)"
+        @click="loadMore" :disabled="loading"
       >
         Show More
       </button>

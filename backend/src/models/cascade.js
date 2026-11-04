@@ -5,13 +5,29 @@ const ListingFavourite = require("./ListingFavourite.js");
 const ListingImage = require("./ListingImage.js");
 const Reservation = require("./Reservation.js");
 const User = require("./User.js");
+const { notifyConsumers, notifyBusiness } = require("../services/notificationService.js");
 
 async function softDeleteListing(listingId) {
+  const listing = await Listing.findListingById(listingId);
+
+  const reservations = await Reservation.findReservationsByListing(
+    listingId,
+    "RESERVED"
+  );
+
   const result = await Listing.softDeleteListing(listingId);
+
   await ListingFavourite.removeFavouritesByListing(listingId);
+
+  if (result.modifiedCount === 1) {
+    await notifyConsumers(
+      reservations,
+      `The listing "${listing.title}" has been removed by the business. Please check your reservation.`
+    );
+  }
+
   return result;
 }
-
 async function softDeleteBusiness(businessId, status, markDeleted) {
   const result = await Business.setBusinessStatus(businessId, status);
   if (markDeleted) {
@@ -42,6 +58,11 @@ async function softDeleteUser(user) {
         user._id,
       );
       if (result.modifiedCount === 1) {
+
+        await notifyBusiness(
+          reservation,
+          `A reservation for "${reservation.listing_snapshot.title}" has been cancelled because the consumer deleted their account.`
+        );
         const restored = await Listing.restoreStock(
           reservation.listing_id,
           reservation.quantity,
@@ -85,6 +106,17 @@ async function expireOverdueReservations() {
         reservation._id.toString(),
         error,
       );
+    }
+  }
+}
+
+async function removeExpiredListingFavourites() {
+  const listings = await Listing.findExpiredListings();
+  for (const listing of listings) {
+    try {
+      await ListingFavourite.removeFavouritesByListing(listing._id);
+    } catch (error) {
+      console.error("Failed to remove expired listing favourites", listing._id.toString(), error);
     }
   }
 }
@@ -172,6 +204,7 @@ async function runCleanupSweep() {
   try {
     await expireOverdueReservations();
     await reconcilePendingStockRestores();
+    await removeExpiredListingFavourites();
     await purgeRemovedListingImages();
   } catch (error) {
     console.error("Cleanup sweep failed:", error);
@@ -187,5 +220,6 @@ module.exports = {
   expireOverdueReservations,
   reconcilePendingStockRestores,
   purgeRemovedListingImages,
+  removeExpiredListingFavourites,
   runCleanupSweep,
 };

@@ -145,11 +145,16 @@ function removeListing(id) {
 }
 
 async function softDeleteListing(id) {
-  const result = await Listing.updateOne({ _id: id }, { status: "REMOVED" });
-  await Listing.updateOne(
-    { _id: id, deleted_at: null },
-    { deleted_at: new Date() },
+  const result = await Listing.updateOne(
+    { _id: id, status: { $ne: "REMOVED" } },
+    {
+      $set: {
+        status: "REMOVED",
+        deleted_at: new Date()
+      }
+    }
   );
+
   return result;
 }
 
@@ -165,6 +170,15 @@ function findListingsPendingImagePurge(cutoff) {
     status: "REMOVED",
     images_purged_at: null,
     collection_end_at: { $lte: cutoff },
+  });
+}
+
+function findExpiredListings() {
+  return Listing.find({
+    $or: [
+      { status: "EXPIRED" },
+      { collection_end_at: { $lte: new Date() } },
+    ],
   });
 }
 
@@ -250,6 +264,7 @@ module.exports = {
   findCascadableListingsByBusiness,
   findListingsPendingImagePurge,
   markImagesPurged,
+  findExpiredListings,
   listingExistsForCategory,
   reduceStock,
   restoreStock,

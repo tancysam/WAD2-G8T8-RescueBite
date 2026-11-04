@@ -1,6 +1,7 @@
 import Business from "../models/Business.js";
 import Reservation from "../models/Reservation.js";
 import User from "../models/User.js";
+import { notify } from "../services/notificationService.js";
 
 function isHexString(value, length) {
   if (typeof value !== "string" || value.length !== length) {
@@ -172,6 +173,11 @@ export async function verifyCollectionCode(req, res) {
     if (result.matchedCount !== 1 || result.modifiedCount !== 1) {
       return res.status(409).json({ error: "Reservation is no longer available for collection" });
     }
+
+    await notify(
+      reservation.consumer_user_id,
+      `Your reservation for ${reservation.listing_snapshot.title} has been collected`
+    );
 
     return res.status(200).json({
       reservationId,

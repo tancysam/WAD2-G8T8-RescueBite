@@ -13,7 +13,7 @@ export async function getNotifications(req, res) {
 
     try {
         const results = await Notification.findNotificationsByUser(
-            req.user._id, skip, limit
+            req.user._id, skip, limit+1
         );
 
         const hasMore = results.length > limit;

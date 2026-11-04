@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import Reservation from "../models/Reservation.js";
 import Listing from "../models/Listing.js";
+import { notify, notifyBusiness } from "./notificationService.js";
 
 export function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe is not configured");
@@ -116,9 +117,29 @@ export async function syncCheckout(session, stripe) {
         status: "EXPIRED", payment_status: "PAID", stripe_payment_intent_id: session.payment_intent, paid_at: new Date(),
       });
     }
-    await Reservation.updatePayment({ _id: reservation._id, payment_status: "PENDING" }, {
-      payment_status: "PAID", stripe_payment_intent_id: session.payment_intent, paid_at: new Date(),
-    });
+  const result = await Reservation.updatePayment(
+    {
+      _id: reservation._id,
+      status: "RESERVED",
+      payment_status: "PENDING"
+    },
+    {
+      payment_status: "PAID",
+      stripe_payment_intent_id: session.payment_intent,
+      paid_at: new Date()
+    }
+  );
+
+  if (result.modifiedCount === 1) {
+    await notify(
+      reservation.consumer_user_id,
+      `Payment confirmed for your reservation for ${reservation.listing_snapshot.title}`
+    );
+    await notifyBusiness(
+      reservation,
+      `New paid reservation received for ${reservation.listing_snapshot.title}`
+    );
+  }
   } else if (session.status === "expired") {
     await Reservation.updatePayment({ _id: reservation._id, payment_status: "PENDING" }, { payment_status: "FAILED" });
     await Reservation.updatePayment({ _id: reservation._id, status: "RESERVED", payment_status: "FAILED" }, {

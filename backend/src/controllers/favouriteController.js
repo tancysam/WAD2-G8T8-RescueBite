@@ -195,9 +195,8 @@ export async function getFavouriteListings(req, res) {
 
       if (
         !listing ||
-        (listing.status !== "ACTIVE" &&
-          listing.status !== "SOLD_OUT" &&
-          listing.status !== "EXPIRED")
+        (listing.status !== "ACTIVE" && listing.status !== "SOLD_OUT") ||
+        new Date(listing.collection_end_at).getTime() <= Date.now()
       ) {
         continue;
       }
@@ -248,9 +247,8 @@ export async function addFavouriteListing(req, res) {
 
     if (
       !listing ||
-      (listing.status !== "ACTIVE" &&
-        listing.status !== "SOLD_OUT" &&
-        listing.status !== "EXPIRED")
+      (listing.status !== "ACTIVE" && listing.status !== "SOLD_OUT") ||
+      new Date(listing.collection_end_at).getTime() <= Date.now()
     ) {
       return res.status(404).json({
         error: "Listing not found",

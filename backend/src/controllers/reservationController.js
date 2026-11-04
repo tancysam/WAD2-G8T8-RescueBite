@@ -4,6 +4,7 @@ import Listing from "../models/Listing.js";
 import Review from "../models/Review.js";
 import { getListingThumbnailUrl } from "./listingImageController.js";
 import { amountInCents, checkoutConfiguration, ensureCheckout, paymentSummary, reconcileReservation } from "../services/paymentService.js";
+import { notify, notifyBusiness } from "../services/notificationService.js";
 
 
 function distanceInKm(first, second) {
@@ -239,6 +240,17 @@ export async function createReservation(req, res) {
       }
       console.error("Reservation write outcome is uncertain; stock needs reconciliation for listing", listing._id.toString());
       return res.status(503).json({ error: "Reservation could not be confirmed. Check your reservations before retrying" });
+    }
+
+    if (reservation.payment_status === "NOT_REQUIRED") {
+      await notify(
+        reservation.consumer_user_id,
+        `Your reservation for ${listing.title} is confirmed`
+      );
+      await notifyBusiness(
+        reservation,
+        `New reservation received for ${listing.title}`
+      );
     }
 
     return sendCheckoutResponse(reservation, res, 201);
@@ -517,11 +529,9 @@ export async function getBusinessReservations(req, res) {
   }
 }
 
-export async function updateReservationStatus(req, res) {
-  // update reservation status
-}
 
 export async function cancelReservation(req, res) {
+  console.log("CANCEL ENDPOINT REACHED");
   // cancel reservation
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -550,10 +560,19 @@ export async function cancelReservation(req, res) {
     if (reservation.amount_cents !== null && reservation.amount_cents !== undefined) {
       if (reservation.status !== "CANCELLED") {
         const result = await Reservation.cancelReservation(reservation._id, req.user._id);
-        if (result.modifiedCount !== 1) {
+        console.log("Cancellation result:", result);
+        if (result.modifiedCount === 1) {
+          await notifyBusiness(
+            reservation,
+            `A reservation for ${reservation.listing_snapshot.title} has been cancelled`
+          );
+        } else {
           const current = await Reservation.findReservationById(reservation._id);
+
           if (!current || current.status !== "CANCELLED") {
-            return res.status(409).json({ error: "Reservation changed or cancellation deadline passed" });
+            return res.status(409).json({
+              error: "Reservation changed or cancellation deadline passed"
+            });
           }
         }
       }
