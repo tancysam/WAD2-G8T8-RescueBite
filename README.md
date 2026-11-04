@@ -1,9 +1,6 @@
 # RescueBite
 
-A surplus-food marketplace connecting businesses with consumers to reduce food waste through discounted food listings.
-
-Deployed app: https://rescuebite.tancysam.dev
-
+A surplus food rescue platform connecting food businesses with nearby consumers to reduce food waste through discounted listings, rescue bundles, reservations, and location-based discovery.
 
 ## 1. Application Demo Details
 
@@ -183,7 +180,7 @@ AI was used to explain error messages, suggest debugging approaches, and provide
 ## 8. E2E Testing
 
 ### Setup
-The tests use dedicated demo accounts against the deployed app. From the project root, install dependencies and Chromium once:
+The tests use dedicated demo accounts (`demo-consumer` and `demo-business`) against the deployed app. From the project root, install dependencies and Chromium once:
 
 ```powershell
 cd frontend
@@ -235,6 +232,7 @@ This test checks that a consumer is able to add and remove a business and listin
 - Consumer adds a business to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites. 
 - Consumer adds a listing to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites.
 
+Run:
 ```powershell
 pnpm exec playwright test e2e_testing/consumer_favourites.spec.js
 pnpm exec playwright show-report
@@ -267,6 +265,8 @@ These tests check that a business can create, edit and remove a listing, and vie
 - Checks that the dashboard figures match the impact API response.
 
 Set the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
+
+Run:
 
 ```powershell
 $env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
