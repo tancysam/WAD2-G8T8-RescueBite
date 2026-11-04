@@ -36,7 +36,7 @@ pnpm exec playwright test e2e_testing/login.spec.js
 pnpm exec playwright show-report
 ```
 
-### 2. Consumer Discover
+### 2. Consumer Discovery
 
 This test checks that a consumer is able to discover businesses and listings via search and filters, and view their details respectively:
 
@@ -89,12 +89,9 @@ These tests check that a business can create, edit and remove a listing, and vie
 - Removes a listing and checks the Active and Removed tabs.
 - Checks that the dashboard figures match the impact API response.
 
-Use `demo_business` with an active business and an available category. Set the password and the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
-
-Run from `frontend`:
+Set the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
 
 ```powershell
-$env:E2E_BUSINESS_PASSWORD = 'PASTE_BUSINESS_PASSWORD_HERE'
 $env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
 pnpm exec playwright test e2e_testing/business.spec.js
 pnpm exec playwright show-report
