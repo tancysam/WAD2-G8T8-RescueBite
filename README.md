@@ -180,7 +180,7 @@ AI was used to explain error messages, suggest debugging approaches, and provide
 ## 8. E2E Testing
 
 ### Setup
-The tests use dedicated demo accounts (`demo-consumer` and `demo-business`) against the deployed app. From the project root, install dependencies and Chromium once:
+The tests use dedicated demo accounts (`demo_consumer` and `demo_business`) against the deployed app. From the project root, install dependencies and Chromium once:
 
 ```powershell
 cd frontend
