@@ -39,9 +39,7 @@ const collectionQrUrl = computed(function () {
 
 const filteredReservations = computed(function () {
   if (selectedStatus.value === 'ALL') {
-    return reservations.value.filter(function (reservation) {
-      return reservation.status !== 'CANCELLED'
-    })
+    return reservations.value
   }
 
   return reservations.value.filter(function (reservation) {
@@ -94,7 +92,7 @@ const statusCounts = computed(function () {
   const counts = { ALL: 0, RESERVED: 0, COLLECTED: 0, CANCELLED: 0, EXPIRED: 0 }
   for (const reservation of reservations.value) {
     counts[reservation.status] = counts[reservation.status] + 1
-    if (reservation.status !== 'CANCELLED') counts.ALL = counts.ALL + 1
+    counts.ALL = counts.ALL + 1
   }
   return counts
 })

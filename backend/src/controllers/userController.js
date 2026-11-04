@@ -128,7 +128,10 @@ export async function deleteMyProfile(req, res) {
       });
     }
 
-    await Cascade.softDeleteUser(req.user);
+    const result = await Cascade.softDeleteUser(req.user);
+    if (result.blocked) {
+      return res.status(409).json({ error: result.error });
+    }
 
     return res.status(200).json({
       message: "Profile deleted successfully",

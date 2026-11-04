@@ -1134,6 +1134,10 @@ export async function deleteListing(req, res) {
 
     const result = await Cascade.softDeleteListing(listing._id);
 
+    if (result.blocked) {
+      return res.status(409).json({ error: result.error });
+    }
+
     if (result.matchedCount === 0) {
       return res.status(404).json({
         error: "Listing not found",

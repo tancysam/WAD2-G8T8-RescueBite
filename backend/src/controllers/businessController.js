@@ -334,6 +334,10 @@ export async function deleteBusiness(req, res) {
       true,
     );
 
+    if (result.blocked) {
+      return res.status(409).json({ error: result.error });
+    }
+
     if (result.matchedCount === 0) {
       return res.status(404).json({
         error: "Business not found",

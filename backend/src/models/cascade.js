@@ -5,30 +5,37 @@ const ListingFavourite = require("./ListingFavourite.js");
 const ListingImage = require("./ListingImage.js");
 const Reservation = require("./Reservation.js");
 const User = require("./User.js");
-const { notifyConsumers, notifyBusiness } = require("../services/notificationService.js");
+const { notifyBusiness } = require("../services/notificationService.js");
+
+function removalBlocked(subject) {
+  return {
+    blocked: true,
+    error: `This ${subject} has active reservations and cannot be removed. Please fulfil the existing reservations before removing it.`,
+  };
+}
+
+async function businessHasActiveReservations(businessId) {
+  // Include previously removed listings: their outstanding orders still matter.
+  const listings = await Listing.findListingsByBusiness(businessId);
+  for (const listing of listings) {
+    const reservations = await Reservation.findReservationsByListing(listing._id, "RESERVED");
+    if (reservations.length > 0) return true;
+  }
+  return false;
+}
 
 async function softDeleteListing(listingId) {
-  const listing = await Listing.findListingById(listingId);
-
-  const reservations = await Reservation.findReservationsByListing(
-    listingId,
-    "RESERVED"
-  );
+  const reservations = await Reservation.findReservationsByListing(listingId, "RESERVED");
+  if (reservations.length > 0) return removalBlocked("listing");
 
   const result = await Listing.softDeleteListing(listingId);
-
   await ListingFavourite.removeFavouritesByListing(listingId);
-
-  if (result.modifiedCount === 1) {
-    await notifyConsumers(
-      reservations,
-      `The listing "${listing.title}" has been removed by the business. Please check your reservation.`
-    );
-  }
-
   return result;
 }
+
 async function softDeleteBusiness(businessId, status, markDeleted) {
+  if (await businessHasActiveReservations(businessId)) return removalBlocked("business");
+
   const result = await Business.setBusinessStatus(businessId, status);
   if (markDeleted) {
     await Business.markBusinessDeleted(businessId);
@@ -36,7 +43,8 @@ async function softDeleteBusiness(businessId, status, markDeleted) {
   await BusinessFavourite.removeFavouritesByBusiness(businessId);
   const listings = await Listing.findCascadableListingsByBusiness(businessId);
   for (const listing of listings) {
-    await softDeleteListing(listing._id);
+    const removal = await softDeleteListing(listing._id);
+    if (removal.blocked) return removal;
   }
   return result;
 }
@@ -44,8 +52,13 @@ async function softDeleteBusiness(businessId, status, markDeleted) {
 async function softDeleteUser(user) {
   if (user.role === "BUSINESS") {
     const businesses = await Business.findBusinessesByOwnerId(user._id);
+    // Check every business before changing any of them.
     for (const business of businesses) {
-      await softDeleteBusiness(business._id, "INACTIVE", true);
+      if (await businessHasActiveReservations(business._id)) return removalBlocked("account");
+    }
+    for (const business of businesses) {
+      const removal = await softDeleteBusiness(business._id, "INACTIVE", true);
+      if (removal.blocked) return removal;
     }
   }
   const reservations = await Reservation.findOpenReservationsByConsumer(
