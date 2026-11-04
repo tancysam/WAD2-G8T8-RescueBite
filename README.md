@@ -70,10 +70,12 @@ This test checks that a consumer is able to reserve an active listing or cross-b
 - Reserves one item, chooses Pay later, and checks that the newest Reserved order and its details match the listing.
 - Checks that the listing quantity is updated accordingly.
 - Cancels that order, checks that the newest Cancelled order reflects the cancellation, and checks that the listing quantity returns to its starting value.
+- For cross-business bundles, it also checks that the extra discounted rate of 10% is applied correctly.
 
 Run:
 
 ```powershell
 pnpm exec playwright test e2e_testing/consumer_reservations.spec.js
+pnpm exec playwright test e2e_testing/consumer_bundle.spec.js
 pnpm exec playwright show-report
 ```
