@@ -551,6 +551,7 @@ onMounted(getListingDetails)
                 <button
                   type="button"
                   class="rb-pill rb-pill-dark w-100"
+                  :class="{ 'bundle-submit-disabled': !selectedBundleId || reserving }"
                   :disabled="!selectedBundleId || reserving"
                   @click="reserveBundle"
                 >
@@ -963,6 +964,15 @@ onMounted(getListingDetails)
 
 .price-card .partner-bundle .rb-label {
   color: #5f5330;
+}
+
+.bundle-submit-disabled,
+.bundle-submit-disabled:hover,
+.bundle-submit-disabled:focus {
+  color: #5f5330;
+  background-color: #e8e6d7;
+  border-color: #d8d3c0;
+  cursor: default;
 }
 
 .bundle-heading {
