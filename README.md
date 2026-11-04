@@ -79,3 +79,23 @@ pnpm exec playwright test e2e_testing/consumer_reservations.spec.js
 pnpm exec playwright test e2e_testing/consumer_bundle.spec.js
 pnpm exec playwright show-report
 ```
+
+### 5. Business Listings and Impact
+
+These tests check that a business can create, edit and remove a listing, and view its impact figures on the dashboard.
+
+- Creates and publishes a listing, then checks that it remains after refresh.
+- Edits the title, description, price and quantity, then checks the saved values.
+- Removes a listing and checks the Active and Removed tabs.
+- Checks that the dashboard figures match the impact API response.
+
+Use `demo_business` with an active business and an available category. Set the password and the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
+
+Run from `frontend`:
+
+```powershell
+$env:E2E_BUSINESS_PASSWORD = 'PASTE_BUSINESS_PASSWORD_HERE'
+$env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
+pnpm exec playwright test e2e_testing/business.spec.js
+pnpm exec playwright show-report
+```
