@@ -52,9 +52,11 @@ function formatTime(value) {
 }
 
 function formatPickup(snapshot) {
+  const sameDay = formatDate(snapshot.collection_start_at) === formatDate(snapshot.collection_end_at)
   return (
     formatDate(snapshot.collection_start_at) + ', ' +
     formatTime(snapshot.collection_start_at) + ' - ' +
+    (sameDay ? '' : formatDate(snapshot.collection_end_at) + ', ') +
     formatTime(snapshot.collection_end_at)
   )
 }
