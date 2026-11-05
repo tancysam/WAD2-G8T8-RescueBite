@@ -81,6 +81,10 @@ const listingSchema = new mongoose.Schema(
       type: [mongoose.Schema.Types.ObjectId],
       default: [],
     },
+    held_reservation_ids: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -186,10 +190,6 @@ function markImagesPurged(id) {
   return Listing.updateOne({ _id: id }, { images_purged_at: new Date() });
 }
 
-function listingExistsForCategory(categoryId) {
-  return Listing.exists({ category_id: categoryId });
-}
-
 // TODO: wrap stock reduction + reservation creation in a MongoDB transaction
 // Conditional update so the stock reduction is atomic without a transaction.
 function reduceStock(listingId, expectedQty, newQty, updatedAt) {
@@ -249,6 +249,83 @@ async function restoreStock(listingId, quantity, reservationId) {
   return false;
 }
 
+function idIsIn(list, id) {
+  return Array.isArray(list) && list.some(function (item) {
+    return item.toString() === id.toString();
+  });
+}
+
+async function holdStock(listingId, reservationId) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const listing = await Listing.findOne({ _id: listingId });
+    if (!listing) return "UNAVAILABLE";
+    if (idIsIn(listing.restored_reservation_ids, reservationId)) return "UNAVAILABLE";
+    if (idIsIn(listing.held_reservation_ids, reservationId)) return "HELD";
+    if (
+      listing.status !== "ACTIVE" ||
+      !Number.isInteger(listing.quantity_available) ||
+      listing.quantity_available < 1 ||
+      Number(listing.collection_end_at) <= Number(new Date())
+    ) {
+      return "UNAVAILABLE";
+    }
+    const held = Array.isArray(listing.held_reservation_ids) ? listing.held_reservation_ids.slice() : [];
+    held.push(reservationId);
+    const update = {
+      quantity_available: listing.quantity_available - 1,
+      held_reservation_ids: held,
+    };
+    if (update.quantity_available === 0) update.status = "SOLD_OUT";
+    const filter = {
+      _id: listingId,
+      quantity_available: listing.quantity_available,
+      status: "ACTIVE",
+      restored_reservation_ids: { $ne: reservationId },
+      held_reservation_ids: { $ne: reservationId },
+    };
+    if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
+    const result = await Listing.updateOne(filter, update);
+    if (result.modifiedCount === 1) return "HELD";
+  }
+  return "CONTENDED";
+}
+
+async function releaseHeldStock(listingId, reservationId) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const listing = await Listing.findOne({ _id: listingId });
+    if (!listing) return false;
+    if (idIsIn(listing.restored_reservation_ids, reservationId)) return true;
+    const held = idIsIn(listing.held_reservation_ids, reservationId);
+    const restored = Array.isArray(listing.restored_reservation_ids)
+      ? listing.restored_reservation_ids.slice() : [];
+    restored.push(reservationId);
+    const update = {
+      quantity_available: listing.quantity_available + (held ? 1 : 0),
+      restored_reservation_ids: restored,
+    };
+    if (held && listing.status === "SOLD_OUT") {
+      update.status = Number(listing.collection_end_at) > Number(new Date()) ? "ACTIVE" : "EXPIRED";
+    }
+    const filter = {
+      _id: listingId,
+      quantity_available: listing.quantity_available,
+      status: listing.status,
+      restored_reservation_ids: { $ne: reservationId },
+    };
+    if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
+    const result = await Listing.updateOne(filter, update);
+    if (result.modifiedCount === 1) return true;
+  }
+  return false;
+}
+
+function restoreReservationStock(reservation) {
+  if (reservation.bundle_state) {
+    return releaseHeldStock(reservation.listing_id, reservation._id);
+  }
+  return restoreStock(reservation.listing_id, reservation.quantity, reservation._id);
+}
+
 module.exports = {
   LISTING_TYPES,
   LISTING_STATUSES,
@@ -265,7 +342,9 @@ module.exports = {
   findListingsPendingImagePurge,
   markImagesPurged,
   findExpiredListings,
-  listingExistsForCategory,
   reduceStock,
   restoreStock,
+  holdStock,
+  releaseHeldStock,
+  restoreReservationStock,
 };

@@ -14,14 +14,50 @@ export function paymentStatusOf(reservation) {
   return reservation.payment.payment_status || ''
 }
 
-export function needsPayment(reservation) {
-  return reservation.status === 'RESERVED' && paymentStatusOf(reservation) === 'PENDING'
+function bundleBlocked(reservation) {
+  const pair = reservation.bundle_pair_status
+  return pair === 'FORMING' || pair === 'VOID'
 }
 
-// Collection is allowed once paid, or when the order was free
-export function canCollect(reservation) {
+export function needsPayment(reservation) {
+  return reservation.status === 'RESERVED' && paymentStatusOf(reservation) === 'PENDING' && !bundleBlocked(reservation)
+}
+
+function isPaidOrFree(reservation) {
   const status = paymentStatusOf(reservation)
   return status === '' || status === 'PAID' || status === 'NOT_REQUIRED'
+}
+
+export function canCollect(reservation, allReservations) {
+  if (bundleBlocked(reservation)) return false
+  if (!isPaidOrFree(reservation)) return false
+  return !bundlePartnerUnpaid(reservation, allReservations)
+}
+
+function bundlePartnerUnpaid(reservation, allReservations) {
+  if (!reservation.bundle_pair_status || !Array.isArray(allReservations)) return false
+  const partner = allReservations.find(function (other) {
+    return (
+      other.bundle_group_id === reservation.bundle_group_id &&
+      other._id !== reservation._id &&
+      other.bundle_pair_status
+    )
+  })
+  return !!partner && partner.status === 'RESERVED' && !isPaidOrFree(partner)
+}
+
+export function bundleNote(reservation, allReservations) {
+  if (reservation.status !== 'RESERVED' || !reservation.bundle_pair_status) return ''
+  if (reservation.bundle_pair_status === 'FORMING') {
+    return 'We are still confirming this bundle. Payment and pickup open once both items are held.'
+  }
+  if (reservation.bundle_pair_status === 'VOID') {
+    return 'This bundle is being cancelled because the other item is no longer available.'
+  }
+  if (isPaidOrFree(reservation) && bundlePartnerUnpaid(reservation, allReservations)) {
+    return 'Pay for the other item in this bundle to unlock pickup for both.'
+  }
+  return ''
 }
 
 export function paymentAmount(reservation) {
@@ -36,6 +72,7 @@ export function paymentLabel(reservation) {
   const status = paymentStatusOf(reservation)
   const refund = reservation.payment ? reservation.payment.refund_status : ''
 
+  if (status === 'PAID' && refund === 'REVIEW') return { text: 'Payment under review', tone: '' }
   if (status === 'PAID' && (refund === 'REQUESTED' || refund === 'PENDING')) return { text: 'Refund pending', tone: 'expired' }
   if (status === 'PAID') return { text: 'Paid', tone: 'collected' }
   if (status === 'PENDING' && reservation.status === 'RESERVED') return { text: 'Awaiting payment', tone: 'reserved' }

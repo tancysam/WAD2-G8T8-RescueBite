@@ -76,11 +76,7 @@ async function softDeleteUser(user) {
           reservation,
           `A reservation for "${reservation.listing_snapshot.title}" has been cancelled because the consumer deleted their account.`
         );
-        const restored = await Listing.restoreStock(
-          reservation.listing_id,
-          reservation.quantity,
-          reservation._id,
-        );
+        const restored = await Listing.restoreReservationStock(reservation);
         if (restored) {
           await Reservation.clearStockRestorePending(reservation._id);
         }
@@ -104,11 +100,7 @@ async function expireOverdueReservations() {
     try {
       const result = await Reservation.expireReservation(reservation._id);
       if (result.modifiedCount === 1) {
-        const restored = await Listing.restoreStock(
-          reservation.listing_id,
-          reservation.quantity,
-          reservation._id,
-        );
+        const restored = await Listing.restoreReservationStock(reservation);
         if (restored) {
           await Reservation.clearStockRestorePending(reservation._id);
         }
@@ -184,11 +176,7 @@ async function reconcilePendingStockRestores() {
         );
         continue;
       }
-      const restored = await Listing.restoreStock(
-        reservation.listing_id,
-        reservation.quantity,
-        reservation._id,
-      );
+      const restored = await Listing.restoreReservationStock(reservation);
       if (restored) {
         await Reservation.clearStockRestorePending(reservation._id);
       } else {

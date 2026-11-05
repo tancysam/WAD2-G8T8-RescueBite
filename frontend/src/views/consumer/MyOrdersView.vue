@@ -4,7 +4,7 @@ import DisplayHeading from '@/components/DisplayHeading.vue'
 import axios from 'axios'
 import { useAuth } from '@clerk/vue'
 import { collectionWindow, formatPrice, shortTime, dayLabel } from '../../formatters.js'
-import { canCollect, needsPayment, paymentAmount, paymentLabel, paymentStatusOf } from '../../payments.js'
+import { bundleNote, canCollect, needsPayment, paymentAmount, paymentLabel, paymentStatusOf } from '../../payments.js'
 import PickupMap from '../../components/listings/PickupMap.vue'
 import { API_URL } from '@/config'
 
@@ -326,6 +326,7 @@ async function confirmCancellation() {
     reservationToCancel.value.status = 'CANCELLED'
     if (response.data.payment) reservationToCancel.value.payment = response.data.payment
     reservationToCancel.value = null
+    if (response.data.bundleCancelled) await getReservations()
     if (response.data.payment && response.data.message) {
       successMessage.value = response.data.message
     } else if (response.data.stockRestorationPending) {
@@ -433,7 +434,8 @@ onUnmounted(closeCollectionCode)
           :disabled="payingId === nextPickup._id"
           @click="startPayment(nextPickup)"
         >{{ payingId === nextPickup._id ? 'Opening checkout…' : 'Complete payment' }}</button>
-        <button v-else type="button" class="rb-pill rb-pill-dark" @click="showCollectionCode(nextPickup)">Show collection QR</button>
+        <button v-else-if="canCollect(nextPickup, reservations)" type="button" class="rb-pill rb-pill-dark" @click="showCollectionCode(nextPickup)">Show collection QR</button>
+        <p v-else-if="bundleNote(nextPickup, reservations)" class="next-copy mb-0">{{ bundleNote(nextPickup, reservations) }}</p>
       </div>
     </section>
 
@@ -526,9 +528,11 @@ onUnmounted(closeCollectionCode)
               <div class="col-12 col-md-3"><dt class="rb-label">Collection window</dt><dd>{{ windowOf(reservation) }}</dd></div>
             </dl>
 
+            <p v-if="bundleNote(reservation, reservations)" class="rb-note" role="status">{{ bundleNote(reservation, reservations) }}</p>
+
             <div class="order-actions">
               <button
-                v-if="reservation.status === 'RESERVED' && canCollect(reservation)"
+                v-if="reservation.status === 'RESERVED' && canCollect(reservation, reservations)"
                 type="button"
                 class="rb-pill rb-pill-dark"
                 @click="showCollectionCode(reservation)"
@@ -715,6 +719,9 @@ onUnmounted(closeCollectionCode)
             <button type="button" class="rb-close" aria-label="Close confirmation" :disabled="cancelling" @click="closeCancelConfirmation">×</button>
           </div>
           <p>You will release {{ reservationToCancel.quantity }} unit(s) of {{ reservationToCancel.listing_snapshot.title }} for others to reserve.</p>
+          <p v-if="reservationToCancel.bundle_pair_status" class="rb-note">
+            This item is part of a bundle. Cancelling it cancels the other item too, and any payment is refunded.
+          </p>
           <p v-if="paymentStatusOf(reservationToCancel) === 'PAID'" class="rb-note">
             You paid {{ paymentAmount(reservationToCancel) }}. It will be refunded to your card.
           </p>

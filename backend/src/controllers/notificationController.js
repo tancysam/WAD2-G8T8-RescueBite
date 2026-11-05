@@ -19,7 +19,7 @@ export async function getNotifications(req, res) {
         const hasMore = results.length > limit;
         const shownNotifications = results.slice(0, limit);
 
-        return res.status(200).json({shownNotifications, hasMore});
+        return res.status(200).json({notifications: shownNotifications, hasMore});
     } catch (error) {
         console.error("Error retrieving notifications:", error);
         return res.status(500).json({error: "Unable to retrieve notifications"})

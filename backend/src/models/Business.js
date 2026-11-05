@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const BUSINESS_STATUSES = ["PENDING", "ACTIVE", "REJECTED", "INACTIVE"];
+const BUSINESS_STATUSES = ["ACTIVE", "INACTIVE"];
 
 // this point schema is for location coordinates, and it being easier to query to find out
 // nearby businesses. New thing, need to test it out.
@@ -60,7 +60,7 @@ const businessSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      default: "PENDING",
+      default: "ACTIVE",
       enum: BUSINESS_STATUSES,
     },
     deleted_at: {
@@ -75,10 +75,6 @@ businessSchema.index({ location: "2dsphere" });
 businessSchema.index({ owner_user_id: 1 });
 
 const Business = mongoose.model("Business", businessSchema, "businesses");
-
-function getAllBusinesses() {
-  return Business.find();
-}
 
 function findBusinessById(id) {
   return Business.findOne({ _id: id });
@@ -125,7 +121,6 @@ function markBusinessDeleted(id) {
 
 module.exports = {
   BUSINESS_STATUSES,
-  getAllBusinesses,
   findBusinessById,
   findBusinessesByOwnerId,
   findActiveBusinesses,

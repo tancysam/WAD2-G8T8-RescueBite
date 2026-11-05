@@ -2,6 +2,7 @@ import Business from "../models/Business.js";
 import Reservation from "../models/Reservation.js";
 import User from "../models/User.js";
 import { notify } from "../services/notificationService.js";
+import { collectionProblem, isPairedLeg, loadPartner } from "../services/bundleService.js";
 
 function isHexString(value, length) {
   if (typeof value !== "string" || value.length !== length) {
@@ -84,6 +85,10 @@ export async function getCollectionCode(req, res) {
     if (error) {
       return res.status(409).json({ error });
     }
+    const bundleError = await collectionProblem(reservation);
+    if (bundleError) {
+      return res.status(409).json({ error: bundleError });
+    }
     if (!isHexString(reservation.collection_code, 64)) {
       return res.status(409).json({ error: "Collection code is unavailable" });
     }
@@ -161,6 +166,23 @@ export async function verifyCollectionCode(req, res) {
       return res.status(409).json({ error });
     }
 
+    const bundleError = await collectionProblem(reservation);
+    if (bundleError) {
+      return res.status(409).json({ error: bundleError });
+    }
+
+    let lockedPartner = null;
+    if (isPairedLeg(reservation)) {
+      const partner = await loadPartner(reservation);
+      if (partner.status !== "COLLECTED") {
+        const locked = await Reservation.lockForPartnerCollection(partner._id);
+        if (locked.matchedCount !== 1) {
+          return res.status(409).json({ error: "The other item in this bundle is not ready, so this item cannot be collected yet" });
+        }
+        lockedPartner = partner;
+      }
+    }
+
     const consumer = await User.findUserById(reservation.consumer_user_id);
     const collectedAt = new Date();
     const result = await Reservation.markCollected(
@@ -171,6 +193,10 @@ export async function verifyCollectionCode(req, res) {
       collectedAt,
     );
     if (result.matchedCount !== 1 || result.modifiedCount !== 1) {
+      const current = await Reservation.findReservationById(reservationId);
+      if (lockedPartner && current && (current.status === "CANCELLED" || current.status === "EXPIRED")) {
+        await Reservation.unlockForPartnerCollection(lockedPartner._id);
+      }
       return res.status(409).json({ error: "Reservation is no longer available for collection" });
     }
 

@@ -122,12 +122,6 @@ export async function deleteMyProfile(req, res) {
       });
     }
 
-    if (req.user.role === "ADMIN") {
-      return res.status(403).json({
-        error: "Admin accounts cannot be deleted",
-      });
-    }
-
     const result = await Cascade.softDeleteUser(req.user);
     if (result.blocked) {
       return res.status(409).json({ error: result.error });

@@ -40,6 +40,9 @@ const bundleLoading = ref(false)
 const bundleError = ref('')
 const selectedBundleId = ref('')
 const bundleSuccess = ref(false)
+const bundleRequestId = ref('')
+const bundleAttempt = ref(false)
+const bundlePending = ref(false)
 
 const confetti = [
   { dx: 72, dy: -44, colour: '#f4b30c' },
@@ -207,6 +210,7 @@ async function loadBundleOptions() {
 }
 
 function selectBundleOption(optionId) {
+  bundleRequestId.value = ''
   if (selectedBundleId.value === optionId) {
     selectedBundleId.value = ''
   } else {
@@ -221,55 +225,47 @@ async function reserveBundle() {
   reservationError.value = ''
   reservationSuccess.value = false
   bundleSuccess.value = false
+  bundlePending.value = false
+  bundleAttempt.value = true
+  canRetryReservation.value = false
   showReserveModal.value = true
 
-  const bundleGroupId = newCheckoutRequestId()
-  const headers = await getHeaders()
-  let firstReservationId = ''
+  if (!bundleRequestId.value) bundleRequestId.value = newCheckoutRequestId()
 
   try {
-    const first = await axios.post(
-      `${API_URL}/listings/${listing.value._id}/reservations`,
+    const response = await axios.post(
+      `${API_URL}/reservations/bundle`,
       {
-        quantity: 1,
-        checkoutRequestId: newCheckoutRequestId(),
-        bundleGroupId: bundleGroupId,
-        bundleWithListingId: selectedBundleId.value
+        listingId: listing.value._id,
+        partnerListingId: selectedBundleId.value,
+        checkoutRequestId: bundleRequestId.value
       },
-      { headers: headers }
-    )
-    firstReservationId = first.data.reservationId
-
-    await axios.post(
-      `${API_URL}/listings/${selectedBundleId.value}/reservations`,
-      {
-        quantity: 1,
-        checkoutRequestId: newCheckoutRequestId(),
-        bundleGroupId: bundleGroupId,
-        bundleWithListingId: listing.value._id
-      },
-      { headers: headers }
+      { headers: await getHeaders() }
     )
 
+    if (response.data.status !== 'READY') {
+      bundlePending.value = true
+      reservationError.value =
+        response.data.message || 'We are still confirming your bundle. Please try again in a moment.'
+      canRetryReservation.value = true
+      return
+    }
+
+    bundleRequestId.value = ''
     listing.value.quantity_available = listing.value.quantity_available - 1
     bundleSuccess.value = true
     reservationSuccess.value = true
   } catch (error) {
-    if (firstReservationId) {
-      try {
-        await axios.post(
-          `${API_URL}/reservations/${firstReservationId}/cancel`,
-          {},
-          { headers: headers }
-        )
-      } catch (cancelError) {
-        console.error('Unable to cancel incomplete bundle:', cancelError)
-      }
+    const unknownOutcome = !error.response || error.response.status === 503
+    if (!unknownOutcome) {
+      bundleRequestId.value = ''
     }
+    canRetryReservation.value = unknownOutcome
+    bundlePending.value = unknownOutcome
 
     reservationError.value =
       (error.response && error.response.data && error.response.data.error) ||
-      'Unable to reserve this bundle. Please try again.'
+      'We could not confirm this bundle. Please try again.'
   } finally {
     reserving.value = false
   }
@@ -278,6 +274,8 @@ async function reserveBundle() {
 async function openReserveModal() {
   reservationError.value = ''
   reservationSuccess.value = false
+  bundleAttempt.value = false
+  bundlePending.value = false
   checkoutUrl.value = ''
   amountDue.value = ''
   checkoutRequestId.value = newCheckoutRequestId()
@@ -288,6 +286,10 @@ async function openReserveModal() {
 
 async function retryReservation() {
   reservationError.value = ''
+  if (bundleAttempt.value) {
+    await reserveBundle()
+    return
+  }
   await reserveListing()
 }
 
@@ -626,7 +628,8 @@ onMounted(getListingDetails)
             <h2 id="reserve-title" class="rb-display display-4 done-title">Both items are held</h2>
             <p class="done-copy" role="status">
               The 10% discount has been applied to both listings. Pay for both orders in My Orders.
-              Each business will have its own pickup QR code.
+              Each business will have its own pickup QR code once both orders are paid. If you
+              cancel one order, both are cancelled.
             </p>
             <RouterLink :to="{ name: 'my-orders' }" class="rb-pill rb-pill-dark mt-3">
               Go to My Orders
@@ -664,7 +667,7 @@ onMounted(getListingDetails)
             <h2 id="reserve-title" class="rb-display display-4 done-title">Reserving…</h2>
           </template>
           <template v-else>
-            <h2 id="reserve-title" class="rb-display display-4 done-title">Not reserved</h2>
+            <h2 id="reserve-title" class="rb-display display-4 done-title">{{ bundlePending ? 'Still confirming' : 'Not reserved' }}</h2>
             <p class="reserve-error" role="alert">{{ reservationError }}</p>
             <div class="d-flex flex-wrap gap-3 mt-3">
               <button v-if="canRetryReservation" type="button" class="rb-pill rb-pill-dark" @click="retryReservation">Try again</button>

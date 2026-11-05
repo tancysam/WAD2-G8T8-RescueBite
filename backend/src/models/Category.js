@@ -49,17 +49,6 @@ function updateCategory(id, update) {
   return Category.updateOne({ _id: id }, update);
 }
 
-function deleteCategory(id) {
-  return Category.deleteOne({ _id: id });
-}
-
-function setCategoryArchived(id, archived) {
-  return Category.updateOne(
-    { _id: id },
-    { archived_at: archived ? new Date() : null },
-  );
-}
-
 module.exports = {
   getAllCategories,
   getActiveCategories,
@@ -68,6 +57,4 @@ module.exports = {
   findCategoryBySlug,
   addCategory,
   updateCategory,
-  deleteCategory,
-  setCategoryArchived,
 };

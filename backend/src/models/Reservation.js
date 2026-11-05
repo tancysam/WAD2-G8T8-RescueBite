@@ -44,6 +44,9 @@ const reservationSchema = new mongoose.Schema(
       default: null,
     },
     bundle_discount_percent: { type: Number, default: 0 },
+    bundle_leg: { type: Number, default: null },
+    bundle_state: { type: String, default: null },
+    bundle_partner_locked: { type: Boolean, default: false },
     listing_snapshot: {
       type: listingSnapshotSchema,
       required: [true, "listing_snapshot is required"],
@@ -85,6 +88,7 @@ reservationSchema.index({ consumer_user_id: 1, reserved_at: 1 });
 reservationSchema.index({ listing_id: 1, status: 1 });
 reservationSchema.index({ status: 1, expires_at: 1 });
 reservationSchema.index({ stock_restore_pending: 1 });
+reservationSchema.index({ bundle_group_id: 1 });
 
 const Reservation = mongoose.model(
   "Reservation",
@@ -151,7 +155,17 @@ function markCollected(reservationId, code, businessId, verifierUserId, collecte
   );
 }
 
-function cancelReservation(reservationId, consumerUserId) {
+async function cancelReservation(reservationId, consumerUserId) {
+  const current = await Reservation.findOne({ _id: reservationId });
+  if (current && current.bundle_state) {
+    const collectedPartner = await Reservation.findOne({
+      bundle_group_id: current.bundle_group_id,
+      consumer_user_id: current.consumer_user_id,
+      _id: { $ne: current._id },
+      status: "COLLECTED",
+    });
+    if (collectedPartner) return { matchedCount: 0, modifiedCount: 0 };
+  }
   const cancelledAt = new Date();
   const deadline = new Date(Number(cancelledAt) + 1);
   return Reservation.updateOne(
@@ -159,6 +173,7 @@ function cancelReservation(reservationId, consumerUserId) {
       _id: reservationId,
       consumer_user_id: consumerUserId,
       status: "RESERVED",
+      bundle_partner_locked: { $ne: true },
       expires_at: { $gte: deadline },
       "listing_snapshot.collection_end_at": { $gte: deadline },
     },
@@ -167,6 +182,35 @@ function cancelReservation(reservationId, consumerUserId) {
       cancelled_at: cancelledAt,
       stock_restore_pending: true,
     },
+  );
+}
+
+function cancelBundleLeg(reservationId) {
+  return Reservation.updateOne(
+    { _id: reservationId, status: "RESERVED" },
+    { status: "CANCELLED", cancelled_at: new Date(), stock_restore_pending: true },
+  );
+}
+
+function findByBundleGroup(groupId) {
+  return Reservation.find({ bundle_group_id: groupId });
+}
+
+function lockForPartnerCollection(reservationId) {
+  return Reservation.updateOne(
+    {
+      _id: reservationId,
+      status: "RESERVED",
+      payment_status: { $in: ["PAID", "NOT_REQUIRED"] },
+    },
+    { bundle_partner_locked: true },
+  );
+}
+
+function unlockForPartnerCollection(reservationId) {
+  return Reservation.updateOne(
+    { _id: reservationId, status: "RESERVED" },
+    { bundle_partner_locked: false },
   );
 }
 
@@ -235,6 +279,10 @@ module.exports = {
   createReservation,
   markCollected,
   cancelReservation,
+  cancelBundleLeg,
+  findByBundleGroup,
+  lockForPartnerCollection,
+  unlockForPartnerCollection,
   findOpenReservationsByConsumer,
   findOverdueReservations,
   expireReservation,

@@ -24,7 +24,10 @@ async function getNotifications() {
       params: { page: page.value }
     })
 
-    const newNotifications = response.data.shownNotifications
+    if (!response.data || !Array.isArray(response.data.notifications)) {
+      throw new Error('Unexpected notifications response')
+    }
+    const newNotifications = response.data.notifications
 
     const existingIds = new Set(notifications.value.map(n => n._id))
     notifications.value.push(
