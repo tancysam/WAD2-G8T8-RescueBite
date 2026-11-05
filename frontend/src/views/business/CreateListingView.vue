@@ -26,7 +26,6 @@ const imageAttached = ref(false)
 const suggestionsReady = ref(false)
 const manualMode = ref(false)
 
-// Page 1 is the photo and business, page 2 is the listing details
 const step = ref(1)
 
 const listing = ref({
@@ -317,8 +316,7 @@ function prepareListingData() {
   }
 }
 
-// The backend needs every field before a draft can hold the image,
-// so placeholders are saved until the seller fills in page 2.
+
 function prepareDraftData() {
   const now = new Date()
   const start = new Date(now.getTime() + 60 * 60 * 1000)
@@ -389,7 +387,6 @@ async function uploadListingImage(listingId, token) {
 }
 
 // AI Listing Suggestions
-// The draft price is a placeholder, so the seller sets both prices on page 2.
 function applySuggestions(suggestions) {
   listing.value.title = suggestions.title
   listing.value.description = suggestions.description
@@ -540,7 +537,7 @@ async function saveListing() {
 
     currentStep = 'update'
 
-    // PATCH is used because this is the update method provided by the backend.
+    
     await axios.patch(
       API_URL + '/listings/' + createdListingId.value,
       prepareListingData(),
