@@ -2,8 +2,6 @@ const mongoose = require("mongoose");
 
 const BUSINESS_STATUSES = ["ACTIVE", "INACTIVE"];
 
-// this point schema is for location coordinates, and it being easier to query to find out
-// nearby businesses. New thing, need to test it out.
 const pointSchema = new mongoose.Schema(
   {
     type: {
@@ -81,7 +79,7 @@ function findBusinessById(id) {
 }
 
 function findBusinessesByOwnerId(ownerUserId) {
-  return Business.find({ owner_user_id: ownerUserId });
+  return Business.find({ owner_user_id: ownerUserId, deleted_at: null });
 }
 
 function findActiveBusinesses() {

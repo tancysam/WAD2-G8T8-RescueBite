@@ -7,7 +7,6 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateFoodDescription } from "../services/aiService.js";
 import { loadListingImages } from "./listingImageController.js";
-// import aiService from "../services/aiService.js";
 
 export async function getBundleOptions(req, res) {
   const listingId = req.params.listingId;
@@ -116,7 +115,7 @@ export async function createListing(req, res) {
       });
     }
 
-    // The current model requires these fields even for drafts.
+    
     const data = {
       business_id: business._id,
       status: "DRAFT",

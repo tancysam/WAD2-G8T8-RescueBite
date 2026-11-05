@@ -69,6 +69,7 @@ You can also use the business account to create and edit food listings, upload i
 4. **Manage your listings.** View, edit or update the listings you have posted.
 5. **Handle an order.** Open *Orders* to see reservations that customers have made. When a customer arrives, type in the **collection code** they show you to confirm the pickup.
 6. **Read your reviews.** Customer feedback appears on your business profile.
+7. **Delete a business (optional).** On a business's *Edit* page, choose *Delete business* and type the business name to confirm. Its listings and customer favourites are removed and it disappears from *My businesses*. Deletion is blocked while any reservation is still active.
 
 ## 3. Runing locally
 
