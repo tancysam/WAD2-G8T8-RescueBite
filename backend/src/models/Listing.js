@@ -177,6 +177,25 @@ function findListingsPendingImagePurge(cutoff) {
   });
 }
 
+function findOverdueListings(cutoff) {
+  return Listing.find({
+    status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT"] },
+    collection_end_at: { $lte: cutoff },
+  });
+}
+
+function expireListing(id, cutoff) {
+  // Recheck eligibility in case the listing was removed or rescheduled.
+  return Listing.updateOne(
+    {
+      _id: id,
+      status: { $in: ["DRAFT", "ACTIVE", "SOLD_OUT"] },
+      collection_end_at: { $lte: cutoff },
+    },
+    { status: "EXPIRED" },
+  );
+}
+
 function findExpiredListings() {
   return Listing.find({
     $or: [
@@ -342,6 +361,8 @@ module.exports = {
   findCascadableListingsByBusiness,
   findListingsPendingImagePurge,
   markImagesPurged,
+  findOverdueListings,
+  expireListing,
   findExpiredListings,
   reduceStock,
   restoreStock,
