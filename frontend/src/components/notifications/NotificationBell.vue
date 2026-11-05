@@ -181,7 +181,7 @@ onMounted(checkUnreadStatus)
         :key="notif._id"
         class="notification-item"
       >
-        <p>{{ notif.message }}</p>
+        <p :title="notif.message">{{ notif.message }}</p>
       </div>
 
       <button
@@ -263,10 +263,17 @@ onMounted(checkUnreadStatus)
     border-bottom: 1px solid #ddd9c5;
 }
 
+/* Long listing names wrap at any character; very long messages stop after four lines */
 .notification-item p {
+    display: -webkit-box;
     margin: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
     font-size: 15px;
     line-height: 22px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
 }
 
 .notification-popup button {
