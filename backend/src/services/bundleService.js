@@ -98,6 +98,12 @@ export async function collectionProblem(reservation) {
   if (partner.status !== "RESERVED" && partner.status !== "COLLECTED") {
     return "This bundle was cancelled because the other item is no longer available";
   }
+  if (partner.status === "RESERVED" && (
+    Number(partner.expires_at) <= Number(new Date()) ||
+    Number(partner.listing_snapshot.collection_end_at) <= Number(new Date())
+  )) {
+    return "The other item's pickup window has closed, so this bundle cannot be collected";
+  }
   return "";
 }
 
@@ -172,18 +178,6 @@ export async function completePair(groupId) {
     return { outcome: "FAILED", legs, activated };
   }
   if (legs[0].bundle_state === "ACTIVE" && legs[1].bundle_state === "ACTIVE") {
-    for (const leg of legs) {
-      if (leg.amount_cents > 0 && !leg.stripe_checkout_session_id) {
-        try {
-          await Reservation.updatePayment(
-            { _id: leg._id, status: "RESERVED", payment_status: "PENDING", stripe_checkout_session_id: null },
-            { payment_due_at: new Date(Number(new Date()) + 31 * 60000) },
-          );
-        } catch (error) {
-          console.error("Bundle payment deadline could not be refreshed for reservation", leg._id.toString());
-        }
-      }
-    }
     return { outcome: "READY", legs: sortLegs(await Reservation.findByBundleGroup(groupId)), activated };
   }
   return { outcome: "PENDING", legs, activated };

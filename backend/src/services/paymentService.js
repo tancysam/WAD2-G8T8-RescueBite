@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import Reservation from "../models/Reservation.js";
 import Listing from "../models/Listing.js";
 import { notify, notifyBusiness } from "./notificationService.js";
-import { checkoutGate, completePair, enforcePair, isNoShowAfterPartnerCollected, isPairedLeg } from "./bundleService.js";
+import { checkoutGate, completePair, enforcePair, isNoShowAfterPartnerCollected, isPairedLeg, loadPartner } from "./bundleService.js";
 
 export function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY)
@@ -95,6 +95,10 @@ async function refundPayment(reservation, stripe) {
     return;
   if (!reservation.stripe_payment_intent_id)
     throw new Error("Paid reservation has no payment reference");
+  if (isPairedLeg(reservation) && reservation.bundle_partner_locked) {
+    const partner = await loadPartner(reservation);
+    if (partner && partner.status === "RESERVED") return;
+  }
   if (await isNoShowAfterPartnerCollected(reservation)) {
     await Reservation.updatePayment(
       { _id: reservation._id, refund_status: "NONE" },

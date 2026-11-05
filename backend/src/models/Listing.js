@@ -282,6 +282,7 @@ async function holdStock(listingId, reservationId) {
       status: "ACTIVE",
       restored_reservation_ids: { $ne: reservationId },
       held_reservation_ids: { $ne: reservationId },
+      collection_end_at: { $gte: new Date(Number(new Date()) + 1) },
     };
     if (listing.updated_at !== undefined) filter.updated_at = listing.updated_at;
     const result = await Listing.updateOne(filter, update);

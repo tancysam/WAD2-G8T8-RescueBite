@@ -197,11 +197,14 @@ function findByBundleGroup(groupId) {
 }
 
 function lockForPartnerCollection(reservationId) {
+  const deadline = new Date(Number(new Date()) + 1);
   return Reservation.updateOne(
     {
       _id: reservationId,
       status: "RESERVED",
       payment_status: { $in: ["PAID", "NOT_REQUIRED"] },
+      expires_at: { $gte: deadline },
+      "listing_snapshot.collection_end_at": { $gte: deadline },
     },
     { bundle_partner_locked: true },
   );

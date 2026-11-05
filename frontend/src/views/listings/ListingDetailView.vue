@@ -256,7 +256,7 @@ async function reserveBundle() {
     bundleSuccess.value = true
     reservationSuccess.value = true
   } catch (error) {
-    const unknownOutcome = !error.response || error.response.status === 503
+    const unknownOutcome = !error.response || error.response.status >= 500
     if (!unknownOutcome) {
       bundleRequestId.value = ''
     }
