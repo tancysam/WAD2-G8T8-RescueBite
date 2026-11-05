@@ -142,25 +142,55 @@ onMounted(checkUnreadStatus)
       :aria-label="hasUnread ? 'Notifications, unread' : 'Notifications'"
       @click="toggleNotifications"
     >
-        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
-        <span v-if="hasUnread" class="notification-dot rb-live"></span>
+      <svg
+        aria-hidden="true"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+      </svg>
+
+      <span
+        v-if="hasUnread"
+        class="notification-dot rb-live"
+      ></span>
     </button>
-    <div v-if="showNotifications" class="notification-popup">
+
+    <div
+      v-if="showNotifications"
+      class="notification-popup"
+    >
       <h3 class="rb-label">Notifications</h3>
-      <p v-if="notifications.length===0">
+
+      <p v-if="notifications.length === 0">
         No notifications
       </p>
-      <div v-for="notif in notifications" :key="notif._id" class="notification-item">
+
+      <div
+        v-for="notif in notifications"
+        :key="notif._id"
+        class="notification-item"
+      >
         <p>{{ notif.message }}</p>
       </div>
+
       <button
         v-if="hasMore"
         type="button"
         class="rb-pill rb-pill-line rb-pill-sm"
-        @click="loadMore" :disabled="loading"
+        @click="loadMore"
+        :disabled="loading"
       >
         Show More
       </button>
+
       <button
         v-if="notifications.length > 0"
         type="button"
@@ -210,6 +240,11 @@ onMounted(checkUnreadStatus)
     right: 0;
     z-index: 1000;
     width: 320px;
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
     padding: 20px 24px;
     border: 2px solid #000;
     color: #191200;
@@ -234,5 +269,34 @@ onMounted(checkUnreadStatus)
 .notification-popup button {
     margin-top: 12px;
     margin-right: 8px;
+}
+
+/* Mobile screens */
+@media (max-width: 600px) {
+    .notification-popup {
+        position: fixed;
+        top: 64px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: min(85vw, 300px);
+        max-width: none;
+        max-height: calc(100dvh - 80px);
+        margin-top: 0;
+        padding: 16px;
+    }
+}
+
+/* Smaller phones */
+@media (max-width: 360px) {
+    .notification-popup {
+        width: 80vw;
+        padding: 12px;
+    }
+
+    .notification-item p {
+        font-size: 14px;
+        line-height: 20px;
+    }
 }
 </style>
