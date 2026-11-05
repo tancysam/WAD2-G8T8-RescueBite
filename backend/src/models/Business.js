@@ -79,7 +79,7 @@ function findBusinessById(id) {
 }
 
 function findBusinessesByOwnerId(ownerUserId) {
-  return Business.find({ owner_user_id: ownerUserId });
+  return Business.find({ owner_user_id: ownerUserId, deleted_at: null });
 }
 
 function findActiveBusinesses() {

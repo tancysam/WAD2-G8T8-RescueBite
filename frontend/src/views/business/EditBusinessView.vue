@@ -16,6 +16,8 @@ const business = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const deleting = ref(false)
+const confirmingDelete = ref(false)
+const confirmText = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -74,8 +76,22 @@ async function updateBusiness(data) {
   }
 }
 
-// Retains the original direct DELETE request (no confirmation).
+function startDelete() {
+  confirmingDelete.value = true
+  confirmText.value = ''
+}
+
+function cancelDelete() {
+  confirmingDelete.value = false
+  confirmText.value = ''
+}
+
+function nameMatches() {
+  return confirmText.value.trim().toLowerCase() === business.value.name.trim().toLowerCase()
+}
+
 async function deleteBusiness() {
+  if (!nameMatches()) return
   try {
     deleting.value = true
     errorMessage.value = ''
@@ -89,6 +105,7 @@ async function deleteBusiness() {
   } catch (error) {
     console.error('Error deleting business:', error)
     errorMessage.value = error.response?.data?.error || 'Failed to delete business.'
+    cancelDelete()
   } finally {
     deleting.value = false
   }
@@ -123,9 +140,32 @@ onMounted(getBusiness)
         <section class="px-1">
           <h2 class="rb-label">Delete business</h2>
           <p class="delete-copy">Remove this business from your account.</p>
-          <button class="rb-pill delete-button w-100" type="button" :disabled="deleting" @click="deleteBusiness">
-            {{ deleting ? 'Deleting…' : 'Delete business' }}
+          <button v-if="!confirmingDelete" class="rb-pill delete-button w-100" type="button" @click="startDelete">
+            Delete business
           </button>
+          <div v-else class="delete-confirm" role="alertdialog" aria-label="Confirm business deletion">
+            <p class="delete-copy">
+              This will remove <strong>{{ business.name }}</strong>, all of its listings and its
+              customer favourites. This cannot be undone. Type the business name to confirm.
+            </p>
+            <input
+              v-model="confirmText"
+              class="form-control mb-3"
+              type="text"
+              :placeholder="business.name"
+              aria-label="Type the business name to confirm"
+              autocomplete="off"
+            />
+            <button
+              class="rb-pill delete-button w-100 mb-2"
+              type="button"
+              :disabled="deleting || !nameMatches()"
+              @click="deleteBusiness"
+            >
+              {{ deleting ? 'Deleting…' : 'Permanently delete' }}
+            </button>
+            <button class="rb-pill w-100" type="button" :disabled="deleting" @click="cancelDelete">Cancel</button>
+          </div>
         </section>
       </template>
     </BusinessForm>
@@ -162,6 +202,11 @@ onMounted(getBusiness)
   color: #191200;
   background-color: transparent;
   border-color: #ff7a7a;
+}
+
+.delete-button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
 }
 
 
