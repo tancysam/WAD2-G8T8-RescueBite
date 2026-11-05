@@ -45,7 +45,7 @@ test('Consumer_reserves and cancels a cross-business bundle', async ({ page }) =
   const discounted = (item) => Math.round(item.price * 90) / 100
   const money = (amount) => 'S$' + amount.toFixed(2)
   const expectedTotal = money(discounted(mixed) + discounted(chicken))
-  const remaining = []
+  let bundleReserved = false
 
   try {
     await inspectListing(mixedTitle)
@@ -58,7 +58,7 @@ test('Consumer_reserves and cancels a cross-business bundle', async ({ page }) =
 
     await page.getByRole('button', { name: 'Reserve both items' }).click()
     await expect(page.getByRole('heading', { name: 'Both items are held' })).toBeVisible()
-    remaining.push(mixed.title, chicken.title)
+    bundleReserved = true
     await page.getByRole('link', { name: 'Go to My Orders' }).click()
     await page.getByRole('group', { name: 'Filter by status' }).getByRole('button', { name: /^Reserved / }).click()
 
@@ -90,12 +90,13 @@ test('Consumer_reserves and cancels a cross-business bundle', async ({ page }) =
       await page.getByRole('group', { name: 'Filter by status' }).getByRole('button', { name: /^Reserved / }).click()
     }
 
+    const row = bundle.locator('.order-row').filter({ hasText: mixed.title })
+    await row.getByRole('button', { name: 'Cancel order' }).click()
+    await page.getByRole('dialog', { name: 'Cancel this reservation?' }).getByRole('button', { name: 'Yes, cancel order' }).click()
+    await expect(page.getByRole('status')).toHaveText(/Bundle cancelled/)
+    bundleReserved = false
     for (const item of [mixed, chicken]) {
-      const row = page.locator('.orders-list > section:first-child.bundle-order .order-row').filter({ hasText: item.title })
-      await row.getByRole('button', { name: 'Cancel order' }).click()
-      await page.getByRole('dialog', { name: 'Cancel this reservation?' }).getByRole('button', { name: 'Yes, cancel order' }).click()
-      remaining.splice(remaining.indexOf(item.title), 1)
-      await expect(page.getByRole('status')).toHaveText(/Reservation cancelled/)
+      await expect(page.locator('.orders-list .order-row').filter({ hasText: item.title })).toHaveText([])
     }
 
     await page.getByRole('group', { name: 'Filter by status' }).getByRole('button', { name: /^Cancelled / }).click()
@@ -110,11 +111,10 @@ test('Consumer_reserves and cancels a cross-business bundle', async ({ page }) =
       await expect(page.locator('.availability')).toHaveText(`${item.quantity} available`)
     }
   } finally {
-    for (const itemTitle of remaining) {
+    if (bundleReserved) {
       await page.goto('/my-orders')
       await page.getByRole('group', { name: 'Filter by status' }).getByRole('button', { name: /^Reserved / }).click()
-      const row = page.locator('.orders-list > section:first-child.bundle-order .order-row').filter({ hasText: itemTitle })
-      await expect(row.getByRole('heading', { name: itemTitle })).toBeVisible()
+      const row = page.locator('.orders-list > section:first-child.bundle-order .order-row').filter({ hasText: mixed.title })
       await row.getByRole('button', { name: 'Cancel order' }).click()
       await page.getByRole('dialog', { name: 'Cancel this reservation?' }).getByRole('button', { name: 'Yes, cancel order' }).click()
     }
