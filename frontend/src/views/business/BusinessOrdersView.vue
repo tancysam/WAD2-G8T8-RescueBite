@@ -303,7 +303,7 @@ onUnmounted(closeScanner)
                 <div class="row g-3">
                   <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Customer</p>
-                    <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
+                    <p class="fw-semibold mb-0 wrap-text">{{ collectedOrder.consumerName }}</p>
                   </div>
                   <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Quantity</p>
@@ -315,7 +315,7 @@ onUnmounted(closeScanner)
                   </div>
                   <div class="col-12">
                     <p class="rb-label mb-1">Listing</p>
-                    <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
+                    <p class="fw-semibold mb-0 wrap-text">{{ collectedOrder.listingName }}</p>
                   </div>
                   <div class="col-12">
                     <p class="rb-label mb-1">Collected at</p>
@@ -323,7 +323,7 @@ onUnmounted(closeScanner)
                   </div>
                 </div>
               </section>
-              <p v-else>{{ collectedOrder.message }}</p>
+              <p v-else class="wrap-text">{{ collectedOrder.message }}</p>
               <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="confirmCollection">Confirm</button>
             </template>
             <template v-else>
@@ -501,5 +501,11 @@ onUnmounted(closeScanner)
 .order-row {
   padding: 20px 0;
   border-bottom: 1px solid #ddd9c5;
+}
+
+/* Long customer and listing names wrap instead of overflowing the modal */
+.wrap-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 </style>
