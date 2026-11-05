@@ -303,7 +303,7 @@ onUnmounted(closeScanner)
                 <div class="row g-3">
                   <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Customer</p>
-                    <p class="fw-semibold mb-0 wrap-text">{{ collectedOrder.consumerName }}</p>
+                    <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
                   </div>
                   <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Quantity</p>
@@ -315,7 +315,7 @@ onUnmounted(closeScanner)
                   </div>
                   <div class="col-12">
                     <p class="rb-label mb-1">Listing</p>
-                    <p class="fw-semibold mb-0 wrap-text">{{ collectedOrder.listingName }}</p>
+                    <p class="fw-semibold mb-0">{{ collectedOrder.listingName }}</p>
                   </div>
                   <div class="col-12">
                     <p class="rb-label mb-1">Collected at</p>
@@ -323,7 +323,7 @@ onUnmounted(closeScanner)
                   </div>
                 </div>
               </section>
-              <p v-else class="wrap-text">{{ collectedOrder.message }}</p>
+              <p v-else>{{ collectedOrder.message }}</p>
               <button type="button" class="rb-pill rb-pill-dark w-100" autofocus @click="confirmCollection">Confirm</button>
             </template>
             <template v-else>
@@ -341,14 +341,14 @@ onUnmounted(closeScanner)
           <div>
             <p class="rb-script rb-kicker fs-3">who’s coming by</p>
             <DisplayHeading :size="160">Orders</DisplayHeading>
-            <p v-if="business" class="rb-label mt-2 wrap-text">Reservation history for {{ business.name }}</p>
+            <p v-if="business" class="rb-label mt-2">Reservation history for {{ business.name }}</p>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-3">
             <label v-if="businesses.length > 1" class="rb-label d-flex align-items-center gap-2">
               Business
               <select
                 v-model="selectedBusinessId"
-                class="rb-select business-select"
+                class="rb-select"
                 @change="changeBusiness"
               >
                 <option v-for="item in businesses" :key="item._id" :value="item._id">
@@ -411,7 +411,7 @@ onUnmounted(closeScanner)
                 </thead>
                 <tbody>
                   <tr v-for="reservation in visibleReservations" :key="reservation._id">
-                    <td class="title-cell"><span class="rb-display row-title" :title="reservation.listing_snapshot.title">{{ reservation.listing_snapshot.title }}</span></td>
+                    <td><span class="rb-display row-title">{{ reservation.listing_snapshot.title }}</span></td>
                     <td class="rb-mono">{{ reservation.quantity }}</td>
                     <td class="rb-mono">{{ formatMoney(lineTotal(reservation)) }}</td>
                     <td class="rb-label text-dark">{{ formatPickup(reservation.listing_snapshot) }}</td>
@@ -435,7 +435,7 @@ onUnmounted(closeScanner)
               class="order-row"
             >
               <div class="d-flex justify-content-between align-items-start gap-3">
-                <h2 class="rb-display row-title mobile-title" :title="reservation.listing_snapshot.title">{{ reservation.listing_snapshot.title }}</h2>
+                <h2 class="rb-display row-title">{{ reservation.listing_snapshot.title }}</h2>
                 <div class="d-flex flex-wrap justify-content-end gap-2">
                   <span :class="statusClass(reservation.status)">{{ statusLabel(reservation.status) }}</span>
                   <span v-if="paymentLabel(reservation)" :class="['rb-status', paymentLabel(reservation).tone]">{{ paymentLabel(reservation).text }}</span>
@@ -491,38 +491,11 @@ onUnmounted(closeScanner)
   border-top: 1px solid #ddd9c5;
 }
 
-.wrap-text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.business-select {
-  max-width: min(280px, 100%);
-  text-overflow: ellipsis;
-}
-
-.title-cell {
-  width: 36%;
-  min-width: 200px;
-  max-width: 360px;
-}
-
-/* Long listing names wrap at any character and stop after two lines */
 .row-title {
-  display: -webkit-box;
+  display: block;
   margin: 0;
-  overflow: hidden;
   font-size: 24px;
   line-height: 28px;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-.mobile-title {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .order-row {

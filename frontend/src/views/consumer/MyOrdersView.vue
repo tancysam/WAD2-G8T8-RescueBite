@@ -418,12 +418,12 @@ onUnmounted(closeCollectionCode)
 
     <section v-if="nextPickup" class="container-xxl px-4 mt-5">
       <div class="next-pickup p-4 p-md-5 d-flex flex-wrap align-items-center justify-content-between gap-4">
-        <div class="next-info d-flex flex-wrap align-items-center gap-4">
+        <div class="d-flex flex-wrap align-items-center gap-4">
           <p class="rb-label next-label">Next pickup</p>
           <p class="rb-display display-5 next-time">{{ windowOf(nextPickup) }}</p>
           <p class="next-copy">
-            <span class="clamp-2" :title="nextPickup.listing_snapshot.title">{{ nextPickup.listing_snapshot.title }} × {{ nextPickup.quantity }}</span>
-            <span class="truncate-1" :title="nextPickup.listing_snapshot.business_name">{{ nextPickup.listing_snapshot.business_name }}</span>
+            {{ nextPickup.listing_snapshot.title }} × {{ nextPickup.quantity }}<br />
+            {{ nextPickup.listing_snapshot.business_name }}
           </p>
         </div>
         <a v-if="needsPayment(nextPickup) && checkoutLinks[nextPickup._id]" :href="checkoutLinks[nextPickup._id]" class="rb-pill rb-pill-dark">Pay {{ paymentAmount(nextPickup) }} with Stripe</a>
@@ -511,8 +511,8 @@ onUnmounted(closeCollectionCode)
           <div class="order-body d-flex flex-column gap-3">
             <div class="order-heading">
               <div>
-                <p class="rb-label truncate-1" :title="reservation.listing_snapshot.business_name">{{ reservation.listing_snapshot.business_name }}</p>
-                <h2 class="rb-display display-6 order-title" :title="reservation.listing_snapshot.title">{{ reservation.listing_snapshot.title }}</h2>
+                <p class="rb-label">{{ reservation.listing_snapshot.business_name }}</p>
+                <h2 class="rb-display display-6 order-title">{{ reservation.listing_snapshot.title }}</h2>
               </div>
               <div class="order-statuses d-flex flex-wrap gap-2">
                 <span :class="['rb-status', reservation.status.toLowerCase()]">{{ reservation.status }}</span>
@@ -619,7 +619,7 @@ onUnmounted(closeCollectionCode)
       <div v-if="collectionReservation" class="rb-backdrop" @click.self="closeCollectionCode">
         <div class="rb-dialog qr-dialog" role="dialog" aria-modal="true" aria-labelledby="collection-title" @keydown.esc="closeCollectionCode">
           <div class="d-flex justify-content-between align-items-center gap-3">
-            <p class="rb-label truncate-1" :title="collectionReservation.listing_snapshot.business_name">{{ collectionReservation.listing_snapshot.business_name }}</p>
+            <p class="rb-label">{{ collectionReservation.listing_snapshot.business_name }}</p>
             <button type="button" class="rb-close" aria-label="Close collection code" autofocus @click="closeCollectionCode">×</button>
           </div>
           <h2 id="collection-title" class="rb-display display-6 qr-title">{{ collectionReservation.listing_snapshot.title }}</h2>
@@ -655,7 +655,7 @@ onUnmounted(closeCollectionCode)
       <div v-if="selectedReservation" class="rb-backdrop" @click.self="selectedReservation = null">
         <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="details-title" @keydown.esc="selectedReservation = null">
           <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
-            <div class="min-w-0">
+            <div>
               <p class="rb-label mb-1">Reservation details</p>
               <h2 id="details-title" class="rb-display display-6 dialog-title">{{ selectedReservation.listing_snapshot.title }}</h2>
               <p class="rb-label mt-1">{{ selectedReservation.listing_snapshot.business_name }}</p>
@@ -761,47 +761,10 @@ onUnmounted(closeCollectionCode)
   line-height: 1;
 }
 
-.next-info {
-  flex: 1 1 320px;
-  min-width: 0;
-}
-
 .next-copy {
-  flex: 1 1 220px;
-  min-width: 0;
-  max-width: 480px;
   margin: 0;
   font-size: 18px;
   line-height: 27px;
-}
-
-.next-copy span {
-  display: block;
-}
-
-/* Long names: single line with ellipsis, or wrap and stop after two lines */
-.truncate-1 {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.clamp-2 {
-  display: -webkit-box;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-.min-w-0 {
-  min-width: 0;
-}
-
-/* Dialogs show the full text, so wrap long names instead of clipping them */
-.rb-dialog {
-  overflow-wrap: anywhere;
 }
 
 .status-tabs {
@@ -949,11 +912,6 @@ onUnmounted(closeCollectionCode)
   line-height: 1.3;
   text-transform: none;
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
 }
 
 .order-statuses {
