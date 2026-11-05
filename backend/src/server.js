@@ -42,7 +42,7 @@ function startServer() {
     // Cleanup for deletion
     let interval = Number(process.env.CLEANUP_INTERVAL_MS);
     if (!Number.isInteger(interval) || interval <= 0) {
-      interval = 5 * 60 * 1000;
+      interval = 60 * 1000;
     }
     Cascade.runCleanupSweep();
     setInterval(Cascade.runCleanupSweep, interval);
