@@ -31,7 +31,8 @@ const faqs = [
   { q: 'What is a rescue bundle?', a: 'A bag of surplus items a business puts together near closing time. The listing shows what is typically inside, the rescue price and how many are left.' },
   { q: 'How do I collect my food?', a: 'Go to the pickup address during the collection window and open My Orders. Show your collection QR at the counter and staff scan it to confirm.' },
   { q: 'What if I can’t make it?', a: 'Cancel from My Orders before the window closes so the food can go to someone else. Reservations that are not collected expire when the window ends.' },
-  { q: 'Who can list food?', a: 'Any food business: bakeries, cafés, restaurants, hawker stalls and grocers. Register a business profile, then create listings from your dashboard.' }
+  { q: 'Who can list food?', a: 'Any food business: bakeries, cafés, restaurants, hawker stalls and grocers. Register a business profile, then create listings from your dashboard.' },
+  { q: 'How is my data managed?', a: 'Your sign-in details are securely managed through Clerk, while your RescueBite application data is stored in MongoDB Atlas. We handle your information with care and in accordance with applicable local data protection policies. To request account deletion, email', email: 'rescuebite@tancysam.dev' }
 ]
 
 const steps = [
@@ -251,7 +252,7 @@ onMounted(getTodaysListings)
               :class="{ show: index === 0 }"
               data-bs-parent="#faq-list"
             >
-              <p class="faq-answer">{{ faq.a }}</p>
+              <p class="faq-answer">{{ faq.a }}<template v-if="faq.email"> <a :href="'mailto:' + faq.email">{{ faq.email }}</a>.</template></p>
             </div>
           </div>
         </div>
