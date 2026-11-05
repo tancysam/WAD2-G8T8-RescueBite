@@ -70,6 +70,44 @@ function resizePanelByKey(event) {
     else setPanelWidth(panelWidth.value + (event.key === 'ArrowLeft' ? 40 : -40))
 }
 
+// Phone bottom sheet: drag the header up/down between these stops (% from top of map area).
+const sheetStops = [0, 45, 80]
+const sheetTop = ref(45)
+const draggingSheet = ref(false)
+let sheetDrag = null
+
+function startSheetDrag(event) {
+    if (!event.isPrimary || event.target.closest('button')) return
+    const height = mapArea.value.clientHeight
+    sheetDrag = { pointerId: event.pointerId, startY: event.clientY, startTop: sheetTop.value, height, moved: false }
+    draggingSheet.value = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+}
+
+function moveSheetDrag(event) {
+    if (!sheetDrag || sheetDrag.pointerId !== event.pointerId) return
+    const deltaY = event.clientY - sheetDrag.startY
+    if (Math.abs(deltaY) > 5) sheetDrag.moved = true
+    const top = sheetDrag.startTop + (deltaY / sheetDrag.height) * 100
+    sheetTop.value = Math.min(80, Math.max(0, top))
+}
+
+function stopSheetDrag() {
+    if (!sheetDrag) return
+    if (!sheetDrag.moved) {
+        // A tap on the header toggles between half and full height.
+        sheetTop.value = sheetDrag.startTop === 0 ? 45 : 0
+    } else {
+        let nearest = sheetStops[0]
+        for (const stop of sheetStops) {
+            if (Math.abs(stop - sheetTop.value) < Math.abs(nearest - sheetTop.value)) nearest = stop
+        }
+        sheetTop.value = nearest
+    }
+    sheetDrag = null
+    draggingSheet.value = false
+}
+
 const typeFilters = [
     { value: 'ALL', label: 'All' },
     { value: 'BUNDLE', label: 'Bundles' },
@@ -431,7 +469,12 @@ onUnmounted(() => {
         <section ref="mapArea" class="map-area" :class="{ 'resizing-panel': resizingPanel }" aria-label="Map of listings">
             <div ref="mapElement" class="map"></div>
 
-            <div id="listings-panel" class="collapse collapse-horizontal show listings-collapse">
+            <div
+                id="listings-panel"
+                class="collapse collapse-horizontal show listings-collapse"
+                :class="{ 'dragging-sheet': draggingSheet }"
+                :style="{ '--sheet-top': sheetTop + '%' }"
+            >
                 <aside class="panel-inner" :style="{ width: panelWidth + 'px' }" aria-labelledby="listings-heading">
                     <div
                         class="panel-resize-handle"
@@ -451,7 +494,15 @@ onUnmounted(() => {
                         @lostpointercapture="stopPanelResize"
                         @keydown="resizePanelByKey"
                     ></div>
-                    <div class="panel-head d-flex align-items-center justify-content-between gap-3">
+                    <div
+                        class="panel-head d-flex align-items-center justify-content-between gap-3"
+                        @pointerdown="startSheetDrag"
+                        @pointermove="moveSheetDrag"
+                        @pointerup="stopSheetDrag"
+                        @pointercancel="stopSheetDrag"
+                        @lostpointercapture="stopSheetDrag"
+                    >
+                        <span class="sheet-grabber" aria-hidden="true"></span>
                         <div>
                             <h1 id="listings-heading" class="rb-display panel-title">Listings</h1>
                             <p class="rb-label mb-0">{{ countLabel }} in the map area</p>
@@ -587,6 +638,10 @@ onUnmounted(() => {
     border-bottom: 1px solid #ddd9c5;
 }
 
+.sheet-grabber {
+    display: none;
+}
+
 .panel-resize-handle {
     position: absolute;
     top: 0;
@@ -642,8 +697,25 @@ onUnmounted(() => {
 /* Phones: listings become a bottom sheet so the map stays visible above. */
 @media (max-width: 767.98px) {
     .listings-collapse {
-        top: 45%;
+        top: var(--sheet-top, 45%);
         left: 0;
+        transition: top .25s ease;
+    }
+
+    .listings-collapse.dragging-sheet {
+        transition: none;
+    }
+
+    .sheet-grabber {
+        display: block;
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        width: 44px;
+        height: 5px;
+        margin-left: -22px;
+        border-radius: 5px;
+        background-color: #ddd9c5;
     }
 
     .panel-inner {
@@ -658,7 +730,11 @@ onUnmounted(() => {
     }
 
     .panel-head {
-        padding: 12px 16px;
+        position: relative;
+        padding: 20px 16px 12px;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
     }
 
     .panel-title {
