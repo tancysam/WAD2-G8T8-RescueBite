@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import * as Notification from "../models/Notification.js";
 
 const notificationSchema = new mongoose.Schema(
     {

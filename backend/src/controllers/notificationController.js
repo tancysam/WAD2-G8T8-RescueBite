@@ -26,16 +26,6 @@ export async function getNotifications(req, res) {
     }
 }
 
-export async function createNotification(userId, message) {
-    try {
-        const notification = await Notification.addNotification({user_id: userId, message: message});
-        return notification
-    } catch (error) {
-        console.error("Error creating notification:", error);
-        throw error;
-    }
-}
-
 export async function getUnreadStatus (req, res) {
     try {
         const unread = await Notification.hasUnreadNotifications(req.user._id);
@@ -47,19 +37,28 @@ export async function getUnreadStatus (req, res) {
 }
 
 export async function markNotificationsAsRead(req, res) {
-    const notificationIds = req.body?.notificationIds; //
+    const notificationIds = req.body?.notificationIds;
 
     if (
-        !Array.isArray(notificationIds) || notificationIds.length===0 || notificationIds.length>5 || 
-        !notificationIds.every(id => mongoose.isValidObjectId(id))
-    ) {return res.status(400).json({error:"issue with notifications"})}
+        !Array.isArray(notificationIds) ||
+        notificationIds.length === 0 ||
+        notificationIds.length > 5
+    ) {
+        return res.status(400).json({error: "issue with notifications"});
+    }
+
+    for (const id of notificationIds) {
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({error: "issue with notifications"});
+        }
+    }
 
     try {
         await Notification.markNotificationsAsRead(req.user._id, notificationIds);
-        return res.status(200).json({message: "current notifications marked as read"})
+        return res.status(200).json({message: "current notifications marked as read"});
     } catch (error) {
         console.error("Error marking notifications as read:", error);
-        return res.status(500).json({error: "Unable to mark notifications as read"})
+        return res.status(500).json({error: "Unable to mark notifications as read"});
     }
 }
 
