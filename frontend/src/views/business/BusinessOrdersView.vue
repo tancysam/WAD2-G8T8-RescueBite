@@ -301,15 +301,15 @@ onUnmounted(closeScanner)
               <h2 id="verification-title" class="rb-display display-6 mb-3">Review collection details</h2>
               <section v-if="collectedOrder.listingName" class="detail-panel mb-4" aria-label="Collection summary">
                 <div class="row g-3">
-                  <div class="col-4">
+                  <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Customer</p>
                     <p class="fw-semibold mb-0">{{ collectedOrder.consumerName }}</p>
                   </div>
-                  <div class="col-4">
+                  <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Quantity</p>
                     <p class="fw-semibold mb-0">{{ collectedOrder.quantity }}</p>
                   </div>
-                  <div class="col-4">
+                  <div class="col-12 col-sm-4">
                     <p class="rb-label mb-1">Total</p>
                     <p class="fw-semibold mb-0">{{ formatMoney(collectedOrder.totalPrice) }}</p>
                   </div>
