@@ -331,9 +331,7 @@ onUnmounted(() => {
         <header class="d-flex flex-wrap align-items-end justify-content-between gap-4 mt-4">
           <div class="header-copy">
             <p class="rb-script rb-kicker fs-3">rescue from</p>
-            <DisplayHeading class="business-name" :size="128">
-              {{ business.name.length > 12 ? business.name.slice(0, 12) + '...' : business.name }}
-            </DisplayHeading>
+            <DisplayHeading :size="128">{{ business.name }}</DisplayHeading>
             <p class="description">
               {{ business.description || 'No description available.' }}
             </p>
@@ -481,8 +479,6 @@ onUnmounted(() => {
 
 .header-copy {
   max-width: 900px;
-  min-width: 0;
-  flex: 1;
 }
 
 .description {
@@ -490,7 +486,6 @@ onUnmounted(() => {
   margin: 20px 0 0;
   font-size: 18px;
   line-height: 27px;
-  overflow-wrap: anywhere;
 }
 
 .save-button {
@@ -519,7 +514,6 @@ onUnmounted(() => {
   margin: 4px 0 0;
   font-size: 16px;
   line-height: 24px;
-  overflow-wrap: anywhere;
 }
 
 .map {
@@ -549,13 +543,4 @@ onUnmounted(() => {
   margin: 0 0 8px;
   color: #8a6200;
 }
-
-.business-name {
-  display: block;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 </style>

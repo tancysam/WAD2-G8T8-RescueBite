@@ -747,9 +747,6 @@ onMounted(getListingDetails)
 
 .listing-title {
   margin-top: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .description {

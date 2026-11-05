@@ -167,9 +167,6 @@ function requestRemove() {
 <style scoped>
 .card-tile {
   height: 200px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .photo-probe {

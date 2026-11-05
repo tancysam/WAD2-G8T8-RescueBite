@@ -57,12 +57,4 @@ function firstWord(name) {
   left: 16px;
   background-color: #fbf9f1;
 }
-
-.rb-tile-word {
-  display: block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 </style>

@@ -431,9 +431,6 @@ function submitForm() {
   margin: 8px 0 12px;
   font-size: 56px;
   line-height: .95;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .shopfront-line {
