@@ -6,10 +6,7 @@ A surplus food rescue platform connecting food businesses with nearby consumers 
 
 **Application: https://rescuebite.tancysam.dev/**
 
-| Account | Username | Password |
-|---|---|---|
-| Consumer | `demo_consumer` | `DEMO_CONSUMER_@1234` |
-| Business | `demo_business` | `DEMO_BUSINESS_@1234` |
+Account Details: Sent via Elearn Submission.
 
 **Source code:** https://github.com/tancysam/WAD2-G8T8-RescueBite
 
@@ -71,7 +68,104 @@ You can also use the business account to create and edit food listings, upload i
 6. **Read your reviews.** Customer feedback appears on your business profile.
 7. **Delete a business (optional).** On a business's *Edit* page, choose *Delete business* and type the business name to confirm. Its listings and customer favourites are removed and it disappears from *My businesses*. Deletion is blocked while any reservation is still active.
 
-## 3. Runing locally
+## 3. E2E Testing
+
+### Setup
+The tests use dedicated demo accounts (`demo_consumer` and `demo_business`) against the deployed app. From the project root, install dependencies and Chromium once:
+
+```powershell
+cd frontend
+pnpm install
+pnpm exec playwright install chromium
+```
+
+In each new PowerShell session, set the two demo account passwords before running tests:
+
+```powershell
+$env:E2E_CONSUMER_PASSWORD = 'PASTE_CONSUMER_PASSWORD_HERE'
+$env:E2E_BUSINESS_PASSWORD = 'PASTE_BUSINESS_PASSWORD_HERE'
+```
+
+### a. Login / Authentication
+This test checks sign-in and access to protected pages:
+
+- A signed-out visit to /explore redirects to /login.
+- Signing in as a consumer arrives at /explore, while signing in as a business arrives at /business-dashboard.
+- Each session survives a refresh.
+- An incorrect password shows an error and does not open a protected page.
+
+Run:
+
+```powershell
+pnpm exec playwright test e2e_testing/login.spec.js
+pnpm exec playwright show-report
+```
+
+### b. Consumer Discovery
+
+This test checks that a consumer is able to discover businesses and listings via search and filters, and view their details respectively:
+
+- Consumers are able to search for a business using search, and view its details.
+- Consumers are able to search for a given listing and view its details.
+- Consumers are able to filter lisitngs by Items and Bundles and see the corresponding listings.
+
+Run:
+
+```powershell
+pnpm exec playwright test 'e2e_testing/consumer_discovery.spec.js'
+pnpm exec playwright show-report
+```
+
+### c. Consumer Favourites
+
+This test checks that a consumer is able to add and remove a business and listing to/from favourites, and check that it reflects accordingly.
+
+- Consumer adds a business to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites. 
+- Consumer adds a listing to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites.
+
+Run:
+```powershell
+pnpm exec playwright test e2e_testing/consumer_favourites.spec.js
+pnpm exec playwright show-report
+```
+
+### d. Consumer Reservation and Cancellation
+
+This test checks that a consumer is able to reserve an active listing or cross-business bundle, view it in upcoming orders, and viewing further details show the information correctly. It then checks that cancelling the order reflects correctly in Cancelled orders.
+
+- Reserves one item, chooses Pay later, and checks that the newest Reserved order and its details match the listing.
+- Checks that the listing quantity is updated accordingly.
+- Cancels that order, checks that the newest Cancelled order reflects the cancellation, and checks that the listing quantity returns to its starting value.
+- For cross-business bundles, it also checks that the extra discounted rate of 10% is applied correctly.
+
+Run:
+
+```powershell
+pnpm exec playwright test e2e_testing/consumer_reservations.spec.js
+pnpm exec playwright test e2e_testing/consumer_bundle.spec.js
+pnpm exec playwright show-report
+```
+
+### e. Business Listings and Impact
+
+These tests check that a business can create, edit and remove a listing, and view its impact figures on the dashboard.
+
+- Creates and publishes a listing, then checks that it remains after refresh.
+- Edits the title, description, price and quantity, then checks the saved values.
+- Removes a listing and checks the Active and Removed tabs.
+- Checks that the dashboard figures match the impact API response.
+
+Set the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
+
+Run:
+
+```powershell
+$env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
+pnpm exec playwright test e2e_testing/business.spec.js
+pnpm exec playwright show-report
+```
+
+## 4. Runing locally
 
 ### Prerequisites
 
@@ -123,6 +217,7 @@ Configure the following values:
 | `MONGO_URI` | MongoDB connection string |
 | `CLERK_PUBLISHABLE_KEY` | Clerk backend publishable key |
 | `CLERK_SECRET_KEY` | Clerk secret key |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Signing secret for the Clerk webhook at `/api/webhooks/clerk` (subscribe to `user.deleted`); optional |
 | `AWS_REGION` | S3 bucket region |
 | `AWS_S3_BUCKET` | Listing-image bucket name |
 | `AWS_ACCESS_KEY_ID` | AWS access key |
@@ -230,101 +325,4 @@ AI was used to generate initial drafts of presentation slides and documentation,
 6. **Mock Data**
 
 AI was used to generate mock data for testing purposes, such as creating sample users, businesses, and listings to populate the database for testing various features and scenarios.
-
-## 8. E2E Testing
-
-### Setup
-The tests use dedicated demo accounts (`demo_consumer` and `demo_business`) against the deployed app. From the project root, install dependencies and Chromium once:
-
-```powershell
-cd frontend
-pnpm install
-pnpm exec playwright install chromium
-```
-
-In each new PowerShell session, set the two demo account passwords before running tests:
-
-```powershell
-$env:E2E_CONSUMER_PASSWORD = 'PASTE_CONSUMER_PASSWORD_HERE'
-$env:E2E_BUSINESS_PASSWORD = 'PASTE_BUSINESS_PASSWORD_HERE'
-```
-
-### a. Login / Authentication
-This test checks sign-in and access to protected pages:
-
-- A signed-out visit to /explore redirects to /login.
-- Signing in as a consumer arrives at /explore, while signing in as a business arrives at /business-dashboard.
-- Each session survives a refresh.
-- An incorrect password shows an error and does not open a protected page.
-
-Run:
-
-```powershell
-pnpm exec playwright test e2e_testing/login.spec.js
-pnpm exec playwright show-report
-```
-
-### b. Consumer Discovery
-
-This test checks that a consumer is able to discover businesses and listings via search and filters, and view their details respectively:
-
-- Consumers are able to search for a business using search, and view its details.
-- Consumers are able to search for a given listing and view its details.
-- Consumers are able to filter lisitngs by Items and Bundles and see the corresponding listings.
-
-Run:
-
-```powershell
-pnpm exec playwright test 'e2e_testing/consumer_discovery.spec.js'
-pnpm exec playwright show-report
-```
-
-### c. Consumer Favourites
-
-This test checks that a consumer is able to add and remove a business and listing to/from favourites, and check that it reflects accordingly.
-
-- Consumer adds a business to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites. 
-- Consumer adds a listing to favourites, checks that it appears in Favourites, then removes it and checks that it no longer appears in Favourites.
-
-Run:
-```powershell
-pnpm exec playwright test e2e_testing/consumer_favourites.spec.js
-pnpm exec playwright show-report
-```
-
-### d. Consumer Reservation and Cancellation
-
-This test checks that a consumer is able to reserve an active listing or cross-business bundle, view it in upcoming orders, and viewing further details show the information correctly. It then checks that cancelling the order reflects correctly in Cancelled orders.
-
-- Reserves one item, chooses Pay later, and checks that the newest Reserved order and its details match the listing.
-- Checks that the listing quantity is updated accordingly.
-- Cancels that order, checks that the newest Cancelled order reflects the cancellation, and checks that the listing quantity returns to its starting value.
-- For cross-business bundles, it also checks that the extra discounted rate of 10% is applied correctly.
-
-Run:
-
-```powershell
-pnpm exec playwright test e2e_testing/consumer_reservations.spec.js
-pnpm exec playwright test e2e_testing/consumer_bundle.spec.js
-pnpm exec playwright show-report
-```
-
-### e. Business Listings and Impact
-
-These tests check that a business can create, edit and remove a listing, and view its impact figures on the dashboard.
-
-- Creates and publishes a listing, then checks that it remains after refresh.
-- Edits the title, description, price and quantity, then checks the saved values.
-- Removes a listing and checks the Active and Removed tabs.
-- Checks that the dashboard figures match the impact API response.
-
-Set the path to a food photo (JPEG, PNG or WebP, maximum 5 MB). Each listing test removes its own test listing afterwards.
-
-Run:
-
-```powershell
-$env:E2E_LISTING_IMAGE = 'C:\Users\YOUR_NAME\Pictures\food.jpg'
-pnpm exec playwright test e2e_testing/business.spec.js
-pnpm exec playwright show-report
-```
 
