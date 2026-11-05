@@ -7,10 +7,22 @@ const Reservation = require("./Reservation.js");
 const User = require("./User.js");
 const { notifyBusiness } = require("../services/notificationService.js");
 
-function removalBlocked(subject) {
+function removalBlocked(subject, reservations = []) {
+  const pendingPayments = reservations.filter(
+    (reservation) => reservation.payment_status === "PENDING",
+  );
+  if (pendingPayments.length > 0 && pendingPayments.length === reservations.length) {
+    return {
+      blocked: true,
+      error: `This ${subject} has reservations awaiting payment and cannot be removed. Customers can cancel them in My Orders, or you can retry after the checkouts expire and the reservations are released.`,
+    };
+  }
   return {
     blocked: true,
-    error: `This ${subject} has active reservations and cannot be removed. Please fulfil the existing reservations before removing it.`,
+    error: `This ${subject} has active reservations and cannot be removed. Please fulfil the existing reservations before removing it.` +
+      (pendingPayments.length > 0
+        ? " Reservations awaiting payment must also be cancelled or expire before removal."
+        : ""),
   };
 }
 
@@ -26,7 +38,7 @@ async function businessHasActiveReservations(businessId) {
 
 async function softDeleteListing(listingId) {
   const reservations = await Reservation.findReservationsByListing(listingId, "RESERVED");
-  if (reservations.length > 0) return removalBlocked("listing");
+  if (reservations.length > 0) return removalBlocked("listing", reservations);
 
   const result = await Listing.softDeleteListing(listingId);
   await ListingFavourite.removeFavouritesByListing(listingId);
